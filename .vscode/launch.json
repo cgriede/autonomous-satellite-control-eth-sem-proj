@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python Debugger: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}${pathSeparator}${env:PYTHONPATH}"
+      },
+    },
+    {
+      "name": "Python: Satellite Plot",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/render/first_plot.py",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

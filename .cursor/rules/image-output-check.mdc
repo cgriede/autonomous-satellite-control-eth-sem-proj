@@ -1,0 +1,13 @@
+---
+description: Verify visual outputs with OCR/CV before finishing
+alwaysApply: true
+---
+
+# Visual Output Verification
+
+For tasks that generate or modify visual output (plots, figures, UI screens, rendered images):
+- Run the code to produce a concrete visual artifact (screenshot or image file).
+- Use OCR/Computer Vision inspection on that artifact before marking the task complete.
+- If text labels are required (axes, annotations, symbols), confirm they are visible and readable.
+- If visuals are missing or unclear, iterate until the output is verifiably present.
+- Check contrast (yellow on white is bad, dark blue on black etc)

@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+---
+Always check that the units make sense and where applicable units are defined such that any quantities representing a physical quantity always have an assigned unit via pint.
