@@ -1,0 +1,21 @@
+---
+description: Never parse source files to extract constants
+alwaysApply: true
+---
+
+# Constants and Config Source of Truth
+
+- Never read Python source text with regex/string parsing to extract constants or configuration values.
+- Never infer runtime constants by scraping implementation files.
+
+Allowed approaches:
+- Use constants defined in this project under `environment_definition.constants`.
+- Use explicit exported constants/API from dependencies (for example, a dedicated constants module).
+- If dependency constants are not exported cleanly, ask for a proper adapter/config decision instead of scraping files.
+
+When integrating external libraries:
+- Keep project-facing constants owned by this repository unless the user explicitly requests dependency-owned constants.
+- Prefer explicit mapping functions between project constants and dependency config objects.
+
+Bad pattern (forbidden):
+- `read_text(...)` + regex to extract `GM_Earth`, `R_Earth`, etc. from dependency source files.

@@ -5,34 +5,36 @@ from matplotlib import animation as mpl_animation
 from matplotlib.patches import Circle, Polygon, FancyArrowPatch
 from matplotlib.widgets import Button
 import argparse
+import json
+import time
 from pathlib import Path
-import sys
 
 #local imports
-try:
-    from backend.environment_definition.constants import (
-        EARTH_GRAVITATIONAL_PARAMETER,
-        EARTH_RADIUS,
-        RENDER,
-        SIMULATION,
-        UREG as ureg,
-    )
-    from backend.environment_definition.mission_profiles.mission_1_random_fl import SATELLITE_ALTITUDE
-    from backend.utils.flight_geometry.line_of_sight import minimum_contact_angle
-except ModuleNotFoundError:
-    # Allow running this file directly by adding repo root to module search path.
-    repo_root = str(Path(__file__).resolve().parents[2])
-    if repo_root not in sys.path:
-        sys.path.insert(0, repo_root)
-    from backend.environment_definition.constants import (
-        EARTH_GRAVITATIONAL_PARAMETER,
-        EARTH_RADIUS,
-        RENDER,
-        SIMULATION,
-        UREG as ureg,
-    )
-    from backend.environment_definition.mission_profiles.mission_1_random_fl import SATELLITE_ALTITUDE
-    from backend.utils.flight_geometry.line_of_sight import minimum_contact_angle
+from environment_definition.constants import (
+    EARTH_GRAVITATIONAL_PARAMETER,
+    EARTH_RADIUS,
+    RENDER,
+    SIMULATION,
+    UREG as ureg,
+)
+from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE_ALTITUDE
+from utils.flight_geometry.line_of_sight import minimum_contact_angle
+from simulation.trajectory_simulator import KinematicSimulationConfig, simulate_kinematic_trajectory
+
+
+def _debug_log(run_id, hypothesis_id, location, message, data):
+    payload = {
+        "sessionId": "89b7c9",
+        "runId": run_id,
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    log_path = Path(__file__).resolve().parents[2] / "debug-89b7c9.log"
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload) + "\n")
 
 
 # --- Parameters ---
@@ -44,10 +46,6 @@ sat_altitude = SATELLITE_ALTITUDE.to(ureg.km).magnitude
 R_orbit = R_earth + sat_altitude
 # Standard gravitational parameter sets physically realistic orbital speed.
 mu_earth = EARTH_GRAVITATIONAL_PARAMETER.to((ureg.km ** 3) / (ureg.s ** 2)).magnitude
-# Angular rate drives time-to-angle conversion for satellite motion.
-omega = np.sqrt(mu_earth / (R_orbit ** 3))  # Realistic circular-orbit angular speed [rad/s]
-# Orbit period is displayed in the title for context.
-orbit_period_s = 2 * np.pi / omega
 # Window center anchors the viewed snippet around nadir overpass.
 theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
 # Contact angle defines minimum geometry needed for direct line-of-sight.
@@ -60,30 +58,14 @@ margin_deg = SIMULATION.contact_margin_angle.to(ureg.deg).magnitude
 start_angle_deg = -(contact_half_angle_deg + margin_deg)
 # End angle sets upper bound of rendered contact-focused window.
 end_angle_deg = contact_half_angle_deg + margin_deg
-#TODO Start angle in radians is needed for trigonometric orbit sampling.
-theta_start = theta_center + np.deg2rad(start_angle_deg)
-#TODO End angle in radians closes the selected orbit snippet.
-theta_end = theta_center + np.deg2rad(end_angle_deg)
 # Motion span scale controls how far satellite moves versus visible window.
 sat_motion_span_scale = SIMULATION.sat_motion_span_scale
-# Render span determines angular extent of the visible snippet.
-render_theta_span = theta_end - theta_start
-# Satellite span allows overtravel through the render window if desired.
-sat_theta_span = render_theta_span * sat_motion_span_scale
-#TODO Span start centers the motion range around the chosen view.
-sat_theta_start = 0.5 * (theta_start + theta_end) - 0.5 * sat_theta_span
 # Frame count controls temporal resolution of animation and exports.
 num_frames = SIMULATION.num_frames
-# Total simulated time maps chosen angular span to physical time.
-sim_total_s = sat_theta_span / omega
-# Per-frame simulated timestep supports consistent progression.
-sim_dt_s = sim_total_s / (num_frames - 1)  # Simulated seconds per animation frame
 # Initial z-offset defines body-axis orientation at simulation start.
 sat_z_offset_deg = SIMULATION.sat_z_offset.to(ureg.deg).magnitude
-# Initial z-axis angle seeds inertial-frame body-spin direction.
-sat_z_initial_angle_rad = sat_theta_start + np.pi + np.deg2rad(sat_z_offset_deg)
 # Human-readable spin label is shown in the bottom info bar.
-sat_body_rotation_rate_label = "0.0 arcsec/s"
+sat_body_rotation_rate_label = "0.000 deg/s"
 # Spin rate in radians per second drives continuous z-axis rotation.
 sat_body_rotation_rate_rad_s = 0.0
 # UI refresh interval sets rendering cadence in milliseconds.
@@ -92,16 +74,34 @@ animation_interval_ms = SIMULATION.animation_interval.to(ureg.ms).magnitude
 sim_speed_multiplier = SIMULATION.default_speed_multiplier
 # Running simulation clock accumulates elapsed simulated seconds.
 sim_time_s = 0.0
+simulation = None
+# region agent log
+_debug_log(
+    run_id="pre-fix",
+    hypothesis_id="H2",
+    location="backend/render/first_plot.py:simulation_constants_probe",
+    message="Simulation constants attributes",
+    data={
+        "has_cone_opening": bool(hasattr(SIMULATION, "cone_opening")),
+        "has_field_of_view_cone": bool(hasattr(SIMULATION, "field_of_view_cone")),
+        "simulation_type": type(SIMULATION).__name__,
+    },
+)
+# endregion
 
 # --- Set up the figure ---
-fig, ax = plt.subplots(figsize=RENDER.figure_size, constrained_layout=RENDER.constrained_layout)
+fig, ax = plt.subplots(figsize=RENDER.figure_size, constrained_layout=False)
 fig.patch.set_facecolor(RENDER.space_background)
 plot_margin = RENDER.plot_margin.to(ureg.km).magnitude
 plot_limit = R_orbit + plot_margin
 # Show only the selected angular snippet and make it fill the window.
 # Use the full angular arc for framing (not only endpoints), otherwise
 # symmetric windows around nadir can collapse y-bounds.
-theta_window = np.linspace(theta_start, theta_end, 721)
+theta_window = np.linspace(
+    theta_center + np.deg2rad(start_angle_deg),
+    theta_center + np.deg2rad(end_angle_deg),
+    721,
+)
 x_render = R_orbit * np.cos(theta_window)
 y_render = R_orbit * np.sin(theta_window)
 x_min_orbit = float(np.min(x_render))
@@ -180,6 +180,17 @@ ax.add_patch(earth_outline)
 
 # Observer point at Earth's north pole
 observer_x, observer_y = 0.0, R_earth
+observer_pos = np.array([observer_x, observer_y], dtype=float)
+swiss_map = SIMULATION.switzerland_map
+swiss_center_lat_deg = float(swiss_map.lat_center_deg)
+swiss_center_lon_deg = float(swiss_map.lon_center_deg)
+observer_marker_rng = np.random.default_rng()
+observer_cross_local = np.array(
+    [
+        float(observer_marker_rng.uniform(-500.0, 500.0)),
+        float(observer_marker_rng.uniform(-500.0, 500.0)),
+    ]
+)
 ax.plot(
     [observer_x],
     [observer_y],
@@ -190,34 +201,116 @@ ax.plot(
     zorder=RENDER.zorder_observer,
 )
 
-# Cloud arc at 15 km altitude, split into 3 parts (middle removed)
-cloud_altitude = SIMULATION.cloud_altitude.to(ureg.km).magnitude
-# One edge anchored at 0 deg (observer radial), extending to one side.
-cloud_start_deg = SIMULATION.cloud_start_angle.to(ureg.deg).magnitude
-cloud_end_deg = SIMULATION.cloud_end_angle.to(ureg.deg).magnitude
-cloud_radius = R_earth + cloud_altitude
-cloud_total_span_deg = cloud_end_deg - cloud_start_deg
-cloud_part_span_deg = cloud_total_span_deg / 3.0
-for part_start_deg, part_end_deg in [
-    (cloud_start_deg, cloud_start_deg + cloud_part_span_deg),  # first segment
-    (cloud_start_deg + 2 * cloud_part_span_deg, cloud_end_deg),  # third segment
-]:
-    cloud_theta = np.linspace(
-        theta_center + np.deg2rad(part_start_deg),
-        theta_center + np.deg2rad(part_end_deg),
-        RENDER.cloud_segment_points,
+# Clouds configured in simulation constants:
+# - height [km] above Earth's surface
+# - start_location [deg/rad] Earth-fixed start angle
+# - end_location [deg/rad] Earth-fixed end angle
+cloud_rng = np.random.default_rng(20260319)
+
+
+def _sample_cloud_speed_km_s(height_km):
+    # Altitude-stratified speed bounds from user-provided weather guidance.
+    if height_km < 2.0:
+        speed_kmh = cloud_rng.uniform(16.0, 65.0)
+    elif height_km < 6.0:
+        speed_kmh = cloud_rng.uniform(32.0, 100.0)
+    else:
+        speed_kmh = cloud_rng.uniform(80.0, 190.0)
+    return speed_kmh / 3600.0
+
+
+cloud_models = []
+for cloud in SIMULATION.clouds:
+    cloud_height_km = cloud.height.to(ureg.km).magnitude
+    start_rad = cloud.start_location.to(ureg.rad).magnitude
+    end_rad = cloud.end_location.to(ureg.rad).magnitude
+    radius_km = R_earth + cloud_height_km
+    speed_km_s = _sample_cloud_speed_km_s(cloud_height_km)
+    omega_rad_s = speed_km_s / max(radius_km, 1e-9)
+    cloud_models.append(
+        {
+            "radius_km": radius_km,
+            "start_rad_0": start_rad,
+            "end_rad_0": end_rad,
+            "omega_rad_s": omega_rad_s,
+            "noise_amp": float(cloud_rng.uniform(0.12, 0.30)),
+            "noise_freq_rad_s": float(cloud_rng.uniform(0.015, 0.05)),
+            "noise_phase": float(cloud_rng.uniform(0.0, 2.0 * np.pi)),
+        }
     )
-    cloud_x = cloud_radius * np.cos(cloud_theta)
-    cloud_y = cloud_radius * np.sin(cloud_theta)
-    ax.plot(
-        cloud_x,
-        cloud_y,
+
+cloud_main_glow_artists = []
+cloud_main_core_artists = []
+for _ in cloud_models:
+    glow, = ax.plot(
+        [],
+        [],
+        color="#cfefff",
+        linewidth=RENDER.cloud_linewidth * 2.4,
+        alpha=min(1.0, RENDER.cloud_alpha * 0.23),
+        solid_capstyle='round',
+        zorder=RENDER.zorder_cloud - 1,
+    )
+    core, = ax.plot(
+        [],
+        [],
         color=RENDER.cloud_color,
         linewidth=RENDER.cloud_linewidth,
         alpha=RENDER.cloud_alpha,
         solid_capstyle='round',
         zorder=RENDER.zorder_cloud,
     )
+    cloud_main_glow_artists.append(glow)
+    cloud_main_core_artists.append(core)
+
+# Observer-local weather/capture inset (1000 km x 1000 km frame)
+inset_ax = fig.add_axes([0.67, 0.61, 0.30, 0.34])
+inset_ax.set_facecolor(RENDER.space_background)
+inset_ax.set_aspect('equal', adjustable='box')
+inset_ax.set_xlim(-500.0, 500.0)
+inset_ax.set_ylim(-500.0, 500.0)
+inset_ax.set_xticks([])
+inset_ax.set_yticks([])
+for spine in inset_ax.spines.values():
+    spine.set_edgecolor(RENDER.info_text_color)
+    spine.set_linewidth(1.0)
+inset_ax.set_title(
+    f"Swiss Patch 1000x1000 km ({swiss_center_lat_deg:.2f}N, {swiss_center_lon_deg:.2f}E)",
+    color=RENDER.info_text_color,
+    fontsize=8,
+)
+inset_ax.plot(
+    [observer_cross_local[0]],
+    [observer_cross_local[1]],
+    marker='x',
+    color=RENDER.observer_color,
+    markersize=6,
+    markeredgewidth=1.2,
+)
+cloud_inset_glow_artists = []
+cloud_inset_core_artists = []
+for _ in cloud_models:
+    inset_glow, = inset_ax.plot(
+        [],
+        [],
+        color="#cfefff",
+        linewidth=RENDER.cloud_linewidth * 2.0,
+        alpha=min(1.0, RENDER.cloud_alpha * 0.25),
+        solid_capstyle='round',
+    )
+    inset_core, = inset_ax.plot(
+        [],
+        [],
+        color=RENDER.cloud_color,
+        linewidth=RENDER.cloud_linewidth,
+        alpha=RENDER.cloud_alpha,
+        solid_capstyle='round',
+    )
+    cloud_inset_glow_artists.append(inset_glow)
+    cloud_inset_core_artists.append(inset_core)
+inset_footprint, = inset_ax.plot([], [], color=RENDER.cone_color, linewidth=1.8, alpha=0.9)
+inset_hit_marker, = inset_ax.plot([], [], marker='o', color='yellow', markersize=4, linestyle='None')
+inset_centerline, = inset_ax.plot([], [], color=RENDER.z_arrow_color, linewidth=1.2, alpha=0.8)
 
 
 # Satellite (red dot)
@@ -232,9 +325,22 @@ trail, = ax.plot([], [], RENDER.trail_style, linewidth=RENDER.trail_linewidth, a
 
 
 # Cone beam parameters (nadir-pointing instrument footprint)
-cone_opening_deg = SIMULATION.cone_opening.to(ureg.deg).magnitude
+# region agent log
+_debug_log(
+    run_id="pre-fix",
+    hypothesis_id="H1",
+    location="backend/render/first_plot.py:cone_opening_access",
+    message="About to access cone opening setting",
+    data={
+        "access_path": "SIMULATION.field_of_view_cone.opening_angle",
+        "has_cone_opening": bool(hasattr(SIMULATION, "cone_opening")),
+        "has_field_of_view_cone": bool(hasattr(SIMULATION, "field_of_view_cone")),
+    },
+)
+# endregion
+cone_opening_deg = SIMULATION.field_of_view_cone.opening_angle.to(ureg.deg).magnitude
 cone_half_angle_rad = np.deg2rad(cone_opening_deg / 2)
-cone_length = (R_orbit - R_earth) * SIMULATION.cone_length_scale
+cone_length = SIMULATION.cone_length.to(ureg.km).magnitude
 cone = Polygon([[0, 0], [0, 0], [0, 0]], closed=True, color=RENDER.cone_color, alpha=RENDER.cone_alpha)
 ax.add_patch(cone)
 
@@ -299,11 +405,30 @@ def set_sat_body_rotation_rate(rate, unit="arcsec"):
     else:
         raise ValueError("unit must be one of: arcsec, arcmin, deg")
 
+
+def build_simulation_series():
+    config = KinematicSimulationConfig(
+        earth_radius_km=R_earth,
+        sat_altitude_km=sat_altitude,
+        mu_earth_km3_s2=mu_earth,
+        theta_center_rad=theta_center,
+        start_angle_deg=start_angle_deg,
+        end_angle_deg=end_angle_deg,
+        sat_motion_span_scale=sat_motion_span_scale,
+        num_frames=num_frames,
+        sat_z_offset_deg=sat_z_offset_deg,
+        body_spin_rate_rad_s=sat_body_rotation_rate_rad_s,
+    )
+    return simulate_kinematic_trajectory(config)
+
+
 # Start from configured body spin rate.
 set_sat_body_rotation_rate(
-    SIMULATION.default_body_spin_rate.to(ureg.arcminute / ureg.s).magnitude,
-    unit="arcmin",
+    SIMULATION.default_body_spin_rate.to(ureg.deg / ureg.s).magnitude,
+    unit="deg",
 )
+simulation = build_simulation_series()
+orbit_period_s = simulation.metadata.orbit_period_s
 
 button_specs = list(RENDER.speed_button_specs)
 speed_buttons = []
@@ -320,10 +445,111 @@ for label, multiplier, left in button_specs:
     button.on_clicked(lambda _event, m=multiplier: set_sim_speed(m))
     speed_buttons.append(button)
 
-def get_satellite_z_axis_dir(theta_now, elapsed_s):
-    """Return body +z direction with constant inertial-frame spin."""
-    z_axis_angle = sat_z_initial_angle_rad + sat_body_rotation_rate_rad_s * elapsed_s
-    return np.array([np.cos(z_axis_angle), np.sin(z_axis_angle)])
+
+def simulation_index_from_time(sim_time_local, wrap_orbit=True):
+    sim_total_s = simulation.metadata.sim_total_s
+    if wrap_orbit:
+        normalized = (sim_time_local / sim_total_s) % 1.0
+    else:
+        normalized = np.clip(sim_time_local / sim_total_s, 0.0, 1.0)
+    return int(np.floor(normalized * (num_frames - 1)))
+
+
+def _angle_in_arc(angle_rad, start_rad, end_rad):
+    two_pi = 2.0 * np.pi
+    angle = angle_rad % two_pi
+    start = start_rad % two_pi
+    end = end_rad % two_pi
+    if start <= end:
+        return start <= angle <= end
+    return angle >= start or angle <= end
+
+
+def _ray_circle_intersection_distance(ray_origin, ray_dir, radius_km):
+    b = 2.0 * float(np.dot(ray_origin, ray_dir))
+    c = float(np.dot(ray_origin, ray_origin) - radius_km**2)
+    disc = b * b - 4.0 * c
+    if disc < 0.0:
+        return None
+    sqrt_disc = float(np.sqrt(disc))
+    t1 = (-b - sqrt_disc) / 2.0
+    t2 = (-b + sqrt_disc) / 2.0
+    candidates = [t for t in (t1, t2) if t > 1e-9]
+    if not candidates:
+        return None
+    return min(candidates)
+
+
+def _observer_local_km_to_geo(local_xy_km):
+    east_km, north_km = float(local_xy_km[0]), float(local_xy_km[1])
+    lat_deg = swiss_center_lat_deg + north_km / 110.574
+    lon_scale_km = max(111.320 * np.cos(np.deg2rad(lat_deg)), 1e-6)
+    lon_deg = swiss_center_lon_deg + east_km / lon_scale_km
+    return lat_deg, lon_deg
+
+
+def _project_to_swiss_frame(local_xy_km):
+    return np.array(
+        [
+            float(np.clip(local_xy_km[0], -500.0, 500.0)),
+            float(np.clip(local_xy_km[1], -500.0, 500.0)),
+        ]
+    )
+
+
+def _sample_swiss_elevation_m(lat_deg, lon_deg):
+    # Deterministic terrain sampler over the Swiss patch (replace with DEM lookup later).
+    peaks = [
+        (46.55, 8.00, 2100.0, 0.28),
+        (46.30, 9.10, 1600.0, 0.22),
+        (46.85, 7.60, 1300.0, 0.25),
+    ]
+    elev_m = 450.0
+    for peak_lat, peak_lon, amplitude_m, sigma_deg in peaks:
+        d2 = (lat_deg - peak_lat) ** 2 + (lon_deg - peak_lon) ** 2
+        elev_m += amplitude_m * np.exp(-d2 / (2.0 * sigma_deg**2))
+    return float(elev_m)
+
+
+def _compute_cloud_arcs_at_time(sim_time_local):
+    cloud_arc_specs = []
+    for idx, model in enumerate(cloud_models):
+        omega = model["omega_rad_s"]
+        mod = 1.0 + model["noise_amp"] * np.sin(
+            model["noise_freq_rad_s"] * sim_time_local + model["noise_phase"]
+        )
+        shift = omega * mod * sim_time_local
+        start = model["start_rad_0"] + shift
+        end = model["end_rad_0"] + shift
+        theta = np.linspace(start, end, RENDER.cloud_segment_points)
+        radius = model["radius_km"]
+        x = radius * np.cos(theta)
+        y = radius * np.sin(theta)
+
+        cloud_main_glow_artists[idx].set_data(x, y)
+        cloud_main_core_artists[idx].set_data(x, y)
+        x_local = x - observer_pos[0]
+        y_local = y - observer_pos[1]
+        cloud_inset_glow_artists[idx].set_data(x_local, y_local)
+        cloud_inset_core_artists[idx].set_data(x_local, y_local)
+        cloud_arc_specs.append((radius, start, end))
+    return cloud_arc_specs
+
+
+def _nearest_surface_hit(ray_origin, ray_dir, cloud_arc_specs):
+    best_t = _ray_circle_intersection_distance(ray_origin, ray_dir, R_earth)
+    best_point = ray_origin + best_t * ray_dir if best_t is not None else None
+    for cloud_radius, cloud_start, cloud_end in cloud_arc_specs:
+        t_cloud = _ray_circle_intersection_distance(ray_origin, ray_dir, cloud_radius)
+        if t_cloud is None:
+            continue
+        hit_point = ray_origin + t_cloud * ray_dir
+        hit_angle = np.arctan2(hit_point[1], hit_point[0])
+        if _angle_in_arc(hit_angle, cloud_start, cloud_end):
+            if best_t is None or t_cloud < best_t:
+                best_t = t_cloud
+                best_point = hit_point
+    return best_t, best_point
 
 def init():
     global sim_time_s
@@ -334,27 +560,35 @@ def init():
     cone.set_xy([[0, 0], [0, 0], [0, 0]])
     z_axis_arrow.set_positions((0, 0), (0, 0))
     z_axis_label.set_position((0, 0))
-    info_text.set_text(
-        f"Orbit height: {sat_altitude:.1f} km   |   Body spin: {sat_body_rotation_rate_label}   |   Render window: {start_angle_deg:+.1f}° to {end_angle_deg:+.1f}°   |   Speed: {sim_speed_multiplier:.0f}x"
-    )
-    return sat, obs_to_sat_line, trail, cone, z_axis_arrow, z_axis_label, info_text
+    inset_footprint.set_data([], [])
+    inset_hit_marker.set_data([], [])
+    inset_centerline.set_data([], [])
+    for glow, core in zip(cloud_main_glow_artists, cloud_main_core_artists):
+        glow.set_data([], [])
+        core.set_data([], [])
+    for glow, core in zip(cloud_inset_glow_artists, cloud_inset_core_artists):
+        glow.set_data([], [])
+        core.set_data([], [])
+    info_text.set_text("")
+    return set_scene_at_index(0, speed_label=sim_speed_multiplier)
 
-def set_scene_at_time(sim_time_local, wrap_orbit=True, speed_label=None):
-    # Update satellite position
-    if wrap_orbit:
-        theta_now = sat_theta_start + np.mod(omega * sim_time_local, sat_theta_span)
-    else:
-        theta_now = sat_theta_start + np.clip(omega * sim_time_local, 0.0, sat_theta_span)
-    sat_pos = np.array([R_orbit * np.cos(theta_now), R_orbit * np.sin(theta_now)])
+
+def set_scene_at_index(sim_idx, speed_label=None):
+    sat_r = simulation.radius_km[sim_idx]
+    sat_theta = simulation.theta_orbit_rad[sim_idx]
+    sat_pos = np.array([sat_r * np.cos(sat_theta), sat_r * np.sin(sat_theta)])
+    sim_time_local = float(simulation.t_s[sim_idx])
+    cloud_arc_specs = _compute_cloud_arcs_at_time(sim_time_local)
     sat.set_data([sat_pos[0]], [sat_pos[1]])
     obs_to_sat_line.set_data([observer_x, sat_pos[0]], [observer_y, sat_pos[1]])
-    
-    # Update trail from start of the rendering window to current position
-    trail_theta = np.linspace(sat_theta_start, theta_now, RENDER.trail_points)
-    trail.set_data(R_orbit * np.cos(trail_theta), R_orbit * np.sin(trail_theta))
 
-    # Body +z follows a constant inertial-frame spin (not nadir-pointing).
-    z_axis_dir = get_satellite_z_axis_dir(theta_now, sim_time_local)
+    trail_end = max(sim_idx + 1, 2)
+    trail_theta = simulation.theta_orbit_rad[:trail_end]
+    trail_radius = simulation.radius_km[:trail_end]
+    trail.set_data(trail_radius * np.cos(trail_theta), trail_radius * np.sin(trail_theta))
+
+    z_angle_rad = simulation.body_z_angle_rad[sim_idx]
+    z_axis_dir = np.array([np.cos(z_angle_rad), np.sin(z_angle_rad)])
 
     # Update cone footprint along +z direction
     cos_h, sin_h = np.cos(cone_half_angle_rad), np.sin(cone_half_angle_rad)
@@ -364,27 +598,82 @@ def set_scene_at_time(sim_time_local, wrap_orbit=True, speed_label=None):
     edge_right = sat_pos + cone_length * (rot_right @ z_axis_dir)
     cone.set_xy([sat_pos, edge_left, edge_right])
 
+    left_dir = rot_left @ z_axis_dir
+    center_dir = z_axis_dir
+    right_dir = rot_right @ z_axis_dir
+    t_left, p_left = _nearest_surface_hit(sat_pos, left_dir, cloud_arc_specs)
+    t_center, p_center = _nearest_surface_hit(sat_pos, center_dir, cloud_arc_specs)
+    t_right, p_right = _nearest_surface_hit(sat_pos, right_dir, cloud_arc_specs)
+
+    nearest_intersection_km = t_center
+
+    if p_left is not None and p_right is not None:
+        left_local = p_left - observer_pos
+        right_local = p_right - observer_pos
+        inset_footprint.set_data([left_local[0], right_local[0]], [left_local[1], right_local[1]])
+    else:
+        inset_footprint.set_data([], [])
+
+    if p_center is not None:
+        center_local = p_center - observer_pos
+        center_local_frame = _project_to_swiss_frame(center_local)
+        inset_hit_marker.set_data([center_local_frame[0]], [center_local_frame[1]])
+        sat_local = sat_pos - observer_pos
+        sat_local_frame = _project_to_swiss_frame(sat_local)
+        inset_centerline.set_data(
+            [sat_local_frame[0], center_local_frame[0]],
+            [sat_local_frame[1], center_local_frame[1]],
+        )
+        hit_lat_deg, hit_lon_deg = _observer_local_km_to_geo(center_local_frame)
+        hit_elevation_m = _sample_swiss_elevation_m(hit_lat_deg, hit_lon_deg)
+    else:
+        inset_hit_marker.set_data([], [])
+        inset_centerline.set_data([], [])
+        hit_lat_deg, hit_lon_deg, hit_elevation_m = None, None, None
+
     # Satellite Z orientation (relative to nadir).
     z_axis_tip = sat_pos + z_axis_length * z_axis_dir
     z_axis_arrow.set_positions((sat_pos[0], sat_pos[1]), (z_axis_tip[0], z_axis_tip[1]))
     label_pos = z_axis_tip + RENDER.z_label_offset.to(ureg.km).magnitude * z_axis_dir
     z_axis_label.set_position((label_pos[0], label_pos[1]))
-    z_angle_deg = np.rad2deg(np.arctan2(z_axis_dir[1], z_axis_dir[0]))
+    nadir_angle_rad = sat_theta + np.pi
+    z_angle_rel_nadir_rad = np.arctan2(
+        np.sin(z_angle_rad - nadir_angle_rad),
+        np.cos(z_angle_rad - nadir_angle_rad),
+    )
+    z_angle_deg = np.rad2deg(z_angle_rel_nadir_rad)
+    sat_to_observer = np.array([observer_x, observer_y]) - sat_pos
+    los_angle_rad = np.arctan2(sat_to_observer[1], sat_to_observer[0])
+    los_rel_nadir_rad = np.arctan2(
+        np.sin(los_angle_rad - nadir_angle_rad),
+        np.cos(los_angle_rad - nadir_angle_rad),
+    )
+    los_rel_nadir_deg = np.rad2deg(los_rel_nadir_rad)
+    if nearest_intersection_km is None:
+        intersection_text = "none"
+    else:
+        intersection_text = f"{nearest_intersection_km:.1f} km"
+    if hit_lat_deg is None:
+        geo_hit_text = "none"
+    else:
+        geo_hit_text = f"{hit_lat_deg:.3f}N {hit_lon_deg:.3f}E @ {hit_elevation_m:.0f}m"
     speed_for_text = sim_speed_multiplier if speed_label is None else speed_label
     info_text.set_text(
-        f"Orbit height: {sat_altitude:.1f} km   |   Body spin: {sat_body_rotation_rate_label}   |   z angle: {z_angle_deg:+.1f}°   |   Render window: {start_angle_deg:+.1f}° to {end_angle_deg:+.1f}°   |   Speed: {speed_for_text:.0f}x"
+        f"Orbit height: {sat_altitude:.1f} km   |   Body spin: {sat_body_rotation_rate_label}   |   z angle rel nadir: {z_angle_deg:+.1f}°   |   LOS rel nadir: {los_rel_nadir_deg:+.1f}°   |   Centerline hit: {intersection_text}   |   Swiss hit: {geo_hit_text}   |   Render window: {start_angle_deg:+.1f}° to {end_angle_deg:+.1f}°   |   Speed: {speed_for_text:.0f}x"
     )
     
-    return sat, obs_to_sat_line, trail, cone, z_axis_arrow, z_axis_label, info_text
+    return sat, obs_to_sat_line, trail, cone, z_axis_arrow, z_axis_label, info_text, inset_footprint, inset_hit_marker, inset_centerline
 
 def update(frame):
     global sim_time_s
     sim_time_s += (animation_interval_ms / 1000.0) * sim_speed_multiplier
-    return set_scene_at_time(sim_time_s, wrap_orbit=True)
+    sim_idx = simulation_index_from_time(sim_time_s, wrap_orbit=True)
+    return set_scene_at_index(sim_idx)
 
 def save_one_pass_video_30x_to_project_root():
     export_speed_multiplier = SIMULATION.export_speed_multiplier
     export_fps = RENDER.export_fps
+    sim_total_s = simulation.metadata.sim_total_s
     export_num_frames = max(
         2,
         int(np.ceil(sim_total_s * export_fps / export_speed_multiplier)) + 1,
@@ -393,7 +682,8 @@ def save_one_pass_video_30x_to_project_root():
 
     def export_update(frame):
         sim_t = (frame / (export_num_frames - 1)) * sim_total_s
-        return set_scene_at_time(sim_t, wrap_orbit=False, speed_label=export_speed_multiplier)
+        sim_idx = simulation_index_from_time(sim_t, wrap_orbit=False)
+        return set_scene_at_index(sim_idx, speed_label=export_speed_multiplier)
 
     if mpl_animation.writers.is_available("ffmpeg"):
         export_ani = FuncAnimation(
@@ -457,5 +747,6 @@ if __name__ == "__main__":
             init_func=init,
             blit=False,
             interval=animation_interval_ms,
+            cache_frame_data=False,
         )  # ~33 fps
         plt.show()

@@ -1,4 +1,6 @@
+gymnasium
 matplotlib
 numpy
-cv2
-pint
+Pint
+opencv-python
+rich

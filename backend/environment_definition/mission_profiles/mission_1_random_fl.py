@@ -7,50 +7,28 @@ This mission (M1) is specified as follows:
 """
 
 import numpy as np
-from pathlib import Path
-import sys
 
-try:
-    from backend.environment_definition.constants import (
-        EARTH_GRAVITATIONAL_PARAMETER,
-        EARTH_RADIUS,
-        MOMENT_OF_INERTIA_2D,
-        REACTION_WHEEL_MAX_MOMENTUM,
-        REACTION_WHEEL_MAX_TORQUE,
-        RENDER,
-        SATELLITE_ALTITUDE_LOWER_BOUND,
-        SATELLITE_ALTITUDE_UPPER_BOUND,
-        SATELLITE_MASS,
-        SIMULATION,
-        STAR_TRACKER_MAX_MANEUVER_RATE,
-    )
-    from backend.utils.orbit_propagator.circular_orbit_speed import circular_orbital_speed
-    from backend.environment_definition.runtime_types import Environment, Mission, Satellite
-except ModuleNotFoundError:
-    repo_root = str(Path(__file__).resolve().parents[3])
-    if repo_root not in sys.path:
-        sys.path.insert(0, repo_root)
-    from backend.environment_definition.constants import (
-        EARTH_GRAVITATIONAL_PARAMETER,
-        EARTH_RADIUS,
-        MOMENT_OF_INERTIA_2D,
-        REACTION_WHEEL_MAX_MOMENTUM,
-        REACTION_WHEEL_MAX_TORQUE,
-        RENDER,
-        SATELLITE_ALTITUDE_LOWER_BOUND,
-        SATELLITE_ALTITUDE_UPPER_BOUND,
-        SATELLITE_MASS,
-        SIMULATION,
-        STAR_TRACKER_MAX_MANEUVER_RATE,
-    )
-    from backend.utils.orbit_propagator.circular_orbit_speed import circular_orbital_speed
-    from backend.environment_definition.runtime_types import Environment, Mission, Satellite
+from environment_definition.constants import (
+    EARTH_GRAVITATIONAL_PARAMETER,
+    EARTH_RADIUS,
+    MOMENT_OF_INERTIA_2D,
+    REACTION_WHEEL_MAX_MOMENTUM,
+    REACTION_WHEEL_MAX_TORQUE,
+    RENDER,
+    SATELLITE_ALTITUDE_LOWER_BOUND,
+    SATELLITE_ALTITUDE_UPPER_BOUND,
+    SATELLITE_MASS,
+    SIMULATION,
+    STAR_TRACKER_MAX_MANEUVER_RATE,
+)
+from utils.leo_adapter.orbit_geometry import circular_orbital_speed_from_altitude
+from environment_definition.runtime_types import Environment, Mission, Satellite
 
 lower_mag = SATELLITE_ALTITUDE_LOWER_BOUND.magnitude
 upper_mag = SATELLITE_ALTITUDE_UPPER_BOUND.to(SATELLITE_ALTITUDE_LOWER_BOUND.units).magnitude
 SATELLITE_ALTITUDE = np.random.uniform(lower_mag, upper_mag) * SATELLITE_ALTITUDE_LOWER_BOUND.units
 
-SATELLITE_ORBIT_SPEED = circular_orbital_speed(SATELLITE_ALTITUDE)
+SATELLITE_ORBIT_SPEED = circular_orbital_speed_from_altitude(SATELLITE_ALTITUDE)
 
 SATELLITE = Satellite(
     mass=SATELLITE_MASS,

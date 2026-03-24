@@ -6,18 +6,82 @@
       "type": "debugpy",
       "request": "launch",
       "program": "${file}",
+      "cwd": "${workspaceFolder}/backend",
       "console": "integratedTerminal",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}${pathSeparator}${env:PYTHONPATH}"
-      },
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      }
     },
     {
       "name": "Python: Satellite Plot",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/backend/render/first_plot.py",
+      "cwd": "${workspaceFolder}/backend",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      },
       "console": "integratedTerminal",
       "justMyCode": true
+    },
+    {
+      "name": "Showcase: Coding Model Benchmark",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/tools/showcase_benchmark.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      }
+    },
+    {
+      "name": "Showcase: Coding Model Benchmark (verbose)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/tools/showcase_benchmark.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": ["--verbose"],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      }
+    },
+    {
+      "name": "Showcase: Mission profile sample",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/environment_definition/mission_profiles/mission_1_random_fl.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      }
+    },
+    {
+      "name": "Showcase: Line-of-sight demo",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/utils/flight_geometry/line_of_sight.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Showcase: Benchmark + mission sample (parallel)",
+      "configurations": [
+        "Showcase: Coding Model Benchmark",
+        "Showcase: Mission profile sample"
+      ]
     }
   ]
 }

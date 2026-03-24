@@ -36,6 +36,8 @@ class RenderConstants:
     los_color: str
     los_linewidth: float
     los_alpha: float
+    los_fov_cone_color: str
+    los_fov_cone_alpha: float
     trail_style: str
     trail_linewidth: float
     trail_alpha: float
@@ -113,6 +115,8 @@ RENDER = RenderConstants(
     los_color="orange",
     los_linewidth=2.2,
     los_alpha=0.9,
+    los_fov_cone_color="#2ecc71",
+    los_fov_cone_alpha=0.45,
     trail_style="r-",
     trail_linewidth=1.6,
     trail_alpha=0.75,

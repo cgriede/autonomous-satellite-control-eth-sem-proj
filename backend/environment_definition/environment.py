@@ -1,7 +1,6 @@
 import gymnasium as gym
 import numpy as np
-
-from constants.SATELLITE import *
+from .constants.SATELLITE import *
 
 class SatelliteAttitude2D(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 30}

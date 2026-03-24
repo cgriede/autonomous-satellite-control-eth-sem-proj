@@ -1,5 +1,9 @@
 # autonomous-satellite-control-eth-sem-proj
 
+## Documentation
+
+- Render module API: `docs/render-api.md`
+
 ## Semester Project Simplifications
 
 - Start with a simplified physics setup to validate the pipeline quickly.
