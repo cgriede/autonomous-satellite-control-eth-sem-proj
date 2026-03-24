@@ -28,9 +28,12 @@ class RenderConstants:
     observer_color: str
     observer_marker_size: float
     observer_marker_edge_width: float
+    observer_marker_render_scale: float
     cloud_color: str
     cloud_linewidth: float
     cloud_alpha: float
+    cloud_growth_max_span_scale: float
+    cloud_growth_linewidth_scale: float
     sat_marker_size: float
     sat_marker_style: str
     los_color: str
@@ -43,6 +46,8 @@ class RenderConstants:
     trail_alpha: float
     cone_color: str
     cone_alpha: float
+    cone_length_render_scale: float
+    cone_half_angle_render_scale: float
     z_arrow_mutation_scale: float
     z_arrow_linewidth: float
     z_arrow_color: str
@@ -81,6 +86,9 @@ class RenderConstants:
     export_fps: int
     export_dpi: int
     export_filename: str
+    closeup_axes_rect: tuple[float, float, float, float]
+    closeup_half_window_km: object
+    closeup_cloud_height_scale: float
 
 
 RENDER = RenderConstants(
@@ -107,9 +115,12 @@ RENDER = RenderConstants(
     observer_color="red",
     observer_marker_size=8.0,
     observer_marker_edge_width=3.0,
+    observer_marker_render_scale=1.8,
     cloud_color="white",
     cloud_linewidth=3.0,
     cloud_alpha=0.95,
+    cloud_growth_max_span_scale=1.9,
+    cloud_growth_linewidth_scale=2.0,
     sat_marker_size=10.0,
     sat_marker_style="ro",
     los_color="orange",
@@ -122,6 +133,8 @@ RENDER = RenderConstants(
     trail_alpha=0.75,
     cone_color="cyan",
     cone_alpha=0.22,
+    cone_length_render_scale=1.22,
+    cone_half_angle_render_scale=1.7,
     z_arrow_mutation_scale=16.0,
     z_arrow_linewidth=3.0,
     z_arrow_color="yellow",
@@ -165,4 +178,7 @@ RENDER = RenderConstants(
     export_fps=30,
     export_dpi=120,
     export_filename="satellite_orbit_one_pass_30x.mp4",
+    closeup_axes_rect=(0.67, 0.20, 0.30, 0.34),
+    closeup_half_window_km=380.0 * ureg.km,
+    closeup_cloud_height_scale=1.8,
 )

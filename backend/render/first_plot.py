@@ -196,7 +196,7 @@ ax.plot(
     [observer_y],
     marker='x',
     color=RENDER.observer_color,
-    markersize=RENDER.observer_marker_size,
+    markersize=RENDER.observer_marker_size * RENDER.observer_marker_render_scale,
     markeredgewidth=RENDER.observer_marker_edge_width,
     zorder=RENDER.zorder_observer,
 )
@@ -284,7 +284,7 @@ inset_ax.plot(
     [observer_cross_local[1]],
     marker='x',
     color=RENDER.observer_color,
-    markersize=6,
+    markersize=6 * RENDER.observer_marker_render_scale,
     markeredgewidth=1.2,
 )
 cloud_inset_glow_artists = []
@@ -312,6 +312,48 @@ inset_footprint, = inset_ax.plot([], [], color=RENDER.cone_color, linewidth=1.8,
 inset_hit_marker, = inset_ax.plot([], [], marker='o', color='yellow', markersize=4, linestyle='None')
 inset_centerline, = inset_ax.plot([], [], color=RENDER.z_arrow_color, linewidth=1.2, alpha=0.8)
 
+# Observer/cloud close-up in the same 2D orbital plane.
+closeup_ax = fig.add_axes(RENDER.closeup_axes_rect)
+closeup_ax.set_facecolor(RENDER.space_background)
+closeup_ax.set_aspect('equal', adjustable='box')
+closeup_half_window = RENDER.closeup_half_window_km.to(ureg.km).magnitude
+closeup_ax.set_xlim(observer_x - closeup_half_window, observer_x + closeup_half_window)
+closeup_ax.set_ylim(observer_y - closeup_half_window, observer_y + closeup_half_window)
+closeup_ax.set_xticks([])
+closeup_ax.set_yticks([])
+for spine in closeup_ax.spines.values():
+    spine.set_edgecolor(RENDER.info_text_color)
+    spine.set_linewidth(1.0)
+closeup_ax.set_title(
+    "Observer + Cloud Plane Close-up",
+    color=RENDER.info_text_color,
+    fontsize=8,
+)
+closeup_ax.plot(
+    [observer_x],
+    [observer_y],
+    marker='x',
+    color=RENDER.observer_color,
+    markersize=RENDER.observer_marker_size * RENDER.observer_marker_render_scale,
+    markeredgewidth=RENDER.observer_marker_edge_width,
+)
+closeup_cone = Polygon([[0, 0], [0, 0], [0, 0]], closed=True, color=RENDER.cone_color, alpha=0.30)
+closeup_ax.add_patch(closeup_cone)
+closeup_centerline, = closeup_ax.plot([], [], color=RENDER.z_arrow_color, linewidth=1.2, alpha=0.9)
+closeup_hit_marker, = closeup_ax.plot([], [], marker='o', color='yellow', markersize=4, linestyle='None')
+closeup_cloud_glow_artists = []
+closeup_cloud_core_artists = []
+closeup_cloud_upper_artists = []
+closeup_cloud_lower_artists = []
+for _ in cloud_models:
+    closeup_glow, = closeup_ax.plot([], [], color="#cfefff", linewidth=RENDER.cloud_linewidth * 1.8, alpha=0.35)
+    closeup_core, = closeup_ax.plot([], [], color=RENDER.cloud_color, linewidth=RENDER.cloud_linewidth, alpha=RENDER.cloud_alpha)
+    closeup_upper, = closeup_ax.plot([], [], color=RENDER.cloud_color, linewidth=1.2, alpha=0.7)
+    closeup_lower, = closeup_ax.plot([], [], color=RENDER.cloud_color, linewidth=1.2, alpha=0.7)
+    closeup_cloud_glow_artists.append(closeup_glow)
+    closeup_cloud_core_artists.append(closeup_core)
+    closeup_cloud_upper_artists.append(closeup_upper)
+    closeup_cloud_lower_artists.append(closeup_lower)
 
 # Satellite (red dot)
 sat, = ax.plot([], [], RENDER.sat_marker_style, markersize=RENDER.sat_marker_size, label='Satellite')
@@ -339,8 +381,8 @@ _debug_log(
 )
 # endregion
 cone_opening_deg = SIMULATION.field_of_view_cone.opening_angle.to(ureg.deg).magnitude
-cone_half_angle_rad = np.deg2rad(cone_opening_deg / 2)
-cone_length = SIMULATION.cone_length.to(ureg.km).magnitude
+cone_half_angle_rad = np.deg2rad(cone_opening_deg / 2) * RENDER.cone_half_angle_render_scale
+cone_length = SIMULATION.cone_length.to(ureg.km).magnitude * RENDER.cone_length_render_scale
 cone = Polygon([[0, 0], [0, 0], [0, 0]], closed=True, color=RENDER.cone_color, alpha=RENDER.cone_alpha)
 ax.add_patch(cone)
 
@@ -512,6 +554,9 @@ def _sample_swiss_elevation_m(lat_deg, lon_deg):
 
 
 def _compute_cloud_arcs_at_time(sim_time_local):
+    growth_phase = sim_time_local / max(simulation.metadata.sim_total_s, 1e-9)
+    cloud_growth = 1.0 + (RENDER.cloud_growth_max_span_scale - 1.0) * np.clip(growth_phase, 0.0, 1.0)
+    cloud_thickness = 1.0 + (RENDER.cloud_growth_linewidth_scale - 1.0) * np.clip(growth_phase, 0.0, 1.0)
     cloud_arc_specs = []
     for idx, model in enumerate(cloud_models):
         omega = model["omega_rad_s"]
@@ -519,33 +564,49 @@ def _compute_cloud_arcs_at_time(sim_time_local):
             model["noise_freq_rad_s"] * sim_time_local + model["noise_phase"]
         )
         shift = omega * mod * sim_time_local
-        start = model["start_rad_0"] + shift
-        end = model["end_rad_0"] + shift
+        base_start = model["start_rad_0"] + shift
+        base_end = model["end_rad_0"] + shift
+        center = 0.5 * (base_start + base_end)
+        half_span = 0.5 * (base_end - base_start) * cloud_growth
+        start = center - half_span
+        end = center + half_span
         theta = np.linspace(start, end, RENDER.cloud_segment_points)
         radius = model["radius_km"]
         x = radius * np.cos(theta)
         y = radius * np.sin(theta)
 
+        cloud_main_glow_artists[idx].set_linewidth(RENDER.cloud_linewidth * 2.4 * cloud_thickness)
+        cloud_main_core_artists[idx].set_linewidth(RENDER.cloud_linewidth * cloud_thickness)
         cloud_main_glow_artists[idx].set_data(x, y)
         cloud_main_core_artists[idx].set_data(x, y)
         x_local = x - observer_pos[0]
         y_local = y - observer_pos[1]
+        cloud_inset_glow_artists[idx].set_linewidth(RENDER.cloud_linewidth * 2.0 * cloud_thickness)
+        cloud_inset_core_artists[idx].set_linewidth(RENDER.cloud_linewidth * cloud_thickness)
         cloud_inset_glow_artists[idx].set_data(x_local, y_local)
         cloud_inset_core_artists[idx].set_data(x_local, y_local)
-        cloud_arc_specs.append((radius, start, end))
+        cloud_arc_specs.append(
+            {
+                "radius": radius,
+                "start": start,
+                "end": end,
+                "theta": theta,
+                "growth": cloud_thickness,
+            }
+        )
     return cloud_arc_specs
 
 
 def _nearest_surface_hit(ray_origin, ray_dir, cloud_arc_specs):
     best_t = _ray_circle_intersection_distance(ray_origin, ray_dir, R_earth)
     best_point = ray_origin + best_t * ray_dir if best_t is not None else None
-    for cloud_radius, cloud_start, cloud_end in cloud_arc_specs:
-        t_cloud = _ray_circle_intersection_distance(ray_origin, ray_dir, cloud_radius)
+    for cloud_spec in cloud_arc_specs:
+        t_cloud = _ray_circle_intersection_distance(ray_origin, ray_dir, cloud_spec["radius"])
         if t_cloud is None:
             continue
         hit_point = ray_origin + t_cloud * ray_dir
         hit_angle = np.arctan2(hit_point[1], hit_point[0])
-        if _angle_in_arc(hit_angle, cloud_start, cloud_end):
+        if _angle_in_arc(hit_angle, cloud_spec["start"], cloud_spec["end"]):
             if best_t is None or t_cloud < best_t:
                 best_t = t_cloud
                 best_point = hit_point
@@ -563,12 +624,25 @@ def init():
     inset_footprint.set_data([], [])
     inset_hit_marker.set_data([], [])
     inset_centerline.set_data([], [])
+    closeup_cone.set_xy([[0, 0], [0, 0], [0, 0]])
+    closeup_centerline.set_data([], [])
+    closeup_hit_marker.set_data([], [])
     for glow, core in zip(cloud_main_glow_artists, cloud_main_core_artists):
         glow.set_data([], [])
         core.set_data([], [])
     for glow, core in zip(cloud_inset_glow_artists, cloud_inset_core_artists):
         glow.set_data([], [])
         core.set_data([], [])
+    for glow, core, upper, lower in zip(
+        closeup_cloud_glow_artists,
+        closeup_cloud_core_artists,
+        closeup_cloud_upper_artists,
+        closeup_cloud_lower_artists,
+    ):
+        glow.set_data([], [])
+        core.set_data([], [])
+        upper.set_data([], [])
+        lower.set_data([], [])
     info_text.set_text("")
     return set_scene_at_index(0, speed_label=sim_speed_multiplier)
 
@@ -588,7 +662,12 @@ def set_scene_at_index(sim_idx, speed_label=None):
     trail.set_data(trail_radius * np.cos(trail_theta), trail_radius * np.sin(trail_theta))
 
     z_angle_rad = simulation.body_z_angle_rad[sim_idx]
-    z_axis_dir = np.array([np.cos(z_angle_rad), np.sin(z_angle_rad)])
+    sat_to_observer_unit = observer_pos - sat_pos
+    sat_to_observer_norm = np.linalg.norm(sat_to_observer_unit)
+    if sat_to_observer_norm < 1e-9:
+        z_axis_dir = np.array([0.0, -1.0])
+    else:
+        z_axis_dir = sat_to_observer_unit / sat_to_observer_norm
 
     # Update cone footprint along +z direction
     cos_h, sin_h = np.cos(cone_half_angle_rad), np.sin(cone_half_angle_rad)
@@ -597,6 +676,7 @@ def set_scene_at_index(sim_idx, speed_label=None):
     edge_left = sat_pos + cone_length * (rot_left @ z_axis_dir)
     edge_right = sat_pos + cone_length * (rot_right @ z_axis_dir)
     cone.set_xy([sat_pos, edge_left, edge_right])
+    closeup_cone.set_xy([sat_pos, edge_left, edge_right])
 
     left_dir = rot_left @ z_axis_dir
     center_dir = z_axis_dir
@@ -624,12 +704,33 @@ def set_scene_at_index(sim_idx, speed_label=None):
             [sat_local_frame[0], center_local_frame[0]],
             [sat_local_frame[1], center_local_frame[1]],
         )
+        closeup_centerline.set_data([sat_pos[0], p_center[0]], [sat_pos[1], p_center[1]])
+        closeup_hit_marker.set_data([p_center[0]], [p_center[1]])
         hit_lat_deg, hit_lon_deg = _observer_local_km_to_geo(center_local_frame)
         hit_elevation_m = _sample_swiss_elevation_m(hit_lat_deg, hit_lon_deg)
     else:
         inset_hit_marker.set_data([], [])
         inset_centerline.set_data([], [])
+        closeup_centerline.set_data([], [])
+        closeup_hit_marker.set_data([], [])
         hit_lat_deg, hit_lon_deg, hit_elevation_m = None, None, None
+
+    for idx, cloud_spec in enumerate(cloud_arc_specs):
+        theta = cloud_spec["theta"]
+        radius = cloud_spec["radius"]
+        profile_height = 0.5 * RENDER.cloud_linewidth * cloud_spec["growth"] * RENDER.closeup_cloud_height_scale
+        x_mid = radius * np.cos(theta)
+        y_mid = radius * np.sin(theta)
+        x_hi = (radius + profile_height) * np.cos(theta)
+        y_hi = (radius + profile_height) * np.sin(theta)
+        x_lo = (radius - profile_height) * np.cos(theta)
+        y_lo = (radius - profile_height) * np.sin(theta)
+        closeup_cloud_glow_artists[idx].set_linewidth(RENDER.cloud_linewidth * 1.8 * cloud_spec["growth"])
+        closeup_cloud_core_artists[idx].set_linewidth(RENDER.cloud_linewidth * cloud_spec["growth"])
+        closeup_cloud_glow_artists[idx].set_data(x_mid, y_mid)
+        closeup_cloud_core_artists[idx].set_data(x_mid, y_mid)
+        closeup_cloud_upper_artists[idx].set_data(x_hi, y_hi)
+        closeup_cloud_lower_artists[idx].set_data(x_lo, y_lo)
 
     # Satellite Z orientation (relative to nadir).
     z_axis_tip = sat_pos + z_axis_length * z_axis_dir
@@ -638,8 +739,8 @@ def set_scene_at_index(sim_idx, speed_label=None):
     z_axis_label.set_position((label_pos[0], label_pos[1]))
     nadir_angle_rad = sat_theta + np.pi
     z_angle_rel_nadir_rad = np.arctan2(
-        np.sin(z_angle_rad - nadir_angle_rad),
-        np.cos(z_angle_rad - nadir_angle_rad),
+        np.sin(np.arctan2(z_axis_dir[1], z_axis_dir[0]) - nadir_angle_rad),
+        np.cos(np.arctan2(z_axis_dir[1], z_axis_dir[0]) - nadir_angle_rad),
     )
     z_angle_deg = np.rad2deg(z_angle_rel_nadir_rad)
     sat_to_observer = np.array([observer_x, observer_y]) - sat_pos
