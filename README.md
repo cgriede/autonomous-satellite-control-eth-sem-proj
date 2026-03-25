@@ -1,3 +1,27 @@
+# Autonomous Satellite Control (ETH SEM Project)
+
+## Architecture spec: simulation vs rendering
+
+This repository separates **numeric simulation** from **rendering/visualization**.
+
+- **Simulation** (`backend/simulation/*`)
+  - Owns all numeric propagation / integration.
+  - Produces typed simulation outputs such as `simulation.state_types.SimulationStateSeries`.
+  - Canonical entrypoint for rendered runs: `simulation.run_simulation.run_simulation()`.
+
+- **Rendering** (`backend/render/*`)
+  - View-only: consumes simulation outputs and draws/exports visuals.
+  - Must not run numeric propagation/integration itself.
+  - If additional data is needed for visuals, extend the simulation output and/or the simulation entrypoint.
+
+## Common commands
+
+- Run interactive renderer (uses simulation entrypoint under the hood):
+  - Use the VSCode launch config: `Sat Sim Interactive`
+
+- Export one-pass MP4:
+  - Use the VSCode launch config: `Sat Sim Export`
+
 # autonomous-satellite-control-eth-sem-proj
 
 ## Documentation

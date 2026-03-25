@@ -13,7 +13,7 @@
       }
     },
     {
-      "name": "Python: Satellite Plot",
+      "name": "Sat Sim Export",
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/backend/render/first_plot.py",
@@ -22,33 +22,20 @@
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
       },
       "console": "integratedTerminal",
-      "justMyCode": true
+      "justMyCode": true,
+      "args": ["--save-one-pass-30x"]
     },
     {
-      "name": "Showcase: Coding Model Benchmark",
+      "name": "Sat Sim Interactive",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/backend/tools/showcase_benchmark.py",
+      "program": "${workspaceFolder}/backend/render/first_plot.py",
       "cwd": "${workspaceFolder}/backend",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "args": [],
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
-      }
-    },
-    {
-      "name": "Showcase: Coding Model Benchmark (verbose)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/backend/tools/showcase_benchmark.py",
-      "cwd": "${workspaceFolder}/backend",
+      },
       "console": "integratedTerminal",
       "justMyCode": true,
-      "args": ["--verbose"],
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
-      }
     },
     {
       "name": "Showcase: Mission profile sample",
@@ -62,26 +49,5 @@
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
       }
     },
-    {
-      "name": "Showcase: Line-of-sight demo",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/backend/utils/flight_geometry/line_of_sight.py",
-      "cwd": "${workspaceFolder}/backend",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
-      }
-    }
-  ],
-  "compounds": [
-    {
-      "name": "Showcase: Benchmark + mission sample (parallel)",
-      "configurations": [
-        "Showcase: Coding Model Benchmark",
-        "Showcase: Mission profile sample"
-      ]
-    }
   ]
 }

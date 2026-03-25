@@ -3,7 +3,7 @@ from math import pi
 
 from pint import Quantity
 
-from backend.utils.units.require_compatible_unit import require_compatible_units
+from utils.units.require_compatible_unit import require_compatible_units
 
 @dataclass(frozen=True)
 class AttitudeState2D:
@@ -27,7 +27,13 @@ def propagate_reaction_wheel_attitude_2d(
     wheel_inertia: object,
     dt: object,
 ) -> AttitudeState2D:
-    """Propagate one 2D attitude step from a wheel torque command."""
+    """
+    Propagate one 2D attitude step from an *applied* reaction wheel torque.
+
+    Note: any higher-level wheel "control" logic (e.g. safety cutoffs, saturation)
+    should produce the applied wheel torque; this function only performs the
+    torque-balance integration for the coupled satellite/wheel state.
+    """
     require_compatible_units(state.theta, "radian", "state.theta")
     require_compatible_units(state.omega_sat, "radian/second", "state.omega_sat")
     require_compatible_units(state.omega_wheel, "radian/second", "state.omega_wheel")

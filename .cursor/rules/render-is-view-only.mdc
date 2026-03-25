@@ -1,0 +1,24 @@
+# Rendering is view-only
+
+## Rule
+
+- `backend/render/*` must be **rendering/view code only**.
+- Rendering code must **not** perform numeric propagation / integration / simulation.
+
+## Allowed in `backend/render/*`
+
+- Loading/consuming simulation outputs such as `simulation.state_types.SimulationStateSeries`.
+- Pure geometry/visual framing (plot extents, camera windows, UI controls).
+- Drawing / exporting images and videos.
+
+## Forbidden in `backend/render/*`
+
+- Calling any numeric simulator/integrator directly (e.g. `simulate_*`, propagation loops).
+- Creating simulation configs for integration (e.g. `KinematicSimulationConfig`) and running them in the renderer.
+
+## How to add new rendered data
+
+If the renderer needs new values:
+- Extend the simulation output types and/or `simulation.run_simulation.run_simulation()` to produce them.
+- Keep the renderer as a pure consumer of that output.
+

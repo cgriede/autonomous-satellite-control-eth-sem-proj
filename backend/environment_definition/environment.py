@@ -2,15 +2,25 @@ import gymnasium as gym
 import numpy as np
 from .constants.SATELLITE import *
 from simulation import AttitudeState2D, propagate_reaction_wheel_attitude_2d
+from simulation.reaction_wheel import ReactionWheel
 
 class SatelliteAttitude2D(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 30}
 
     def __init__(self, render_mode=None):
         self.I_s = MOMENT_OF_INERTIA_2D.to(ureg.kg * ureg.m**2)
-        self.I_w = (REACTION_WHEEL_MAX_MOMENTUM / REACTION_WHEEL_MAX_TORQUE).to(ureg.kg * ureg.m**2)
         self.tau_max = (0.02 * ureg.N * ureg.m).to(ureg.N * ureg.m)
-        self.omega_w_max = 150.0 # Wheel saturation speed (rad/s)
+        # Wheel saturation speed used for comparisons/reward termination.
+        self.omega_w_max = 150.0  # rad/s (float, used against omega_w magnitudes)
+        omega_w_max_q = self.omega_w_max * ureg.rad / ureg.s
+        # Wheel inertia from max momentum and max wheel speed:
+        # H_max [kg*m^2/s] = I_w [kg*m^2] * omega_w_max [1/s]
+        self.I_w = (REACTION_WHEEL_MAX_MOMENTUM / omega_w_max_q).to(ureg.kg * ureg.m**2)
+        self.reaction_wheel = ReactionWheel(
+            wheel_inertia=self.I_w,
+            # Safety cutoff threshold comes from the mission configuration.
+            max_manouver_rate=STAR_TRACKER_MAX_MANEUVER_RATE,
+        )
         self.dt = 0.1 * ureg.s   # Time step (s)
         self.max_episode_steps = 500
 
@@ -43,13 +53,17 @@ class SatelliteAttitude2D(gym.Env):
 
         theta, omega_s, omega_w = self.state
 
+        state = AttitudeState2D(
+            theta=float(theta) * ureg.rad,
+            omega_sat=float(omega_s) * ureg.rad / ureg.s,
+            omega_wheel=float(omega_w) * ureg.rad / ureg.s,
+        )
+        tau_cmd = float(tau) * ureg.N * ureg.m
+        tau_applied = self.reaction_wheel.compute_applied_torque(state=state, tau_cmd=tau_cmd)
+
         next_state = propagate_reaction_wheel_attitude_2d(
-            state=AttitudeState2D(
-                theta=float(theta) * ureg.rad,
-                omega_sat=float(omega_s) * ureg.rad / ureg.s,
-                omega_wheel=float(omega_w) * ureg.rad / ureg.s,
-            ),
-            wheel_torque=float(tau) * ureg.N * ureg.m,
+            state=state,
+            wheel_torque=tau_applied,
             sat_inertia=self.I_s,
             wheel_inertia=self.I_w,
             dt=self.dt,
@@ -62,7 +76,8 @@ class SatelliteAttitude2D(gym.Env):
 
         # Reward: pointing accuracy + low energy + avoid saturation
         pointing_error = np.abs(theta - self.target_theta)
-        reward = -pointing_error**2 - 0.05 * omega_w**2 - 0.01 * tau**2
+        tau_applied_nm = tau_applied.to(ureg.N * ureg.m).magnitude
+        reward = -pointing_error**2 - 0.05 * omega_w**2 - 0.01 * tau_applied_nm**2
         # Bonus for low wheel speed (proxy for energy/desat need)
         reward -= 0.1 * np.abs(omega_w) / self.omega_w_max
 
