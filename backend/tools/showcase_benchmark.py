@@ -48,6 +48,7 @@ def _case_import_mission_objects() -> str:
 def _case_line_of_sight() -> str:
     from environment_definition.constants import UREG as ureg
     from environment_definition.mission_profiles.mission_1_random_fl import (
+        SATELLITE,
         SATELLITE_ALTITUDE,
     )
     from utils.flight_geometry.line_of_sight import minimum_contact_angle
@@ -90,6 +91,8 @@ def _case_kinematic_trajectory() -> str:
     start_deg = -(contact_half_deg + margin_deg)
     end_deg = contact_half_deg + margin_deg
     sat_z_deg = SIMULATION.sat_z_offset.to(ureg.deg).magnitude
+    body_torque_cmd_nm = SATELLITE.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude
+    body_inertia_kg_m2 = SATELLITE.moment_of_inertia_2d.to(ureg.kg * ureg.m**2).magnitude
 
     cfg = KinematicSimulationConfig(
         earth_radius_km=float(r_earth_km),
@@ -101,7 +104,9 @@ def _case_kinematic_trajectory() -> str:
         sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
         num_frames=128,
         sat_z_offset_deg=float(sat_z_deg),
-        body_spin_rate_rad_s=0.0,
+        body_torque_cmd_nm=float(body_torque_cmd_nm),
+        body_inertia_kg_m2=float(body_inertia_kg_m2),
+        body_initial_omega_rad_s=0.0,
     )
     series = simulate_kinematic_trajectory(cfg)
     return f"frames={len(series.t_s)}, T_orbit_s={series.metadata.orbit_period_s:.2f}"

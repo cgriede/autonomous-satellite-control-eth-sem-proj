@@ -16,7 +16,9 @@ class KinematicSimulationConfig:
     sat_motion_span_scale: float
     num_frames: int
     sat_z_offset_deg: float
-    body_spin_rate_rad_s: float
+    body_torque_cmd_nm: float
+    body_inertia_kg_m2: float
+    body_initial_omega_rad_s: float
 
 
 def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> SimulationStateSeries:
@@ -24,6 +26,8 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         raise ValueError("num_frames must be >= 2.")
     if config.sat_motion_span_scale <= 0.0:
         raise ValueError("sat_motion_span_scale must be > 0.")
+    if config.body_inertia_kg_m2 <= 0.0:
+        raise ValueError("body_inertia_kg_m2 must be > 0.")
 
     theta_start_rad     = config.theta_center_rad + np.deg2rad(config.start_angle_deg)
     theta_end_rad       = config.theta_center_rad + np.deg2rad(config.end_angle_deg)
@@ -40,10 +44,17 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     theta_orbit_rad = sat_theta_start_rad + omega_rad_s * t_s
     radius_km       = np.full(config.num_frames, r_orbit_km, dtype=float)
 
-    sat_z_initial_angle_rad = sat_theta_start_rad + np.pi + np.deg2rad(config.sat_z_offset_deg)
-    body_z_angle_rad        = sat_z_initial_angle_rad + config.body_spin_rate_rad_s * t_s
-
     sim_dt_s = float(t_s[1] - t_s[0])
+    sat_z_initial_angle_rad = sat_theta_start_rad + np.pi + np.deg2rad(config.sat_z_offset_deg)
+    body_alpha_rad_s2 = float(config.body_torque_cmd_nm / config.body_inertia_kg_m2)
+    body_omega_rad_s = np.empty(config.num_frames, dtype=float)
+    body_z_angle_rad = np.empty(config.num_frames, dtype=float)
+    body_omega_rad_s[0] = float(config.body_initial_omega_rad_s)
+    body_z_angle_rad[0] = float(sat_z_initial_angle_rad)
+    for k in range(1, config.num_frames):
+        body_omega_rad_s[k] = body_omega_rad_s[k - 1] + body_alpha_rad_s2 * sim_dt_s
+        body_z_angle_rad[k] = body_z_angle_rad[k - 1] + body_omega_rad_s[k] * sim_dt_s
+
     metadata = SimulationMetadata(
         orbit_period_s      = orbit_period_s,
         omega_rad_s         = omega_rad_s,

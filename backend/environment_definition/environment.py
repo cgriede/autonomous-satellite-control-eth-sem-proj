@@ -1,16 +1,17 @@
 import gymnasium as gym
 import numpy as np
 from .constants.SATELLITE import *
+from simulation import AttitudeState2D, propagate_reaction_wheel_attitude_2d
 
 class SatelliteAttitude2D(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 30}
 
     def __init__(self, render_mode=None):
-        self.I_s = MOMENT_OF_INERTIA_2D          # Satellite inertia (kg m²)
-        self.I_w = REACTION_WHEEL_MAX_MOMENTUM/REACTION_WHEEL_MAX_TORQUE          # Wheel inertia (kg m²)
-        self.tau_max = 0.02      # Max motor torque (N m)
+        self.I_s = MOMENT_OF_INERTIA_2D.to(ureg.kg * ureg.m**2)
+        self.I_w = (REACTION_WHEEL_MAX_MOMENTUM / REACTION_WHEEL_MAX_TORQUE).to(ureg.kg * ureg.m**2)
+        self.tau_max = (0.02 * ureg.N * ureg.m).to(ureg.N * ureg.m)
         self.omega_w_max = 150.0 # Wheel saturation speed (rad/s)
-        self.dt = 0.1            # Time step (s)
+        self.dt = 0.1 * ureg.s   # Time step (s)
         self.max_episode_steps = 500
 
         # State: [theta (rad), omega_s (rad/s), omega_w (rad/s)]
@@ -18,7 +19,8 @@ class SatelliteAttitude2D(gym.Env):
         self.observation_space = gym.spaces.Box(-high, high, dtype=np.float32)
 
         # Action: torque on wheel
-        self.action_space = gym.spaces.Box(-self.tau_max, self.tau_max, shape=(1,), dtype=np.float32)
+        tau_max_nm = self.tau_max.to(ureg.N * ureg.m).magnitude
+        self.action_space = gym.spaces.Box(-tau_max_nm, tau_max_nm, shape=(1,), dtype=np.float32)
 
         self.render_mode = render_mode
         self.current_step = 0
@@ -36,18 +38,25 @@ class SatelliteAttitude2D(gym.Env):
         return self.state, {}
 
     def step(self, action):
-        tau = np.clip(action[0], -self.tau_max, self.tau_max)
+        tau_max_nm = self.tau_max.to(ureg.N * ureg.m).magnitude
+        tau = np.clip(action[0], -tau_max_nm, tau_max_nm)
 
         theta, omega_s, omega_w = self.state
 
-        # Dynamics (momentum conservation)
-        alpha_s = -tau / self.I_s
-        alpha_w = tau / self.I_w
-
-        omega_s += alpha_s * self.dt
-        omega_w += alpha_w * self.dt
-        theta += omega_s * self.dt
-        theta = ((theta + np.pi) % (2 * np.pi)) - np.pi  # wrap to [-pi, pi]
+        next_state = propagate_reaction_wheel_attitude_2d(
+            state=AttitudeState2D(
+                theta=float(theta) * ureg.rad,
+                omega_sat=float(omega_s) * ureg.rad / ureg.s,
+                omega_wheel=float(omega_w) * ureg.rad / ureg.s,
+            ),
+            wheel_torque=float(tau) * ureg.N * ureg.m,
+            sat_inertia=self.I_s,
+            wheel_inertia=self.I_w,
+            dt=self.dt,
+        )
+        theta = next_state.theta.to(ureg.rad).magnitude
+        omega_s = next_state.omega_sat.to(ureg.rad / ureg.s).magnitude
+        omega_w = next_state.omega_wheel.to(ureg.rad / ureg.s).magnitude
 
         self.state = np.array([theta, omega_s, omega_w])
 

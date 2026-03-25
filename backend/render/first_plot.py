@@ -17,7 +17,7 @@ from environment_definition.constants import (
     SIMULATION,
     UREG as ureg,
 )
-from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE_ALTITUDE
+from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
 from utils.flight_geometry.line_of_sight import minimum_contact_angle
 from simulation.trajectory_simulator import KinematicSimulationConfig, simulate_kinematic_trajectory
 
@@ -64,10 +64,8 @@ sat_motion_span_scale = SIMULATION.sat_motion_span_scale
 num_frames = SIMULATION.num_frames
 # Initial z-offset defines body-axis orientation at simulation start.
 sat_z_offset_deg = SIMULATION.sat_z_offset.to(ureg.deg).magnitude
-# Human-readable spin label is shown in the bottom info bar.
-sat_body_rotation_rate_label = "0.000 deg/s"
-# Spin rate in radians per second drives continuous z-axis rotation.
-sat_body_rotation_rate_rad_s = 0.0
+# Human-readable attitude-mode label is shown in the bottom info bar.
+sat_body_rotation_rate_label = "torque cmd: +max"
 # UI refresh interval sets rendering cadence in milliseconds.
 animation_interval_ms = SIMULATION.animation_interval.to(ureg.ms).magnitude
 # Speed multiplier scales simulated time versus wall-clock animation time.
@@ -449,6 +447,8 @@ def set_sat_body_rotation_rate(rate, unit="arcsec"):
 
 
 def build_simulation_series():
+    body_torque_cmd_nm = SATELLITE.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude
+    body_inertia_kg_m2 = SATELLITE.moment_of_inertia_2d.to(ureg.kg * ureg.m**2).magnitude
     config = KinematicSimulationConfig(
         earth_radius_km=R_earth,
         sat_altitude_km=sat_altitude,
@@ -459,16 +459,13 @@ def build_simulation_series():
         sat_motion_span_scale=sat_motion_span_scale,
         num_frames=num_frames,
         sat_z_offset_deg=sat_z_offset_deg,
-        body_spin_rate_rad_s=sat_body_rotation_rate_rad_s,
+        body_torque_cmd_nm=body_torque_cmd_nm,
+        body_inertia_kg_m2=body_inertia_kg_m2,
+        body_initial_omega_rad_s=0.0,
     )
     return simulate_kinematic_trajectory(config)
 
 
-# Start from configured body spin rate.
-set_sat_body_rotation_rate(
-    SIMULATION.default_body_spin_rate.to(ureg.deg / ureg.s).magnitude,
-    unit="deg",
-)
 simulation = build_simulation_series()
 orbit_period_s = simulation.metadata.orbit_period_s
 
