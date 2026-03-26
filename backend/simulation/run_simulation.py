@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 
 from .attitude_dynamics import AttitudeState2D, propagate_reaction_wheel_attitude_2d
+from .camera_2d import calculate_fov_angles
 from .reaction_wheel import ReactionWheel
 from .state_types import SimulationMetadata, SimulationStateSeries
 
@@ -102,6 +103,19 @@ def run_simulation(
         )
         body_z_angle_rad[k] = state.theta.to(ureg.rad).magnitude
 
+    # Camera arrays: left as NaN — strip/footprint is computed lazily per rendered frame
+    # in `backend/render/first_plot.py` (precomputing all frames was ~67s for 2000×500 rays).
+    n = int(num_frames)
+    camera_gsd_m = np.full(n, np.nan, dtype=float)
+    camera_ground_left_xy_km = np.full((n, 2), np.nan, dtype=float)
+    camera_ground_right_xy_km = np.full((n, 2), np.nan, dtype=float)
+    camera_ground_center_xy_km = np.full((n, 2), np.nan, dtype=float)
+    camera_center_first_hit_xy_km = np.full((n, 2), np.nan, dtype=float)
+    camera_center_first_hit_is_cloud = np.zeros(n, dtype=bool)
+    camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
+    _, _vf = calculate_fov_angles()
+    camera_vertical_fov_rad = float(_vf.to(ureg.rad).magnitude)
+
     metadata = SimulationMetadata(
         orbit_period_s=orbit_period_s,
         omega_rad_s=omega_rad_s,
@@ -120,6 +134,14 @@ def run_simulation(
         theta_orbit_rad=theta_orbit_rad,
         radius_km=radius_km,
         body_z_angle_rad=body_z_angle_rad,
+        camera_gsd_m=camera_gsd_m,
+        camera_vertical_fov_rad=float(camera_vertical_fov_rad),
+        camera_ground_left_xy_km=camera_ground_left_xy_km,
+        camera_ground_right_xy_km=camera_ground_right_xy_km,
+        camera_ground_center_xy_km=camera_ground_center_xy_km,
+        camera_center_first_hit_xy_km=camera_center_first_hit_xy_km,
+        camera_center_first_hit_is_cloud=camera_center_first_hit_is_cloud,
+        camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         metadata=metadata,
     )
 

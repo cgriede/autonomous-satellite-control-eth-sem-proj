@@ -1,8 +1,7 @@
 ---
 description: Verify visual outputs with OCR/CV before finishing
-alwaysApply: true
+alwaysApply: false
 ---
-
 # Visual Output Verification
 
 For tasks that generate or modify visual output (plots, figures, UI screens, rendered images):

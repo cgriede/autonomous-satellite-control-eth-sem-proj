@@ -1,12 +1,19 @@
+import sys
+
+# Video export must not open a GUI backend (can appear "stuck" or block headless runs).
+if "--save-one-pass-30x" in sys.argv:
+    import matplotlib
+
+    matplotlib.use("Agg")
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib import animation as mpl_animation
+from matplotlib.colors import to_rgba
 from matplotlib.patches import Circle, Polygon, FancyArrowPatch
 from matplotlib.widgets import Button
 import argparse
-import json
-import time
 from pathlib import Path
 
 #local imports
@@ -15,27 +22,19 @@ from environment_definition.constants import (
     EARTH_RADIUS,
     RENDER,
     SIMULATION,
+    FOCAL_LENGTH,
+    N_PIXELS_Y,
+    SENSOR_HEIGHT,
     UREG as ureg,
 )
+from simulation.camera_optics import pinhole_full_fov_rad
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
 from utils.flight_geometry.line_of_sight import minimum_contact_angle
-from simulation.trajectory_simulator import KinematicSimulationConfig, simulate_kinematic_trajectory
+from simulation.camera_2d import simulate_camera_strip_2d
+from simulation.run_simulation import run_simulation
 
-
-def _debug_log(run_id, hypothesis_id, location, message, data):
-    payload = {
-        "sessionId": "89b7c9",
-        "runId": run_id,
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    log_path = Path(__file__).resolve().parents[2] / "debug-89b7c9.log"
-    with log_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(payload) + "\n")
-
+# Lazy camera: samples per frame in renderer (not 7000; not 500×2000 at import).
+_RENDER_PIXEL_RAY_SAMPLES = 96
 
 # --- Parameters ---
 # Earth radius in kilometers is needed for all geometric calculations.
@@ -72,24 +71,13 @@ animation_interval_ms = SIMULATION.animation_interval.to(ureg.ms).magnitude
 sim_speed_multiplier = SIMULATION.default_speed_multiplier
 # Running simulation clock accumulates elapsed simulated seconds.
 sim_time_s = 0.0
+# Playback control state (Pause freezes sim_time_s advance).
+paused = False
 simulation = None
-# region agent log
-_debug_log(
-    run_id="pre-fix",
-    hypothesis_id="H2",
-    location="backend/render/first_plot.py:simulation_constants_probe",
-    message="Simulation constants attributes",
-    data={
-        "has_cone_opening": bool(hasattr(SIMULATION, "cone_opening")),
-        "has_field_of_view_cone": bool(hasattr(SIMULATION, "field_of_view_cone")),
-        "simulation_type": type(SIMULATION).__name__,
-    },
-)
-# endregion
 
 # --- Set up the figure ---
-fig, ax = plt.subplots(figsize=RENDER.figure_size, constrained_layout=False)
-fig.patch.set_facecolor(RENDER.space_background)
+fig = plt.figure(figsize=RENDER.figure_size, facecolor=RENDER.space_background)
+ax = fig.add_axes(RENDER.main_axes_rect)
 plot_margin = RENDER.plot_margin.to(ureg.km).magnitude
 plot_limit = R_orbit + plot_margin
 # Show only the selected angular snippet and make it fill the window.
@@ -118,6 +106,100 @@ ax.set_ylim(earth_cap_y_min - zoom_pad_y_bottom, float(np.max(y_render)) + zoom_
 ax.set_aspect('equal', adjustable='box')
 ax.set_facecolor(RENDER.space_background)  # Space background
 ax.axis('off')             # Hide axes for clean look
+
+# 3D coordinate-frame legend (visual only). Main axes plot world (x, y) in the
+# equatorial plane (z = 0): screen horizontal = world +x, vertical = world +y;
+# world +z is normal to the plane (dot = toward viewer, x marker = away).
+# Anchor lower-left of main axes so it stays clear of the right-hand column.
+legend_x0, legend_y0 = 0.05, 0.08
+legend_len_x = 0.11
+legend_len_y = 0.095
+# z-depth glyphs sit left of the in-plane origin to avoid crowding the x/y arrows.
+legend_z_dot_x = legend_x0 - 0.042
+ax.annotate(
+    "",
+    xy=(legend_x0 + legend_len_x, legend_y0),
+    xycoords=ax.transAxes,
+    xytext=(legend_x0, legend_y0),
+    textcoords=ax.transAxes,
+    arrowprops=dict(arrowstyle="->", color=RENDER.info_text_color, lw=1.5),
+    zorder=RENDER.zorder_info,
+)
+ax.annotate(
+    "",
+    xy=(legend_x0, legend_y0 + legend_len_y),
+    xycoords=ax.transAxes,
+    xytext=(legend_x0, legend_y0),
+    textcoords=ax.transAxes,
+    arrowprops=dict(arrowstyle="->", color=RENDER.info_text_color, lw=1.5),
+    zorder=RENDER.zorder_info,
+)
+# z axis (normal to the plot plane): dot = toward viewer, x marker = away
+ax.plot(
+    [legend_z_dot_x],
+    [legend_y0 + 0.012],
+    marker="o",
+    linestyle="None",
+    markersize=6,
+    markerfacecolor="none",
+    markeredgecolor=RENDER.info_text_color,
+    transform=ax.transAxes,
+    zorder=RENDER.zorder_info,
+)
+ax.plot(
+    [legend_z_dot_x],
+    [legend_y0 - 0.034],
+    marker="x",
+    linestyle="None",
+    markersize=6,
+    color=RENDER.info_text_color,
+    transform=ax.transAxes,
+    zorder=RENDER.zorder_info,
+)
+ax.text(
+    legend_z_dot_x - 0.028,
+    legend_y0 - 0.01,
+    "z",
+    transform=ax.transAxes,
+    color=RENDER.info_text_color,
+    fontsize=8,
+    ha="right",
+    va="center",
+    zorder=RENDER.zorder_info,
+)
+ax.text(
+    legend_x0 + legend_len_x + 0.005,
+    legend_y0,
+    "x",
+    transform=ax.transAxes,
+    color=RENDER.info_text_color,
+    fontsize=8,
+    ha="left",
+    va="bottom",
+    zorder=RENDER.zorder_info,
+)
+ax.text(
+    legend_x0,
+    legend_y0 + legend_len_y + 0.005,
+    "y",
+    transform=ax.transAxes,
+    color=RENDER.info_text_color,
+    fontsize=8,
+    ha="left",
+    va="bottom",
+    zorder=RENDER.zorder_info,
+)
+ax.text(
+    legend_x0 + legend_len_x * 0.45,
+    legend_y0 - 0.038,
+    "XY plane (z=0)",
+    transform=ax.transAxes,
+    color=RENDER.info_text_color,
+    fontsize=7,
+    ha="left",
+    va="top",
+    zorder=RENDER.zorder_info,
+)
 
 # Static star field for visual depth
 star_rng = np.random.default_rng(RENDER.star_rng_seed)
@@ -182,13 +264,8 @@ observer_pos = np.array([observer_x, observer_y], dtype=float)
 swiss_map = SIMULATION.switzerland_map
 swiss_center_lat_deg = float(swiss_map.lat_center_deg)
 swiss_center_lon_deg = float(swiss_map.lon_center_deg)
-observer_marker_rng = np.random.default_rng()
-observer_cross_local = np.array(
-    [
-        float(observer_marker_rng.uniform(-500.0, 500.0)),
-        float(observer_marker_rng.uniform(-500.0, 500.0)),
-    ]
-)
+# Observer reference in Swiss inset frame matches observer-relative km (origin).
+observer_cross_local = np.array([0.0, 0.0])
 ax.plot(
     [observer_x],
     [observer_y],
@@ -261,21 +338,43 @@ for _ in cloud_models:
     cloud_main_glow_artists.append(glow)
     cloud_main_core_artists.append(core)
 
-# Observer-local weather/capture inset (1000 km x 1000 km frame)
-inset_ax = fig.add_axes([0.67, 0.61, 0.30, 0.34])
+_swiss_inset_half_km = float(RENDER.swiss_inset_half_extent_km.to(ureg.km).magnitude)
+_swiss_inset_full_km = int(round(2.0 * _swiss_inset_half_km))
+
+# Observer-local weather/capture inset (square km window from RENDER.swiss_inset_half_extent_km)
+inset_ax = fig.add_axes(RENDER.swiss_inset_axes_rect)
 inset_ax.set_facecolor(RENDER.space_background)
 inset_ax.set_aspect('equal', adjustable='box')
-inset_ax.set_xlim(-500.0, 500.0)
-inset_ax.set_ylim(-500.0, 500.0)
+inset_ax.set_xlim(-_swiss_inset_half_km, _swiss_inset_half_km)
+inset_ax.set_ylim(-_swiss_inset_half_km, _swiss_inset_half_km)
 inset_ax.set_xticks([])
 inset_ax.set_yticks([])
 for spine in inset_ax.spines.values():
     spine.set_edgecolor(RENDER.info_text_color)
     spine.set_linewidth(1.0)
-inset_ax.set_title(
-    f"Swiss Patch 1000x1000 km ({swiss_center_lat_deg:.2f}N, {swiss_center_lon_deg:.2f}E)",
+_inset_swiss_label_z = max(RENDER.zorder_inset_cloud_core, RENDER.zorder_info) + 1
+inset_ax.text(
+    0.02,
+    0.98,
+    f"Swiss {_swiss_inset_full_km}×{_swiss_inset_full_km} km\n{swiss_center_lat_deg:.2f}N {swiss_center_lon_deg:.2f}E",
+    transform=inset_ax.transAxes,
     color=RENDER.info_text_color,
     fontsize=8,
+    va="top",
+    ha="left",
+    linespacing=1.12,
+    zorder=_inset_swiss_label_z,
+)
+inset_ax.text(
+    0.02,
+    0.02,
+    "XY plane (z=0)",
+    transform=inset_ax.transAxes,
+    color=RENDER.info_text_color,
+    fontsize=7,
+    va="bottom",
+    ha="left",
+    zorder=_inset_swiss_label_z,
 )
 inset_ax.plot(
     [observer_cross_local[0]],
@@ -284,6 +383,34 @@ inset_ax.plot(
     color=RENDER.observer_color,
     markersize=6 * RENDER.observer_marker_render_scale,
     markeredgewidth=1.2,
+    zorder=RENDER.zorder_inset_observer,
+)
+inset_footprint_poly = Polygon(
+    np.zeros((4, 2)),
+    closed=True,
+    facecolor=to_rgba(RENDER.cone_color, RENDER.inset_footprint_fill_alpha),
+    edgecolor=RENDER.cone_color,
+    linewidth=RENDER.inset_footprint_edge_linewidth,
+    alpha=1.0,
+    zorder=RENDER.zorder_inset_footprint,
+)
+inset_ax.add_patch(inset_footprint_poly)
+inset_hit_marker, = inset_ax.plot(
+    [],
+    [],
+    marker='o',
+    color='yellow',
+    markersize=4,
+    linestyle='None',
+    zorder=RENDER.zorder_inset_hit,
+)
+inset_centerline, = inset_ax.plot(
+    [],
+    [],
+    color=RENDER.z_arrow_color,
+    linewidth=1.2,
+    alpha=0.8,
+    zorder=RENDER.zorder_inset_centerline,
 )
 cloud_inset_glow_artists = []
 cloud_inset_core_artists = []
@@ -295,6 +422,7 @@ for _ in cloud_models:
         linewidth=RENDER.cloud_linewidth * 2.0,
         alpha=min(1.0, RENDER.cloud_alpha * 0.25),
         solid_capstyle='round',
+        zorder=RENDER.zorder_inset_cloud_glow,
     )
     inset_core, = inset_ax.plot(
         [],
@@ -303,55 +431,112 @@ for _ in cloud_models:
         linewidth=RENDER.cloud_linewidth,
         alpha=RENDER.cloud_alpha,
         solid_capstyle='round',
+        zorder=RENDER.zorder_inset_cloud_core,
     )
     cloud_inset_glow_artists.append(inset_glow)
     cloud_inset_core_artists.append(inset_core)
-inset_footprint, = inset_ax.plot([], [], color=RENDER.cone_color, linewidth=1.8, alpha=0.9)
-inset_hit_marker, = inset_ax.plot([], [], marker='o', color='yellow', markersize=4, linestyle='None')
-inset_centerline, = inset_ax.plot([], [], color=RENDER.z_arrow_color, linewidth=1.2, alpha=0.8)
 
 # Observer/cloud close-up in the same 2D orbital plane.
 closeup_ax = fig.add_axes(RENDER.closeup_axes_rect)
 closeup_ax.set_facecolor(RENDER.space_background)
 closeup_ax.set_aspect('equal', adjustable='box')
-closeup_half_window = RENDER.closeup_half_window_km.to(ureg.km).magnitude
-closeup_ax.set_xlim(observer_x - closeup_half_window, observer_x + closeup_half_window)
-closeup_ax.set_ylim(observer_y - closeup_half_window, observer_y + closeup_half_window)
+# Close-up axes represent the YZ plane with the observer placed at the origin.
+# In this projection:
+#   - closeup x-axis  := y_local = x_world - observer_x
+#   - closeup y-axis  := z_local = y_world - observer_y
+# so that the observer at (observer_x, observer_y) maps to (0, 0).
+closeup_half_window = (30.0 * ureg.km).to(ureg.km).magnitude  # ±30 km sideways in YZ panel
+closeup_ax.set_xlim(-closeup_half_window, closeup_half_window)
+closeup_ax.set_ylim(-5.0, 25.0)  # z in [-5,+25] km
 closeup_ax.set_xticks([])
 closeup_ax.set_yticks([])
 for spine in closeup_ax.spines.values():
     spine.set_edgecolor(RENDER.info_text_color)
     spine.set_linewidth(1.0)
-closeup_ax.set_title(
+
+closeup_ax.axhline(
+    0.0,
+    color=RENDER.closeup_ground_line_color,
+    linewidth=RENDER.closeup_ground_line_linewidth,
+    zorder=RENDER.zorder_closeup_ground,
+)
+
+# Helper: project big-frame XY points (x_world, y_world) into close-up YZ coordinates (y_local, z_local).
+def _project_big_xy_to_closeup_yz(x_world_km, y_world_km):
+    y_local = x_world_km - observer_x
+    z_local = y_world_km - observer_y
+    return y_local, z_local
+
+closeup_ax.text(
+    0.02,
+    0.98,
     "Observer + Cloud Plane Close-up",
+    transform=closeup_ax.transAxes,
     color=RENDER.info_text_color,
     fontsize=8,
+    va="top",
+    ha="left",
+)
+closeup_ax.text(
+    0.02,
+    0.02,
+    "YZ plane (x=0)",
+    transform=closeup_ax.transAxes,
+    color=RENDER.info_text_color,
+    fontsize=7,
+    va="bottom",
+    ha="left",
 )
 closeup_ax.plot(
-    [observer_x],
-    [observer_y],
+    [0.0],
+    [0.0],
     marker='x',
     color=RENDER.observer_color,
     markersize=RENDER.observer_marker_size * RENDER.observer_marker_render_scale,
     markeredgewidth=RENDER.observer_marker_edge_width,
+    zorder=RENDER.zorder_closeup_observer,
 )
-closeup_cone = Polygon([[0, 0], [0, 0], [0, 0]], closed=True, color=RENDER.cone_color, alpha=0.30)
+# Filled cone in the YZ close-up reads as a solid grey/cyan band; keep geometry
+# updated for potential future use but do not draw fill/edge in this panel.
+closeup_cone = Polygon(
+    [[0, 0], [0, 0], [0, 0]],
+    closed=True,
+    facecolor="none",
+    edgecolor="none",
+    linewidth=0.0,
+    zorder=RENDER.zorder_closeup_cone,
+)
 closeup_ax.add_patch(closeup_cone)
-closeup_centerline, = closeup_ax.plot([], [], color=RENDER.z_arrow_color, linewidth=1.2, alpha=0.9)
-closeup_hit_marker, = closeup_ax.plot([], [], marker='o', color='yellow', markersize=4, linestyle='None')
+closeup_hit_marker, = closeup_ax.plot(
+    [],
+    [],
+    marker='o',
+    color='yellow',
+    markersize=4,
+    linestyle='None',
+    zorder=RENDER.zorder_closeup_hit,
+)
 closeup_cloud_glow_artists = []
 closeup_cloud_core_artists = []
-closeup_cloud_upper_artists = []
-closeup_cloud_lower_artists = []
 for _ in cloud_models:
-    closeup_glow, = closeup_ax.plot([], [], color="#cfefff", linewidth=RENDER.cloud_linewidth * 1.8, alpha=0.35)
-    closeup_core, = closeup_ax.plot([], [], color=RENDER.cloud_color, linewidth=RENDER.cloud_linewidth, alpha=RENDER.cloud_alpha)
-    closeup_upper, = closeup_ax.plot([], [], color=RENDER.cloud_color, linewidth=1.2, alpha=0.7)
-    closeup_lower, = closeup_ax.plot([], [], color=RENDER.cloud_color, linewidth=1.2, alpha=0.7)
+    closeup_glow, = closeup_ax.plot(
+        [],
+        [],
+        color="#cfefff",
+        linewidth=RENDER.cloud_linewidth * 1.8,
+        alpha=0.0,
+        zorder=RENDER.zorder_closeup_cloud_glow,
+    )
+    closeup_core, = closeup_ax.plot(
+        [],
+        [],
+        color=RENDER.cloud_color,
+        linewidth=RENDER.cloud_linewidth,
+        alpha=RENDER.cloud_alpha,
+        zorder=RENDER.zorder_closeup_cloud_core,
+    )
     closeup_cloud_glow_artists.append(closeup_glow)
     closeup_cloud_core_artists.append(closeup_core)
-    closeup_cloud_upper_artists.append(closeup_upper)
-    closeup_cloud_lower_artists.append(closeup_lower)
 
 # Satellite (red dot)
 sat, = ax.plot([], [], RENDER.sat_marker_style, markersize=RENDER.sat_marker_size, label='Satellite')
@@ -364,22 +549,12 @@ obs_to_sat_line, = ax.plot([], [], linestyle='--', color=RENDER.los_color, linew
 trail, = ax.plot([], [], RENDER.trail_style, linewidth=RENDER.trail_linewidth, alpha=RENDER.trail_alpha)
 
 
-# Cone beam parameters (nadir-pointing instrument footprint)
-# region agent log
-_debug_log(
-    run_id="pre-fix",
-    hypothesis_id="H1",
-    location="backend/render/first_plot.py:cone_opening_access",
-    message="About to access cone opening setting",
-    data={
-        "access_path": "SIMULATION.field_of_view_cone.opening_angle",
-        "has_cone_opening": bool(hasattr(SIMULATION, "cone_opening")),
-        "has_field_of_view_cone": bool(hasattr(SIMULATION, "field_of_view_cone")),
-    },
+# Cone beam parameters (2D instrument footprint)
+# Use the camera sensor vertical FOV in the renderer's in-plane 2D convention.
+_vertical_fov_rad = pinhole_full_fov_rad(
+    sensor_dim=SENSOR_HEIGHT, focal_length=FOCAL_LENGTH
 )
-# endregion
-cone_opening_deg = SIMULATION.field_of_view_cone.opening_angle.to(ureg.deg).magnitude
-cone_half_angle_rad = np.deg2rad(cone_opening_deg / 2) * RENDER.cone_half_angle_render_scale
+cone_half_angle_rad = float(_vertical_fov_rad.to(ureg.rad).magnitude / 2.0)
 cone_length = SIMULATION.cone_length.to(ureg.km).magnitude * RENDER.cone_length_render_scale
 cone = Polygon([[0, 0], [0, 0], [0, 0]], closed=True, color=RENDER.cone_color, alpha=RENDER.cone_alpha)
 ax.add_patch(cone)
@@ -407,28 +582,38 @@ z_axis_label = ax.text(
     weight=RENDER.z_label_weight,
     zorder=RENDER.zorder_z_label,
 )
-info_text = ax.text(
-    0.5,
-    0.02,
+telemetry_ax = fig.add_axes(RENDER.telemetry_axes_rect)
+telemetry_ax.set_facecolor(RENDER.space_background)
+telemetry_ax.set_xlim(0.0, 1.0)
+telemetry_ax.set_ylim(0.0, 1.0)
+telemetry_ax.set_xticks([])
+telemetry_ax.set_yticks([])
+for _sp in telemetry_ax.spines.values():
+    _sp.set_edgecolor(RENDER.info_text_color)
+    _sp.set_linewidth(0.8)
+info_telemetry_text = telemetry_ax.text(
+    0.04,
+    0.98,
     "",
-    transform=ax.transAxes,
+    transform=telemetry_ax.transAxes,
     color=RENDER.info_text_color,
-    fontsize=RENDER.info_fontsize,
-    va='bottom',
-    ha='center',
-    bbox=dict(
-        boxstyle=RENDER.info_bbox_boxstyle,
-        facecolor=RENDER.info_bbox_facecolor,
-        edgecolor=RENDER.info_bbox_edgecolor,
-        alpha=RENDER.info_bbox_alpha,
-        linewidth=RENDER.info_bbox_linewidth,
-    ),
-    zorder=RENDER.zorder_info,
+    fontsize=RENDER.info_panel_fontsize,
+    family=RENDER.info_panel_fontfamily,
+    va="top",
+    ha="left",
+    linespacing=1.14,
 )
 
 def set_sim_speed(multiplier):
     global sim_speed_multiplier
     sim_speed_multiplier = float(multiplier)
+
+def toggle_pause(_event=None):
+    global paused, pause_button
+    paused = not paused
+    # Update label text if the button object exists yet.
+    if pause_button is not None:
+        pause_button.label.set_text("Resume" if paused else "Pause")
 
 def set_sat_body_rotation_rate(rate, unit="arcsec"):
     """Assign constant body rotation speed for +z axis."""
@@ -446,33 +631,51 @@ def set_sat_body_rotation_rate(rate, unit="arcsec"):
         raise ValueError("unit must be one of: arcsec, arcmin, deg")
 
 
-def build_simulation_series():
-    body_torque_cmd_nm = SATELLITE.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude
-    body_inertia_kg_m2 = SATELLITE.moment_of_inertia_2d.to(ureg.kg * ureg.m**2).magnitude
-    config = KinematicSimulationConfig(
-        earth_radius_km=R_earth,
-        sat_altitude_km=sat_altitude,
-        mu_earth_km3_s2=mu_earth,
-        theta_center_rad=theta_center,
-        start_angle_deg=start_angle_deg,
-        end_angle_deg=end_angle_deg,
-        sat_motion_span_scale=sat_motion_span_scale,
-        num_frames=num_frames,
-        sat_z_offset_deg=sat_z_offset_deg,
-        body_torque_cmd_nm=body_torque_cmd_nm,
-        body_inertia_kg_m2=body_inertia_kg_m2,
-        body_initial_omega_rad_s=0.0,
-    )
-    return simulate_kinematic_trajectory(config)
-
-
-simulation = build_simulation_series()
+simulation = run_simulation(
+    earth_radius=EARTH_RADIUS,
+    earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
+    satellite=SATELLITE,
+    satellite_altitude=SATELLITE_ALTITUDE,
+    theta_center_rad=float(theta_center),
+    start_angle_deg=float(start_angle_deg),
+    end_angle_deg=float(end_angle_deg),
+    sat_motion_span_scale=float(sat_motion_span_scale),
+    num_frames=int(num_frames),
+    sat_z_offset_deg=float(sat_z_offset_deg),
+    ureg=ureg,
+)
 orbit_period_s = simulation.metadata.orbit_period_s
 
 button_specs = list(RENDER.speed_button_specs)
 speed_buttons = []
-for label, multiplier, left in button_specs:
-    button_ax = fig.add_axes([left, RENDER.speed_button_top, RENDER.speed_button_width, RENDER.speed_button_height])
+pause_button = None
+
+_transport = RENDER.transport_bar_rect
+_btn_h = RENDER.speed_button_height
+_btn_w = RENDER.speed_button_width
+_pause_w = 0.072
+_btn_gap = 0.008
+# Pause + Real-time + 3 speed buttons with gaps
+_n_speed = len(button_specs)
+_total_w = _pause_w + _n_speed * _btn_w + _n_speed * _btn_gap
+_start_x = _transport[0] + max(0.0, (_transport[2] - _total_w) * 0.5)
+_btn_y = _transport[1] + max(0.0, (_transport[3] - _btn_h) * 0.5)
+_cx = _start_x
+pause_ax = fig.add_axes([_cx, _btn_y, _pause_w, _btn_h])
+pause_ax.set_facecolor(RENDER.space_background)
+pause_button = Button(
+    pause_ax,
+    "Pause",
+    color=RENDER.speed_button_color,
+    hovercolor=RENDER.speed_button_hover_color,
+)
+pause_button.label.set_color(RENDER.speed_button_label_color)
+pause_button.label.set_fontsize(RENDER.speed_button_label_fontsize)
+pause_button.on_clicked(toggle_pause)
+_cx += _pause_w + _btn_gap
+
+for label, multiplier, _unused_left in button_specs:
+    button_ax = fig.add_axes([_cx, _btn_y, _btn_w, _btn_h])
     button_ax.set_facecolor(RENDER.space_background)
     button = Button(
         button_ax,
@@ -481,8 +684,10 @@ for label, multiplier, left in button_specs:
         hovercolor=RENDER.speed_button_hover_color,
     )
     button.label.set_color(RENDER.speed_button_label_color)
+    button.label.set_fontsize(RENDER.speed_button_label_fontsize)
     button.on_clicked(lambda _event, m=multiplier: set_sim_speed(m))
     speed_buttons.append(button)
+    _cx += _btn_w + _btn_gap
 
 
 def simulation_index_from_time(sim_time_local, wrap_orbit=True):
@@ -528,10 +733,34 @@ def _observer_local_km_to_geo(local_xy_km):
 
 
 def _project_to_swiss_frame(local_xy_km):
+    h = _swiss_inset_half_km
     return np.array(
         [
-            float(np.clip(local_xy_km[0], -500.0, 500.0)),
-            float(np.clip(local_xy_km[1], -500.0, 500.0)),
+            float(np.clip(local_xy_km[0], -h, h)),
+            float(np.clip(local_xy_km[1], -h, h)),
+        ]
+    )
+
+
+def _inset_swiss_footprint_vertices_xy(left_local_km, right_local_km, half_swath_km):
+    """Rectangle in observer-local km: chord = left→right, half-width along perpendicular (swath/2)."""
+    chord = np.asarray(right_local_km, dtype=float) - np.asarray(left_local_km, dtype=float)
+    L = float(np.linalg.norm(chord))
+    if L < 1e-9:
+        return None
+    e = chord / L
+    e_perp = np.array([-e[1], e[0]])
+    h = float(half_swath_km)
+    p0 = np.asarray(left_local_km, dtype=float) + h * e_perp
+    p1 = np.asarray(right_local_km, dtype=float) + h * e_perp
+    p2 = np.asarray(right_local_km, dtype=float) - h * e_perp
+    p3 = np.asarray(left_local_km, dtype=float) - h * e_perp
+    return np.array(
+        [
+            _project_to_swiss_frame(p0),
+            _project_to_swiss_frame(p1),
+            _project_to_swiss_frame(p2),
+            _project_to_swiss_frame(p3),
         ]
     )
 
@@ -560,13 +789,17 @@ def _compute_cloud_arcs_at_time(sim_time_local):
         mod = 1.0 + model["noise_amp"] * np.sin(
             model["noise_freq_rad_s"] * sim_time_local + model["noise_phase"]
         )
-        shift = omega * mod * sim_time_local
+        # Keep clouds angular placement fixed for the 2D geometry view,
+        # so observer/cloud relationships remain consistent.
+        shift = 0.0
         base_start = model["start_rad_0"] + shift
         base_end = model["end_rad_0"] + shift
-        center = 0.5 * (base_start + base_end)
-        half_span = 0.5 * (base_end - base_start) * cloud_growth
-        start = center - half_span
-        end = center + half_span
+        # Center the arc on the observer radial so the ground observer and cloud
+        # share the same polar angle (same vertical line in the XY plot).
+        observer_angle_rad = float(np.arctan2(observer_pos[1], observer_pos[0]))
+        angular_width = float(base_end - base_start) * cloud_growth
+        start = observer_angle_rad - 0.5 * angular_width
+        end = observer_angle_rad + 0.5 * angular_width
         theta = np.linspace(start, end, RENDER.cloud_segment_points)
         radius = model["radius_km"]
         x = radius * np.cos(theta)
@@ -618,11 +851,11 @@ def init():
     cone.set_xy([[0, 0], [0, 0], [0, 0]])
     z_axis_arrow.set_positions((0, 0), (0, 0))
     z_axis_label.set_position((0, 0))
-    inset_footprint.set_data([], [])
+    inset_footprint_poly.set_xy(np.zeros((4, 2)))
+    inset_footprint_poly.set_visible(False)
     inset_hit_marker.set_data([], [])
     inset_centerline.set_data([], [])
     closeup_cone.set_xy([[0, 0], [0, 0], [0, 0]])
-    closeup_centerline.set_data([], [])
     closeup_hit_marker.set_data([], [])
     for glow, core in zip(cloud_main_glow_artists, cloud_main_core_artists):
         glow.set_data([], [])
@@ -630,17 +863,10 @@ def init():
     for glow, core in zip(cloud_inset_glow_artists, cloud_inset_core_artists):
         glow.set_data([], [])
         core.set_data([], [])
-    for glow, core, upper, lower in zip(
-        closeup_cloud_glow_artists,
-        closeup_cloud_core_artists,
-        closeup_cloud_upper_artists,
-        closeup_cloud_lower_artists,
-    ):
+    for glow, core in zip(closeup_cloud_glow_artists, closeup_cloud_core_artists):
         glow.set_data([], [])
         core.set_data([], [])
-        upper.set_data([], [])
-        lower.set_data([], [])
-    info_text.set_text("")
+    info_telemetry_text.set_text("")
     return set_scene_at_index(0, speed_label=sim_speed_multiplier)
 
 
@@ -658,13 +884,42 @@ def set_scene_at_index(sim_idx, speed_label=None):
     trail_radius = simulation.radius_km[:trail_end]
     trail.set_data(trail_radius * np.cos(trail_theta), trail_radius * np.sin(trail_theta))
 
-    z_angle_rad = simulation.body_z_angle_rad[sim_idx]
-    sat_to_observer_unit = observer_pos - sat_pos
-    sat_to_observer_norm = np.linalg.norm(sat_to_observer_unit)
-    if sat_to_observer_norm < 1e-9:
-        z_axis_dir = np.array([0.0, -1.0])
+    z_angle_rad = float(simulation.body_z_angle_rad[sim_idx])
+    # Render the *simulated* body Z axis direction; do not derive it from LOS to the observer.
+    z_axis_dir = np.array([np.cos(z_angle_rad), np.sin(z_angle_rad)], dtype=float)
+
+    try:
+        _cam = simulate_camera_strip_2d(
+            sat_pos_xy_km=sat_pos,
+            boresight_dir_unit_xy=z_axis_dir,
+            altitude=SATELLITE_ALTITUDE,
+            earth_radius_km=R_earth,
+            sim_time_s=sim_time_local,
+            sim_total_s=float(simulation.metadata.sim_total_s),
+            pixel_ray_samples=_RENDER_PIXEL_RAY_SAMPLES,
+        )
+    except Exception:
+        _cam = None
+
+    if _cam is None:
+        ground_left_xy_km = np.full(2, np.nan)
+        ground_right_xy_km = np.full(2, np.nan)
+        ground_center_xy_km = np.full(2, np.nan)
+        center_first_hit_xy_km = np.full(2, np.nan)
+        center_first_hit_is_cloud = False
+        camera_gsd_m = float("nan")
+        strip_cloud_blocked_fraction = float("nan")
     else:
-        z_axis_dir = sat_to_observer_unit / sat_to_observer_norm
+        ground_left_xy_km = _cam.ground_left_xy_km
+        ground_right_xy_km = _cam.ground_right_xy_km
+        ground_center_xy_km = _cam.ground_center_xy_km
+        center_first_hit_is_cloud = _cam.center_first_hit_is_cloud
+        camera_gsd_m = float(_cam.gsd_m)
+        strip_cloud_blocked_fraction = float(_cam.cloud_blocked_fraction)
+        if _cam.center_first_hit_xy_km is not None:
+            center_first_hit_xy_km = _cam.center_first_hit_xy_km
+        else:
+            center_first_hit_xy_km = np.full(2, np.nan)
 
     # Update cone footprint along +z direction
     cos_h, sin_h = np.cos(cone_half_angle_rad), np.sin(cone_half_angle_rad)
@@ -673,61 +928,66 @@ def set_scene_at_index(sim_idx, speed_label=None):
     edge_left = sat_pos + cone_length * (rot_left @ z_axis_dir)
     edge_right = sat_pos + cone_length * (rot_right @ z_axis_dir)
     cone.set_xy([sat_pos, edge_left, edge_right])
-    closeup_cone.set_xy([sat_pos, edge_left, edge_right])
+    sat_y_local, sat_z_local = _project_big_xy_to_closeup_yz(sat_pos[0], sat_pos[1])
+    left_y_local, left_z_local = _project_big_xy_to_closeup_yz(edge_left[0], edge_left[1])
+    right_y_local, right_z_local = _project_big_xy_to_closeup_yz(edge_right[0], edge_right[1])
+    closeup_cone.set_xy([[sat_y_local, sat_z_local], [left_y_local, left_z_local], [right_y_local, right_z_local]])
 
-    left_dir = rot_left @ z_axis_dir
-    center_dir = z_axis_dir
-    right_dir = rot_right @ z_axis_dir
-    t_left, p_left = _nearest_surface_hit(sat_pos, left_dir, cloud_arc_specs)
-    t_center, p_center = _nearest_surface_hit(sat_pos, center_dir, cloud_arc_specs)
-    t_right, p_right = _nearest_surface_hit(sat_pos, right_dir, cloud_arc_specs)
-
-    nearest_intersection_km = t_center
-
-    if p_left is not None and p_right is not None:
-        left_local = p_left - observer_pos
-        right_local = p_right - observer_pos
-        inset_footprint.set_data([left_local[0], right_local[0]], [left_local[1], right_local[1]])
+    half_swath_km = 0.5 * (N_PIXELS_Y * camera_gsd_m) / 1000.0 if not np.isnan(camera_gsd_m) else float("nan")
+    if not (np.isnan(ground_left_xy_km).any() or np.isnan(ground_right_xy_km).any() or np.isnan(half_swath_km)):
+        left_local = ground_left_xy_km - observer_pos
+        right_local = ground_right_xy_km - observer_pos
+        verts = _inset_swiss_footprint_vertices_xy(left_local, right_local, half_swath_km)
+        if verts is not None:
+            inset_footprint_poly.set_xy(verts)
+            inset_footprint_poly.set_visible(True)
+        else:
+            inset_footprint_poly.set_xy(np.zeros((4, 2)))
+            inset_footprint_poly.set_visible(False)
     else:
-        inset_footprint.set_data([], [])
+        inset_footprint_poly.set_xy(np.zeros((4, 2)))
+        inset_footprint_poly.set_visible(False)
 
-    if p_center is not None:
-        center_local = p_center - observer_pos
+    if not np.isnan(ground_center_xy_km).any():
+        center_local = ground_center_xy_km - observer_pos
         center_local_frame = _project_to_swiss_frame(center_local)
         inset_hit_marker.set_data([center_local_frame[0]], [center_local_frame[1]])
+
         sat_local = sat_pos - observer_pos
         sat_local_frame = _project_to_swiss_frame(sat_local)
         inset_centerline.set_data(
             [sat_local_frame[0], center_local_frame[0]],
             [sat_local_frame[1], center_local_frame[1]],
         )
-        closeup_centerline.set_data([sat_pos[0], p_center[0]], [sat_pos[1], p_center[1]])
-        closeup_hit_marker.set_data([p_center[0]], [p_center[1]])
+
+        hit_y_local, hit_z_local = _project_big_xy_to_closeup_yz(ground_center_xy_km[0], ground_center_xy_km[1])
+        closeup_hit_marker.set_data([hit_y_local], [hit_z_local])
+
         hit_lat_deg, hit_lon_deg = _observer_local_km_to_geo(center_local_frame)
         hit_elevation_m = _sample_swiss_elevation_m(hit_lat_deg, hit_lon_deg)
+
+        if not np.isnan(center_first_hit_xy_km).any():
+            nearest_intersection_km = float(np.linalg.norm(center_first_hit_xy_km - sat_pos))
+        else:
+            nearest_intersection_km = None
     else:
         inset_hit_marker.set_data([], [])
         inset_centerline.set_data([], [])
-        closeup_centerline.set_data([], [])
         closeup_hit_marker.set_data([], [])
         hit_lat_deg, hit_lon_deg, hit_elevation_m = None, None, None
+        nearest_intersection_km = None
+        center_first_hit_is_cloud = False
 
     for idx, cloud_spec in enumerate(cloud_arc_specs):
         theta = cloud_spec["theta"]
         radius = cloud_spec["radius"]
-        profile_height = 0.5 * RENDER.cloud_linewidth * cloud_spec["growth"] * RENDER.closeup_cloud_height_scale
         x_mid = radius * np.cos(theta)
         y_mid = radius * np.sin(theta)
-        x_hi = (radius + profile_height) * np.cos(theta)
-        y_hi = (radius + profile_height) * np.sin(theta)
-        x_lo = (radius - profile_height) * np.cos(theta)
-        y_lo = (radius - profile_height) * np.sin(theta)
         closeup_cloud_glow_artists[idx].set_linewidth(RENDER.cloud_linewidth * 1.8 * cloud_spec["growth"])
         closeup_cloud_core_artists[idx].set_linewidth(RENDER.cloud_linewidth * cloud_spec["growth"])
-        closeup_cloud_glow_artists[idx].set_data(x_mid, y_mid)
-        closeup_cloud_core_artists[idx].set_data(x_mid, y_mid)
-        closeup_cloud_upper_artists[idx].set_data(x_hi, y_hi)
-        closeup_cloud_lower_artists[idx].set_data(x_lo, y_lo)
+        y_mid_local, z_mid_local = _project_big_xy_to_closeup_yz(x_mid, y_mid)
+        closeup_cloud_glow_artists[idx].set_data(y_mid_local, z_mid_local)
+        closeup_cloud_core_artists[idx].set_data(y_mid_local, z_mid_local)
 
     # Satellite Z orientation (relative to nadir).
     z_axis_tip = sat_pos + z_axis_length * z_axis_dir
@@ -750,21 +1010,81 @@ def set_scene_at_index(sim_idx, speed_label=None):
     if nearest_intersection_km is None:
         intersection_text = "none"
     else:
-        intersection_text = f"{nearest_intersection_km:.1f} km"
+        hit_type_label = "cloud" if center_first_hit_is_cloud else "earth"
+        intersection_text = f"{nearest_intersection_km:.1f} km ({hit_type_label})"
     if hit_lat_deg is None:
         geo_hit_text = "none"
     else:
         geo_hit_text = f"{hit_lat_deg:.3f}N {hit_lon_deg:.3f}E @ {hit_elevation_m:.0f}m"
+    camera_vertical_fov_deg = float(np.rad2deg(simulation.camera_vertical_fov_rad))
+    camera_swath_height_km = (N_PIXELS_Y * camera_gsd_m) / 1000.0 if not np.isnan(camera_gsd_m) else float("nan")
+    strip_cloud_blocked_pct = 100.0 * strip_cloud_blocked_fraction if not np.isnan(strip_cloud_blocked_fraction) else float("nan")
     speed_for_text = sim_speed_multiplier if speed_label is None else speed_label
-    info_text.set_text(
-        f"Orbit height: {sat_altitude:.1f} km   |   Body spin: {sat_body_rotation_rate_label}   |   z angle rel nadir: {z_angle_deg:+.1f}°   |   LOS rel nadir: {los_rel_nadir_deg:+.1f}°   |   Centerline hit: {intersection_text}   |   Swiss hit: {geo_hit_text}   |   Render window: {start_angle_deg:+.1f}° to {end_angle_deg:+.1f}°   |   Speed: {speed_for_text:.0f}x"
+    gsd_txt = f"{camera_gsd_m:.2f} m" if np.isfinite(camera_gsd_m) else "n/a"
+    swath_txt = (
+        f"{camera_swath_height_km:.1f} km"
+        if np.isfinite(camera_swath_height_km)
+        else "n/a"
     )
-    
-    return sat, obs_to_sat_line, trail, cone, z_axis_arrow, z_axis_label, info_text, inset_footprint, inset_hit_marker, inset_centerline
+    blocked_txt = (
+        f"{strip_cloud_blocked_pct:.0f}%"
+        if np.isfinite(strip_cloud_blocked_fraction)
+        else "n/a"
+    )
+    telemetry_body = "\n\n".join(
+        [
+            "\n".join(
+                [
+                    "Orbit / attitude",
+                    f"  Orbit height: {sat_altitude:.1f} km",
+                    f"  Body spin: {sat_body_rotation_rate_label}",
+                    f"  z angle rel nadir: {z_angle_deg:+.1f}°",
+                    f"  LOS rel nadir: {los_rel_nadir_deg:+.1f}°",
+                    f"  Render window: {start_angle_deg:+.1f}° to {end_angle_deg:+.1f}°",
+                ]
+            ),
+            "\n".join(
+                [
+                    "Camera / strip",
+                    f"  GSD: {gsd_txt}, V-FOV: {camera_vertical_fov_deg:.2f}°",
+                    f"  Swath height: {swath_txt}",
+                    f"  Strip cloud blocked: {blocked_txt}",
+                ]
+            ),
+            "\n".join(
+                [
+                    "Hits",
+                    f"  Centerline hit: {intersection_text}",
+                    f"  Swiss hit: {geo_hit_text}",
+                ]
+            ),
+            "\n".join(
+                [
+                    "Playback",
+                    f"  Speed: {speed_for_text:.0f}x",
+                ]
+            ),
+        ]
+    )
+    info_telemetry_text.set_text(telemetry_body)
+
+    return (
+        sat,
+        obs_to_sat_line,
+        trail,
+        cone,
+        z_axis_arrow,
+        z_axis_label,
+        info_telemetry_text,
+        inset_footprint_poly,
+        inset_hit_marker,
+        inset_centerline,
+    )
 
 def update(frame):
     global sim_time_s
-    sim_time_s += (animation_interval_ms / 1000.0) * sim_speed_multiplier
+    if not paused:
+        sim_time_s += (animation_interval_ms / 1000.0) * sim_speed_multiplier
     sim_idx = simulation_index_from_time(sim_time_s, wrap_orbit=True)
     return set_scene_at_index(sim_idx)
 
@@ -772,14 +1092,14 @@ def save_one_pass_video_30x_to_project_root():
     export_speed_multiplier = SIMULATION.export_speed_multiplier
     export_fps = RENDER.export_fps
     sim_total_s = simulation.metadata.sim_total_s
-    export_num_frames = max(
-        2,
-        int(np.ceil(sim_total_s * export_fps / export_speed_multiplier)) + 1,
-    )
+    # Match interactive playback: each output frame advances simulated time by the same
+    # step as one FuncAnimation tick at `export_speed_multiplier` (see `update()`).
+    dt_sim_s = (animation_interval_ms / 1000.0) * export_speed_multiplier
+    export_num_frames = max(2, int(np.ceil(sim_total_s / dt_sim_s)) + 1)
     export_path = Path(__file__).resolve().parents[2] / RENDER.export_filename
 
     def export_update(frame):
-        sim_t = (frame / (export_num_frames - 1)) * sim_total_s
+        sim_t = min(float(frame) * dt_sim_s, sim_total_s)
         sim_idx = simulation_index_from_time(sim_t, wrap_orbit=False)
         return set_scene_at_index(sim_idx, speed_label=export_speed_multiplier)
 
@@ -820,6 +1140,30 @@ def save_one_pass_video_30x_to_project_root():
         writer.release()
     return export_path
 
+def _maximize_interactive_window():
+    if not RENDER.interactive_start_maximized:
+        return
+    mgr = getattr(fig.canvas, "manager", None)
+    if mgr is None:
+        return
+    try:
+        win = getattr(mgr, "window", None)
+        if win is None:
+            return
+        if hasattr(win, "showMaximized"):
+            win.showMaximized()
+            return
+        if hasattr(win, "wm_state"):
+            win.wm_state("zoomed")
+            return
+        # TkAgg: toplevel may expose wm_state on the canvas widget
+        top = getattr(win, "winfo_toplevel", lambda: win)()
+        if hasattr(top, "wm_state"):
+            top.wm_state("zoomed")
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Satellite render and video export")
     parser.add_argument(
@@ -829,9 +1173,14 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    plt.title(
+    fig.text(
+        0.5,
+        0.995,
         f"2D Satellite Orbit around Earth (h={sat_altitude:.0f} km, T={orbit_period_s/60:.1f} min)",
-        color='white',
+        color="white",
+        ha="center",
+        va="top",
+        fontsize=RENDER.suptitle_fontsize,
     )
 
     if args.save_one_pass_30x:
@@ -847,4 +1196,5 @@ if __name__ == "__main__":
             interval=animation_interval_ms,
             cache_frame_data=False,
         )  # ~33 fps
+        _maximize_interactive_window()
         plt.show()

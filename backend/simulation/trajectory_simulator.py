@@ -67,10 +67,28 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         start_angle_deg     = float(config.start_angle_deg),
         end_angle_deg       = float(config.end_angle_deg),
     )
+    n = int(config.num_frames)
+    # Kinematic trajectory helper does not run camera/cloud optics; fill with NaNs
+    # so consumers can detect "not computed" vs `run_simulation()` outputs.
+    camera_gsd_m = np.full(n, np.nan, dtype=float)
+    camera_ground_left_xy_km = np.full((n, 2), np.nan, dtype=float)
+    camera_ground_right_xy_km = np.full((n, 2), np.nan, dtype=float)
+    camera_ground_center_xy_km = np.full((n, 2), np.nan, dtype=float)
+    camera_center_first_hit_xy_km = np.full((n, 2), np.nan, dtype=float)
+    camera_center_first_hit_is_cloud = np.zeros(n, dtype=bool)
+    camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
     return SimulationStateSeries(
         t_s              = t_s,
         theta_orbit_rad  = theta_orbit_rad,
         radius_km        = radius_km,
         body_z_angle_rad = body_z_angle_rad,
+        camera_gsd_m=camera_gsd_m,
+        camera_vertical_fov_rad=float("nan"),
+        camera_ground_left_xy_km=camera_ground_left_xy_km,
+        camera_ground_right_xy_km=camera_ground_right_xy_km,
+        camera_ground_center_xy_km=camera_ground_center_xy_km,
+        camera_center_first_hit_xy_km=camera_center_first_hit_xy_km,
+        camera_center_first_hit_is_cloud=camera_center_first_hit_is_cloud,
+        camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         metadata         = metadata,
     )

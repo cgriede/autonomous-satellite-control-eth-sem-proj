@@ -75,9 +75,24 @@ class SatelliteAttitude2D(gym.Env):
         self.state = np.array([theta, omega_s, omega_w])
 
         # Reward: pointing accuracy + low energy + avoid saturation
-        pointing_error = np.abs(theta - self.target_theta)
+        # In the 2D backend we keep the camera mapping 1D:
+        # angular pointing error -> vertical sensor pixel offset via pinhole optics.
+        #
+        # Pixel coordinate (vertical, in-plane) for an off-boresight angle alpha:
+        #   y = f * tan(alpha)
+        #   pixel_offset_pixels = y / pixel_size
+        pointing_error_rad = float(np.abs(theta - self.target_theta)) * ureg.rad
+        focal_m = FOCAL_LENGTH.to(ureg.m).magnitude
+        pixel_pitch_m = PIXEL_SIZE.to(ureg.m).magnitude
+        pointing_error_mag_rad = pointing_error_rad.to(ureg.rad).magnitude
+        pixel_offset_pixels = (focal_m * np.tan(pointing_error_mag_rad)) / pixel_pitch_m
+
+        # Normalize to [0, 1] across the sensor half-height and clip for numerical stability.
+        pixel_offset_norm = pixel_offset_pixels / (0.5 * float(N_PIXELS_Y))
+        pixel_offset_norm_clipped = float(np.clip(pixel_offset_norm, 0.0, 1.0))
+
         tau_applied_nm = tau_applied.to(ureg.N * ureg.m).magnitude
-        reward = -pointing_error**2 - 0.05 * omega_w**2 - 0.01 * tau_applied_nm**2
+        reward = -(pixel_offset_norm_clipped**2) - 0.05 * omega_w**2 - 0.01 * tau_applied_nm**2
         # Bonus for low wheel speed (proxy for energy/desat need)
         reward -= 0.1 * np.abs(omega_w) / self.omega_w_max
 

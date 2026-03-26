@@ -58,6 +58,9 @@ class RenderConstants:
     z_label_weight: str
     z_label_offset: object
     info_fontsize: int
+    info_panel_fontsize: int
+    info_panel_fontfamily: str
+    control_panel_height_frac: float
     info_text_color: str
     info_bbox_boxstyle: str
     info_bbox_facecolor: str
@@ -68,6 +71,8 @@ class RenderConstants:
     speed_button_top: float
     speed_button_width: float
     speed_button_height: float
+    speed_button_label_fontsize: int
+    suptitle_fontsize: int
     speed_button_color: str
     speed_button_hover_color: str
     speed_button_label_color: str
@@ -83,16 +88,43 @@ class RenderConstants:
     zorder_observer: int
     zorder_cloud: int
     zorder_info: int
+    # Swiss patch inset (bottom → top: footprint, centerline, observer, hit, clouds)
+    zorder_inset_footprint: int
+    zorder_inset_centerline: int
+    zorder_inset_observer: int
+    zorder_inset_hit: int
+    zorder_inset_cloud_glow: int
+    zorder_inset_cloud_core: int
+    inset_footprint_fill_alpha: float
+    inset_footprint_edge_linewidth: float
+    # Observer + cloud close-up YZ panel
+    zorder_closeup_ground: int
+    zorder_closeup_cone: int
+    zorder_closeup_cloud_glow: int
+    zorder_closeup_cloud_core: int
+    zorder_closeup_hit: int
+    zorder_closeup_observer: int
+    closeup_ground_line_color: str
+    closeup_ground_line_linewidth: float
     export_fps: int
     export_dpi: int
     export_filename: str
+    # Figure layout [left, bottom, width, height] in figure fraction; gutters reduce border collision.
+    figure_inset_gutter_frac: float
+    main_axes_rect: tuple[float, float, float, float]
+    telemetry_axes_rect: tuple[float, float, float, float]
+    swiss_inset_axes_rect: tuple[float, float, float, float]
     closeup_axes_rect: tuple[float, float, float, float]
+    transport_bar_rect: tuple[float, float, float, float]
+    interactive_start_maximized: bool
     closeup_half_window_km: object
     closeup_cloud_height_scale: float
+    # Swiss XY inset: square window [-half, +half] km each axis (full width = 2 * half).
+    swiss_inset_half_extent_km: object
 
 
 RENDER = RenderConstants(
-    figure_size=(12.0, 5.0),
+    figure_size=(12.0, 7.0),
     constrained_layout=True,
     space_background="black",
     plot_margin=600.0 * ureg.km,
@@ -145,6 +177,9 @@ RENDER = RenderConstants(
     z_label_weight="bold",
     z_label_offset=35.0 * ureg.km,
     info_fontsize=11,
+    info_panel_fontsize=10,
+    info_panel_fontfamily="monospace",
+    control_panel_height_frac=0.22,
     info_text_color="white",
     info_bbox_boxstyle="round,pad=0.35",
     info_bbox_facecolor="black",
@@ -158,8 +193,10 @@ RENDER = RenderConstants(
         ("30x", 30.0, 0.85),
     ),
     speed_button_top=0.92,
-    speed_button_width=0.09,
-    speed_button_height=0.055,
+    speed_button_width=0.062,
+    speed_button_height=0.034,
+    speed_button_label_fontsize=8,
+    suptitle_fontsize=13,
     speed_button_color="#1f1f1f",
     speed_button_hover_color="#3a3a3a",
     speed_button_label_color="white",
@@ -175,10 +212,34 @@ RENDER = RenderConstants(
     zorder_observer=8,
     zorder_cloud=9,
     zorder_info=20,
-    export_fps=30,
+    zorder_inset_footprint=2,
+    zorder_inset_centerline=3,
+    zorder_inset_observer=4,
+    zorder_inset_hit=5,
+    zorder_inset_cloud_glow=6,
+    zorder_inset_cloud_core=7,
+    inset_footprint_fill_alpha=0.28,
+    inset_footprint_edge_linewidth=1.8,
+    zorder_closeup_ground=1,
+    zorder_closeup_cone=2,
+    zorder_closeup_hit=3,
+    zorder_closeup_cloud_glow=4,
+    zorder_closeup_cloud_core=5,
+    zorder_closeup_observer=8,
+    closeup_ground_line_color="#8B4513",
+    closeup_ground_line_linewidth=2.0,
+    export_fps=20,
     export_dpi=120,
     export_filename="satellite_orbit_one_pass_30x.mp4",
-    closeup_axes_rect=(0.67, 0.20, 0.30, 0.34),
+    # Left telemetry | right: main (top) + Swiss | YZ insets (bottom). Values tuned with figure_inset_gutter_frac.
+    figure_inset_gutter_frac=0.012,
+    telemetry_axes_rect=(0.02, 0.078, 0.19, 0.902),
+    main_axes_rect=(0.222, 0.280, 0.758, 0.70),
+    swiss_inset_axes_rect=(0.222, 0.078, 0.374, 0.19),
+    closeup_axes_rect=(0.606, 0.078, 0.374, 0.19),
+    transport_bar_rect=(0.02, 0.02, 0.96, 0.048),
+    interactive_start_maximized=True,
     closeup_half_window_km=380.0 * ureg.km,
     closeup_cloud_height_scale=1.8,
+    swiss_inset_half_extent_km=250.0 * ureg.km,
 )

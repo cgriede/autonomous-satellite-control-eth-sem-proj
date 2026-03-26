@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 
+from simulation.camera_optics import pinhole_full_fov_rad
+
 from .UNIT_REGISTRY import UREG as ureg
+from .SATELLITE import FOCAL_LENGTH, SENSOR_HEIGHT
 
 
 @dataclass(frozen=True)
@@ -59,7 +62,11 @@ SIMULATION = SimulationConstants(
     default_speed_multiplier=30.0,
     default_body_spin_rate=3.0 * ureg.deg / ureg.s,
     field_of_view_cone=FieldOfViewCone(
-        opening_angle=0.1 * ureg.deg,
+        # In the current 2D renderer, the sensor reduces to a 1D footprint line.
+        # That in-plane opening is the sensor vertical FOV.
+        opening_angle=pinhole_full_fov_rad(
+            sensor_dim=SENSOR_HEIGHT, focal_length=FOCAL_LENGTH
+        ),
     ),
     cone_length=20000.0 * ureg.km,
     z_axis_length=180.0 * ureg.km,

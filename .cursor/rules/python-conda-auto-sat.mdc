@@ -1,5 +1,5 @@
 ---
-description: Use auto-sat conda environment for Python commands
+description: Use auto-sat or ASC conda environment for Python commands
 alwaysApply: true
 ---
 
@@ -7,3 +7,6 @@ alwaysApply: true
 
 - Always run Python commands in this project after activating the `auto-sat` conda environment.
 - Use: `conda activate auto-sat` before `python ...`, `pip ...`, pytest, or any Python tooling command.
+
+# Fallback
+if `auto-sat` is not available try `ASC`
