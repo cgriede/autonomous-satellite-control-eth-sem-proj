@@ -43,26 +43,6 @@ from simulation.run_simulation import run_simulation
 # Lazy camera: samples per frame in renderer (not 7000; not 500×2000 at import).
 _RENDER_PIXEL_RAY_SAMPLES = 96
 
-
-def _agent_debug_log(hypothesisId, location, message, data):
-    # Minimal NDJSON logging for runtime evidence during debugging.
-    # Never raise from logging.
-    try:
-        debug_log_path = Path(__file__).resolve().parents[2] / "debug-5dbcb6.log"
-        payload = {
-            "sessionId": "5dbcb6",
-            "runId": "post-refactor",
-            "hypothesisId": hypothesisId,
-            "location": location,
-            "message": message,
-            "data": data,
-            "timestamp": int(time.time() * 1000),
-        }
-        with open(debug_log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=True) + "\n")
-    except Exception:
-        pass
-
 # --- Parameters ---
 # Earth radius in kilometers is needed for all geometric calculations.
 R_earth = EARTH_RADIUS.to(ureg.km).magnitude
@@ -1037,30 +1017,6 @@ def set_scene_at_index(sim_idx, speed_label=None):
             y_max = float(np.max(verts_clipped[:, 1]))
             # 1D inset columns encode the *y* coordinate (in-plane), projected into [-h, +h].
             view_mask = (_inset_1d_x_bins >= y_min) & (_inset_1d_x_bins <= y_max)
-            if sim_idx == 0:
-                _agent_debug_log(
-                    "H8",
-                    "first_plot:set_scene_at_index:inset_1d_span_debug",
-                    "1D cone span validity + bin coverage",
-                    {
-                        "sim_idx": int(sim_idx),
-                        "half_swath_km": float(half_swath_km),
-                        "y_min": y_min,
-                        "y_max": y_max,
-                        "view_mask_bins": int(np.count_nonzero(view_mask)),
-                    },
-                )
-                _agent_debug_log(
-                    "H9",
-                    "first_plot:set_scene_at_index:inset_artist_visibility",
-                    "Verify legacy inset overlay artists stay hidden",
-                    {
-                        "inset_centerline_visible": bool(inset_centerline.get_visible()),
-                        "inset_footprint_poly_visible": bool(inset_footprint_poly.get_visible()),
-                        "inset_hit_marker_visible": bool(inset_hit_marker.get_visible()),
-                        "inset_1d_img_visible": bool(inset_1d_img.get_visible()),
-                    },
-                )
             inset_img[0, view_mask, :] = np.array(_INSET_1D_CONE_RGBA, dtype=float)
 
             # Clouds: mark x bins for points that are inside the full 2D footprint rectangle.
