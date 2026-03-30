@@ -1,6 +1,6 @@
 from .UNIT_REGISTRY import UREG as ureg
 
-# Mission-level constants from project discussions.
+#####################################
 SATELLITE_MASS                 = 250.0* ureg.kg
 STAR_TRACKER_MAX_MANEUVER_RATE = 3.0* ureg.deg/ureg.s
 
@@ -8,6 +8,14 @@ STAR_TRACKER_MAX_MANEUVER_RATE = 3.0* ureg.deg/ureg.s
 REACTION_WHEEL_MAX_TORQUE   = 0.1 * ureg.N* ureg.m
 REACTION_WHEEL_MAX_MOMENTUM = 0.4 * ureg.N * ureg.m * ureg.s
 
+#3d moment of inertia
+Ixx = 16.6 * ureg.kg* ureg.m**2
+Iyy = 21.7 * ureg.kg* ureg.m**2
+Izz = 31.2 * ureg.kg* ureg.m**2 
+
+#2d simplified case
+MOMENT_OF_INERTIA_2D        = Izz
+#####################################
 # Camera specs (source of truth for optics)
 #
 # Required by design:
@@ -27,10 +35,4 @@ FOCAL_LENGTH = 1067 * ureg.mm
 SENSOR_WIDTH = (N_PIXELS_X * PIXEL_SIZE).to(ureg.m)  # cross-track dimension
 SENSOR_HEIGHT = (N_PIXELS_Y * PIXEL_SIZE).to(ureg.m)  # along-track dimension
 
-#3d moment of inertia
-Ixx = 16.6 * ureg.kg* ureg.m**2
-Iyy = 21.7 * ureg.kg* ureg.m**2
-Izz = 31.2 * ureg.kg* ureg.m**2 
-
-#2d simplified case
-MOMENT_OF_INERTIA_2D        = Izz
+####################################

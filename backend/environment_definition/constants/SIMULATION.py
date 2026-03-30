@@ -77,8 +77,8 @@ SIMULATION = SimulationConstants(
     clouds=(
         Cloud(
             height=15.0 * ureg.km,
-            start_location=89.75 * ureg.deg,
-            end_location=90.25 * ureg.deg,
+            start_location=89.99 * ureg.deg,
+            end_location=90.2 * ureg.deg,
         ),
     ),
     export_speed_multiplier=30.0,
