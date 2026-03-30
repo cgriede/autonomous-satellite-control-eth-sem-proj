@@ -14,7 +14,14 @@ from matplotlib.colors import to_rgba
 from matplotlib.patches import Circle, Polygon, FancyArrowPatch
 from matplotlib.widgets import Button
 import argparse
+import json
+import time
 from pathlib import Path
+
+try:
+    from tqdm import tqdm  # type: ignore[reportMissingImports]
+except ImportError:  # pragma: no cover
+    tqdm = None  # type: ignore[assignment]
 
 #local imports
 from environment_definition.constants import (
@@ -35,6 +42,26 @@ from simulation.run_simulation import run_simulation
 
 # Lazy camera: samples per frame in renderer (not 7000; not 500×2000 at import).
 _RENDER_PIXEL_RAY_SAMPLES = 96
+
+
+def _agent_debug_log(hypothesisId, location, message, data):
+    # Minimal NDJSON logging for runtime evidence during debugging.
+    # Never raise from logging.
+    try:
+        debug_log_path = Path(__file__).resolve().parents[2] / "debug-5dbcb6.log"
+        payload = {
+            "sessionId": "5dbcb6",
+            "runId": "post-refactor",
+            "hypothesisId": hypothesisId,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        with open(debug_log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=True) + "\n")
+    except Exception:
+        pass
 
 # --- Parameters ---
 # Earth radius in kilometers is needed for all geometric calculations.
@@ -340,18 +367,45 @@ for _ in cloud_models:
 
 _swiss_inset_half_km = float(RENDER.swiss_inset_half_extent_km.to(ureg.km).magnitude)
 _swiss_inset_full_km = int(round(2.0 * _swiss_inset_half_km))
+_INSET_1D_RANGE_KM = float(_swiss_inset_half_km)
 
 # Observer-local weather/capture inset (square km window from RENDER.swiss_inset_half_extent_km)
 inset_ax = fig.add_axes(RENDER.swiss_inset_axes_rect)
 inset_ax.set_facecolor(RENDER.space_background)
-inset_ax.set_aspect('equal', adjustable='box')
-inset_ax.set_xlim(-_swiss_inset_half_km, _swiss_inset_half_km)
-inset_ax.set_ylim(-_swiss_inset_half_km, _swiss_inset_half_km)
+inset_ax.set_aspect('auto', adjustable='box')
+inset_ax.set_xlim(-_INSET_1D_RANGE_KM, _INSET_1D_RANGE_KM)
+inset_ax.set_ylim(-_INSET_1D_RANGE_KM, _INSET_1D_RANGE_KM)
 inset_ax.set_xticks([])
 inset_ax.set_yticks([])
 for spine in inset_ax.spines.values():
     spine.set_edgecolor(RENDER.info_text_color)
     spine.set_linewidth(1.0)
+
+_INSET_1D_BINS = 240
+_INSET_1D_BAND_HALF_KM = 7.5
+_INSET_1D_EARTH_RGBA = to_rgba(RENDER.closeup_ground_line_color, 1.0)
+_INSET_1D_CONE_RGBA = to_rgba("#1E90FF", 1.0)
+_INSET_1D_CLOUD_RGBA = to_rgba("white", 1.0)
+_INSET_1D_OBSERVER_RGBA = to_rgba(RENDER.observer_color, 1.0)
+
+inset_1d_img = inset_ax.imshow(
+    np.zeros((1, _INSET_1D_BINS, 4), dtype=float),
+    extent=(
+        -_INSET_1D_RANGE_KM,
+        _INSET_1D_RANGE_KM,
+        -_INSET_1D_BAND_HALF_KM,
+        _INSET_1D_BAND_HALF_KM,
+    ),
+    origin="lower",
+    interpolation="nearest",
+    aspect="auto",
+    zorder=1,
+)
+
+_inset_1d_obs_bin = int(round((_INSET_1D_BINS - 1) * 0.5))  # x_local=0
+_inset_1d_x_bins = np.linspace(-_INSET_1D_RANGE_KM, _INSET_1D_RANGE_KM, _INSET_1D_BINS)
+cloud_inset_x_samples = [None for _ in cloud_models]
+cloud_inset_y_samples = [None for _ in cloud_models]
 _inset_swiss_label_z = max(RENDER.zorder_inset_cloud_core, RENDER.zorder_info) + 1
 inset_ax.text(
     0.02,
@@ -368,7 +422,7 @@ inset_ax.text(
 inset_ax.text(
     0.02,
     0.02,
-    "XY plane (z=0)",
+    "1D view (in-plane y)",
     transform=inset_ax.transAxes,
     color=RENDER.info_text_color,
     fontsize=7,
@@ -376,7 +430,7 @@ inset_ax.text(
     ha="left",
     zorder=_inset_swiss_label_z,
 )
-inset_ax.plot(
+inset_observer_marker, = inset_ax.plot(
     [observer_cross_local[0]],
     [observer_cross_local[1]],
     marker='x',
@@ -385,6 +439,7 @@ inset_ax.plot(
     markeredgewidth=1.2,
     zorder=RENDER.zorder_inset_observer,
 )
+inset_observer_marker.set_visible(False)  # observer is rendered into the 1D image
 inset_footprint_poly = Polygon(
     np.zeros((4, 2)),
     closed=True,
@@ -395,6 +450,7 @@ inset_footprint_poly = Polygon(
     zorder=RENDER.zorder_inset_footprint,
 )
 inset_ax.add_patch(inset_footprint_poly)
+inset_footprint_poly.set_visible(False)  # replaced by the 1D image
 inset_hit_marker, = inset_ax.plot(
     [],
     [],
@@ -404,14 +460,16 @@ inset_hit_marker, = inset_ax.plot(
     linestyle='None',
     zorder=RENDER.zorder_inset_hit,
 )
+inset_hit_marker.set_visible(False)
 inset_centerline, = inset_ax.plot(
     [],
     [],
     color=RENDER.z_arrow_color,
     linewidth=1.2,
-    alpha=0.8,
+    alpha=0.0,  # Keep endpoints computed but do not render the diagonal overlay line.
     zorder=RENDER.zorder_inset_centerline,
 )
+inset_centerline.set_visible(False)
 cloud_inset_glow_artists = []
 cloud_inset_core_artists = []
 for _ in cloud_models:
@@ -435,6 +493,8 @@ for _ in cloud_models:
     )
     cloud_inset_glow_artists.append(inset_glow)
     cloud_inset_core_artists.append(inset_core)
+    inset_glow.set_visible(False)
+    inset_core.set_visible(False)
 
 # Observer/cloud close-up in the same 2D orbital plane.
 closeup_ax = fig.add_axes(RENDER.closeup_axes_rect)
@@ -501,9 +561,11 @@ closeup_ax.plot(
 closeup_cone = Polygon(
     [[0, 0], [0, 0], [0, 0]],
     closed=True,
-    facecolor="none",
-    edgecolor="none",
-    linewidth=0.0,
+    # Make the camera view cone visible in the close-up panel.
+    facecolor=RENDER.cone_color,
+    edgecolor=RENDER.cone_color,
+    linewidth=1.0,
+    alpha=RENDER.cone_alpha,
     zorder=RENDER.zorder_closeup_cone,
 )
 closeup_ax.add_patch(closeup_cone)
@@ -514,6 +576,17 @@ closeup_hit_marker, = closeup_ax.plot(
     color='yellow',
     markersize=4,
     linestyle='None',
+    zorder=RENDER.zorder_closeup_hit,
+)
+
+# Observer-to-hit line of sight (close-up YZ).
+closeup_obs_to_hit_line, = closeup_ax.plot(
+    [],
+    [],
+    linestyle='--',
+    color=RENDER.los_color,
+    linewidth=RENDER.los_linewidth,
+    alpha=RENDER.los_alpha,
     zorder=RENDER.zorder_closeup_hit,
 )
 closeup_cloud_glow_artists = []
@@ -743,7 +816,11 @@ def _project_to_swiss_frame(local_xy_km):
 
 
 def _inset_swiss_footprint_vertices_xy(left_local_km, right_local_km, half_swath_km):
-    """Rectangle in observer-local km: chord = left→right, half-width along perpendicular (swath/2)."""
+    """Rectangle in observer-local km: chord = left→right, half-width along perpendicular (swath/2).
+
+    Note: returns *unclipped* observer-local vertices (do not project/clip to the swiss inset range here).
+    The caller (1D inset rendering) can decide how to clip/map to pixels.
+    """
     chord = np.asarray(right_local_km, dtype=float) - np.asarray(left_local_km, dtype=float)
     L = float(np.linalg.norm(chord))
     if L < 1e-9:
@@ -755,14 +832,7 @@ def _inset_swiss_footprint_vertices_xy(left_local_km, right_local_km, half_swath
     p1 = np.asarray(right_local_km, dtype=float) + h * e_perp
     p2 = np.asarray(right_local_km, dtype=float) - h * e_perp
     p3 = np.asarray(left_local_km, dtype=float) - h * e_perp
-    return np.array(
-        [
-            _project_to_swiss_frame(p0),
-            _project_to_swiss_frame(p1),
-            _project_to_swiss_frame(p2),
-            _project_to_swiss_frame(p3),
-        ]
-    )
+    return np.array([p0, p1, p2, p3], dtype=float)
 
 
 def _sample_swiss_elevation_m(lat_deg, lon_deg):
@@ -815,6 +885,8 @@ def _compute_cloud_arcs_at_time(sim_time_local):
         cloud_inset_core_artists[idx].set_linewidth(RENDER.cloud_linewidth * cloud_thickness)
         cloud_inset_glow_artists[idx].set_data(x_local, y_local)
         cloud_inset_core_artists[idx].set_data(x_local, y_local)
+        cloud_inset_x_samples[idx] = x_local
+        cloud_inset_y_samples[idx] = y_local
         cloud_arc_specs.append(
             {
                 "radius": radius,
@@ -855,8 +927,13 @@ def init():
     inset_footprint_poly.set_visible(False)
     inset_hit_marker.set_data([], [])
     inset_centerline.set_data([], [])
+    base_img = np.zeros((1, _INSET_1D_BINS, 4), dtype=float)
+    base_img[:, :, :] = np.array(_INSET_1D_EARTH_RGBA, dtype=float)
+    base_img[0, _inset_1d_obs_bin, :] = np.array(_INSET_1D_OBSERVER_RGBA, dtype=float)
+    inset_1d_img.set_data(base_img)
     closeup_cone.set_xy([[0, 0], [0, 0], [0, 0]])
     closeup_hit_marker.set_data([], [])
+    closeup_obs_to_hit_line.set_data([], [])
     for glow, core in zip(cloud_main_glow_artists, cloud_main_core_artists):
         glow.set_data([], [])
         core.set_data([], [])
@@ -878,7 +955,6 @@ def set_scene_at_index(sim_idx, speed_label=None):
     cloud_arc_specs = _compute_cloud_arcs_at_time(sim_time_local)
     sat.set_data([sat_pos[0]], [sat_pos[1]])
     obs_to_sat_line.set_data([observer_x, sat_pos[0]], [observer_y, sat_pos[1]])
-
     trail_end = max(sim_idx + 1, 2)
     trail_theta = simulation.theta_orbit_rad[:trail_end]
     trail_radius = simulation.radius_km[:trail_end]
@@ -933,20 +1009,102 @@ def set_scene_at_index(sim_idx, speed_label=None):
     right_y_local, right_z_local = _project_big_xy_to_closeup_yz(edge_right[0], edge_right[1])
     closeup_cone.set_xy([[sat_y_local, sat_z_local], [left_y_local, left_z_local], [right_y_local, right_z_local]])
 
+    # Close-up LOS trace should match the 2D orbit plot observer->satellite orange line,
+    # because this YZ panel is a zoom-in projection of that same geometry.
+    if np.isfinite(sat_y_local) and np.isfinite(sat_z_local):
+        closeup_obs_to_hit_line.set_data([0.0, float(sat_y_local)], [0.0, float(sat_z_local)])
+    else:
+        closeup_obs_to_hit_line.set_data([], [])
+    # 1D inset image update:
+    # - brown: earth background
+    # - blue: view cone projection (footprint x-span)
+    # - red: observer at x=0
+    # - white: clouds inside the footprint rectangle
+    inset_img = np.zeros((1, _INSET_1D_BINS, 4), dtype=float)
+    inset_img[:, :, :] = np.array(_INSET_1D_EARTH_RGBA, dtype=float)
+    inset_img[0, _inset_1d_obs_bin, :] = np.array(_INSET_1D_OBSERVER_RGBA, dtype=float)
+
     half_swath_km = 0.5 * (N_PIXELS_Y * camera_gsd_m) / 1000.0 if not np.isnan(camera_gsd_m) else float("nan")
     if not (np.isnan(ground_left_xy_km).any() or np.isnan(ground_right_xy_km).any() or np.isnan(half_swath_km)):
         left_local = ground_left_xy_km - observer_pos
         right_local = ground_right_xy_km - observer_pos
         verts = _inset_swiss_footprint_vertices_xy(left_local, right_local, half_swath_km)
         if verts is not None:
-            inset_footprint_poly.set_xy(verts)
-            inset_footprint_poly.set_visible(True)
-        else:
-            inset_footprint_poly.set_xy(np.zeros((4, 2)))
-            inset_footprint_poly.set_visible(False)
-    else:
-        inset_footprint_poly.set_xy(np.zeros((4, 2)))
-        inset_footprint_poly.set_visible(False)
+            # Compute y-span using the same clipped swiss-frame convention
+            # as the original inset.
+            verts_clipped = np.array([_project_to_swiss_frame(v) for v in verts], dtype=float)
+            y_min = float(np.min(verts_clipped[:, 1]))
+            y_max = float(np.max(verts_clipped[:, 1]))
+            # 1D inset columns encode the *y* coordinate (in-plane), projected into [-h, +h].
+            view_mask = (_inset_1d_x_bins >= y_min) & (_inset_1d_x_bins <= y_max)
+            if sim_idx == 0:
+                _agent_debug_log(
+                    "H8",
+                    "first_plot:set_scene_at_index:inset_1d_span_debug",
+                    "1D cone span validity + bin coverage",
+                    {
+                        "sim_idx": int(sim_idx),
+                        "half_swath_km": float(half_swath_km),
+                        "y_min": y_min,
+                        "y_max": y_max,
+                        "view_mask_bins": int(np.count_nonzero(view_mask)),
+                    },
+                )
+                _agent_debug_log(
+                    "H9",
+                    "first_plot:set_scene_at_index:inset_artist_visibility",
+                    "Verify legacy inset overlay artists stay hidden",
+                    {
+                        "inset_centerline_visible": bool(inset_centerline.get_visible()),
+                        "inset_footprint_poly_visible": bool(inset_footprint_poly.get_visible()),
+                        "inset_hit_marker_visible": bool(inset_hit_marker.get_visible()),
+                        "inset_1d_img_visible": bool(inset_1d_img.get_visible()),
+                    },
+                )
+            inset_img[0, view_mask, :] = np.array(_INSET_1D_CONE_RGBA, dtype=float)
+
+            # Clouds: mark x bins for points that are inside the full 2D footprint rectangle.
+            chord = np.asarray(right_local, dtype=float) - np.asarray(left_local, dtype=float)
+            L = float(np.linalg.norm(chord))
+            if L >= 1e-9:
+                e = chord / L
+                e_perp = np.array([-e[1], e[0]], dtype=float)
+                h = float(half_swath_km)
+                cloud_points_marked = 0
+                for ci in range(len(cloud_models)):
+                    xs = cloud_inset_x_samples[ci]
+                    ys = cloud_inset_y_samples[ci]
+                    if xs is None or ys is None:
+                        continue
+                    xs_arr = np.asarray(xs, dtype=float)
+                    ys_arr = np.asarray(ys, dtype=float)
+                    # Map cloud points onto the same 1D bins as the blue view cone,
+                    # but do not require full 2D rectangle containment (too strict for
+                    # the thin 1D strip). This makes cloud markers visible and
+                    # visually consistent with the cone span.
+                    ys_clip = np.clip(ys_arr, -_INSET_1D_RANGE_KM, _INSET_1D_RANGE_KM)
+                    bin_idx = (
+                        (ys_clip + _INSET_1D_RANGE_KM)
+                        / (2.0 * _INSET_1D_RANGE_KM)
+                        * (_INSET_1D_BINS - 1)
+                    ).astype(int)
+                    bin_idx = np.clip(bin_idx, 0, _INSET_1D_BINS - 1)
+
+                    # Show clouds wherever they land in the 1D mapping.
+                    bin_idx = np.unique(bin_idx)
+                    if bin_idx.size == 0:
+                        continue
+
+                    cloud_rgba = np.array(_INSET_1D_CLOUD_RGBA, dtype=float)
+                    for bi in bin_idx:
+                        j0 = max(0, int(bi) - 1)
+                        j1 = min(_INSET_1D_BINS, int(bi) + 2)
+                        inset_img[0, j0:j1, :] = cloud_rgba
+                    cloud_points_marked += int(bin_idx.size)
+
+                # 1D inset image update continues here.
+
+    inset_1d_img.set_data(inset_img)
 
     if not np.isnan(ground_center_xy_km).any():
         center_local = ground_center_xy_km - observer_pos
@@ -959,7 +1117,6 @@ def set_scene_at_index(sim_idx, speed_label=None):
             [sat_local_frame[0], center_local_frame[0]],
             [sat_local_frame[1], center_local_frame[1]],
         )
-
         hit_y_local, hit_z_local = _project_big_xy_to_closeup_yz(ground_center_xy_km[0], ground_center_xy_km[1])
         closeup_hit_marker.set_data([hit_y_local], [hit_z_local])
 
@@ -974,6 +1131,8 @@ def set_scene_at_index(sim_idx, speed_label=None):
         inset_hit_marker.set_data([], [])
         inset_centerline.set_data([], [])
         closeup_hit_marker.set_data([], [])
+        # Do not clear close-up LOS: this panel is a zoom-in of the 2D observer->satellite geometry,
+        # which should remain visible even when the camera ground target is missing/blocked.
         hit_lat_deg, hit_lon_deg, hit_elevation_m = None, None, None
         nearest_intersection_km = None
         center_first_hit_is_cloud = False
@@ -1098,46 +1257,61 @@ def save_one_pass_video_30x_to_project_root():
     export_num_frames = max(2, int(np.ceil(sim_total_s / dt_sim_s)) + 1)
     export_path = Path(__file__).resolve().parents[2] / RENDER.export_filename
 
+    pbar = None
+    if tqdm is not None:
+        pbar = tqdm(total=export_num_frames, desc="Exporting 30x MP4", unit="frame")
+
     def export_update(frame):
         sim_t = min(float(frame) * dt_sim_s, sim_total_s)
         sim_idx = simulation_index_from_time(sim_t, wrap_orbit=False)
+        if pbar is not None:
+            pbar.update(1)
         return set_scene_at_index(sim_idx, speed_label=export_speed_multiplier)
 
-    if mpl_animation.writers.is_available("ffmpeg"):
-        export_ani = FuncAnimation(
-            fig,
-            export_update,
-            init_func=init,
-            frames=export_num_frames,
-            blit=False,
-            interval=1000.0 / export_fps,
-            repeat=False,
-        )
-        export_ani.save(str(export_path), writer="ffmpeg", fps=export_fps, dpi=RENDER.export_dpi)
-    else:
-        # Fallback path when ffmpeg binary is not available.
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-        import cv2  # type: ignore[reportMissingImports]
+    try:
+        if mpl_animation.writers.is_available("ffmpeg"):
+            export_ani = FuncAnimation(
+                fig,
+                export_update,
+                init_func=init,
+                frames=export_num_frames,
+                blit=False,
+                interval=1000.0 / export_fps,
+                repeat=False,
+            )
+            export_ani.save(
+                str(export_path),
+                writer="ffmpeg",
+                fps=export_fps,
+                dpi=RENDER.export_dpi,
+            )
+        else:
+            # Fallback path when ffmpeg binary is not available.
+            from matplotlib.backends.backend_agg import FigureCanvasAgg
+            import cv2  # type: ignore[reportMissingImports]
 
-        canvas = FigureCanvasAgg(fig)
-        canvas.draw()
-        width, height = canvas.get_width_height()
-        writer = cv2.VideoWriter(
-            str(export_path),
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            export_fps,
-            (width, height),
-        )
-        if not writer.isOpened():
-            raise RuntimeError("Could not open MP4 writer (OpenCV fallback).")
-        init()
-        for frame in range(export_num_frames):
-            export_update(frame)
+            canvas = FigureCanvasAgg(fig)
             canvas.draw()
-            rgba = np.asarray(canvas.buffer_rgba())
-            bgr = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
-            writer.write(bgr)
-        writer.release()
+            width, height = canvas.get_width_height()
+            writer = cv2.VideoWriter(
+                str(export_path),
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                export_fps,
+                (width, height),
+            )
+            if not writer.isOpened():
+                raise RuntimeError("Could not open MP4 writer (OpenCV fallback).")
+            init()
+            for frame in range(export_num_frames):
+                export_update(frame)
+                canvas.draw()
+                rgba = np.asarray(canvas.buffer_rgba())
+                bgr = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
+                writer.write(bgr)
+            writer.release()
+    finally:
+        if pbar is not None:
+            pbar.close()
     return export_path
 
 def _maximize_interactive_window():
