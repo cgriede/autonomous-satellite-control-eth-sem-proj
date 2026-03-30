@@ -4,3 +4,4 @@ numpy
 Pint
 opencv-python
 rich
+tqdm
