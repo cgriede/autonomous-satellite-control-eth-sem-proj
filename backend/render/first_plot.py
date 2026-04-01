@@ -43,6 +43,29 @@ from simulation.run_simulation import run_simulation
 # Lazy camera: samples per frame in renderer (not 7000; not 500×2000 at import).
 _RENDER_PIXEL_RAY_SAMPLES = 96
 
+#region agent log helper
+_DEBUG_LOG_PATH = Path(__file__).resolve().parents[2] / "debug-5dbcb6.log"
+_DEBUG_SESSION_ID = "5dbcb6"
+_DEBUG_RUN_ID = "overlay-diagonal-debug"
+
+def _agent_debug_log(hypothesisId, location, message, data):
+    payload = {
+        "sessionId": _DEBUG_SESSION_ID,
+        "runId": _DEBUG_RUN_ID,
+        "hypothesisId": hypothesisId,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    try:
+        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=True) + "\n")
+    except Exception:
+        # Logging must never break rendering.
+        pass
+#endregion
+
 # --- Parameters ---
 # Earth radius in kilometers is needed for all geometric calculations.
 R_earth = EARTH_RADIUS.to(ureg.km).magnitude
@@ -380,6 +403,23 @@ inset_1d_img = inset_ax.imshow(
     interpolation="nearest",
     aspect="auto",
     zorder=1,
+)
+
+# 1D view overlay for the main XY axes.
+# We render an opaque 1×N RGBA strip over the entire panel so the main XY
+# "diagonal ray" overlays from the 2D geometry cannot show through.
+main_1d_img = ax.imshow(
+    np.zeros((1, _INSET_1D_BINS, 4), dtype=float),
+    extent=(
+        ax.get_xlim()[0],
+        ax.get_xlim()[1],
+        ax.get_ylim()[0],
+        ax.get_ylim()[1],
+    ),
+    origin="lower",
+    interpolation="nearest",
+    aspect="auto",
+    zorder=200,
 )
 
 _inset_1d_obs_bin = int(round((_INSET_1D_BINS - 1) * 0.5))  # x_local=0
@@ -911,8 +951,30 @@ def init():
     base_img[:, :, :] = np.array(_INSET_1D_EARTH_RGBA, dtype=float)
     base_img[0, _inset_1d_obs_bin, :] = np.array(_INSET_1D_OBSERVER_RGBA, dtype=float)
     inset_1d_img.set_data(base_img)
+    main_1d_img.set_data(base_img)
+    _agent_debug_log(
+        "H1",
+        "first_plot:init",
+        "Artist visibility/zorders at init",
+        {
+            "main_1d_img_visible": bool(main_1d_img.get_visible()),
+            "main_1d_img_zorder": float(main_1d_img.get_zorder()),
+            "main_1d_img_alpha": None if main_1d_img.get_alpha() is None else float(main_1d_img.get_alpha()),
+            "obs_to_sat_line_visible": bool(obs_to_sat_line.get_visible()),
+            "obs_to_sat_line_zorder": float(obs_to_sat_line.get_zorder()),
+            "obs_to_sat_line_alpha": None if obs_to_sat_line.get_alpha() is None else float(obs_to_sat_line.get_alpha()),
+            "z_axis_arrow_visible": bool(z_axis_arrow.get_visible()),
+            "z_axis_arrow_zorder": float(z_axis_arrow.get_zorder()),
+            "z_axis_arrow_alpha": None if z_axis_arrow.get_alpha() is None else float(z_axis_arrow.get_alpha()),
+            "inset_centerline_visible": bool(inset_centerline.get_visible()),
+            "inset_footprint_poly_visible": bool(inset_footprint_poly.get_visible()),
+            "inset_hit_marker_visible": bool(inset_hit_marker.get_visible()),
+        },
+    )
     closeup_cone.set_xy([[0, 0], [0, 0], [0, 0]])
     closeup_hit_marker.set_data([], [])
+    # Hide close-up LOS trace to prevent the diagonal "ray" artifact.
+    closeup_obs_to_hit_line.set_visible(False)
     closeup_obs_to_hit_line.set_data([], [])
     for glow, core in zip(cloud_main_glow_artists, cloud_main_core_artists):
         glow.set_data([], [])
@@ -1017,6 +1079,18 @@ def set_scene_at_index(sim_idx, speed_label=None):
             y_max = float(np.max(verts_clipped[:, 1]))
             # 1D inset columns encode the *y* coordinate (in-plane), projected into [-h, +h].
             view_mask = (_inset_1d_x_bins >= y_min) & (_inset_1d_x_bins <= y_max)
+            if sim_idx in (0, 160):
+                _agent_debug_log(
+                    "H2",
+                    "first_plot:set_scene_at_index:view_mask_span",
+                    "1D cone span computed (view_mask nonempty?)",
+                    {
+                        "sim_idx": int(sim_idx),
+                        "y_min": y_min,
+                        "y_max": y_max,
+                        "view_mask_bins": int(np.count_nonzero(view_mask)),
+                    },
+                )
             inset_img[0, view_mask, :] = np.array(_INSET_1D_CONE_RGBA, dtype=float)
 
             # Clouds: mark x bins for points that are inside the full 2D footprint rectangle.
@@ -1061,6 +1135,24 @@ def set_scene_at_index(sim_idx, speed_label=None):
                 # 1D inset image update continues here.
 
     inset_1d_img.set_data(inset_img)
+    main_1d_img.set_data(inset_img)
+    if sim_idx in (0, 160):
+        _agent_debug_log(
+            "H3",
+            "first_plot:set_scene_at_index:main_1d_array_sample",
+            "main_1d_img receives inset_img (alpha+sample RGBA)",
+            {
+                "sim_idx": int(sim_idx),
+                "main_1d_img_zorder": float(main_1d_img.get_zorder()),
+                "main_1d_img_alpha": None if main_1d_img.get_alpha() is None else float(main_1d_img.get_alpha()),
+                "main_arr_shape": None if main_1d_img.get_array() is None else list(main_1d_img.get_array().shape),
+                "main_arr_center_bin_rgba": (
+                    None
+                    if main_1d_img.get_array() is None
+                    else [float(x) for x in main_1d_img.get_array()[0, _inset_1d_obs_bin, :].tolist()]
+                ),
+            },
+        )
 
     if not np.isnan(ground_center_xy_km).any():
         center_local = ground_center_xy_km - observer_pos
