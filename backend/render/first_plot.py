@@ -44,7 +44,7 @@ from simulation.run_simulation import run_simulation
 _RENDER_PIXEL_RAY_SAMPLES = 96
 
 #BUG use these for debugging only
-SHOW_MAIN_PLOT = False
+SHOW_MAIN_PLOT = True
 SHOW_1D_BIRD_VIEW = True
 SHOW_CLOSEUP = True
 SHOW_TELEMETRY = True
