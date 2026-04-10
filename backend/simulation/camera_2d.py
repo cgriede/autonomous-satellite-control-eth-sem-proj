@@ -350,6 +350,163 @@ def simulate_camera_strip_2d(
     )
 
 
+@dataclass(frozen=True)
+class CameraObservationLine1DResult:
+    """
+    Per-bin 1D camera observation classification.
+
+    observation_types codes:
+      - space: 0
+      - earth: 1
+      - cloud: 2
+      - target: 3
+    """
+
+    # Shape (n_bins,). dtype int8 for compact storage/plotting.
+    observation_types: np.ndarray
+    # Relative ray angles (signed) in radians, measured from the boresight direction.
+    bin_ray_angles_rel_boresight_rad: np.ndarray
+
+
+def _signed_angle_between_unit_xy(a_unit_xy: np.ndarray, b_unit_xy: np.ndarray) -> float:
+    """
+    Signed angle from `a` to `b` for 2D unit vectors.
+    Range: [-pi, +pi] (via atan2 of cross/dot).
+    """
+
+    ax, ay = float(a_unit_xy[0]), float(a_unit_xy[1])
+    bx, by = float(b_unit_xy[0]), float(b_unit_xy[1])
+    cross = ax * by - ay * bx
+    dot = ax * bx + ay * by
+    return float(np.arctan2(cross, dot))
+
+
+def simulate_camera_observation_line_1d(
+    *,
+    sat_pos_xy_km: np.ndarray,
+    boresight_dir_unit_xy: np.ndarray,
+    altitude: Any,
+    earth_radius_km: float,
+    sim_time_s: float,
+    sim_total_s: float,
+    target_angle_rad: float,
+    n_bins: int = 100,
+    cloud_arc_specs: list[dict[str, float]] | None = None,
+    target_code: int = 3,
+    earth_code: int = 1,
+    space_code: int = 0,
+    cloud_code: int = 2,
+) -> CameraObservationLine1DResult:
+    """
+    Simulate a 1D camera observation line by classifying each ray bin as:
+    `space`, `earth`, `cloud`, or `target`.
+
+    The "target" is a single Earth point given by `target_angle_rad`
+    using the global XY polar convention:
+      target_xy = [R*cos(theta), R*sin(theta)].
+    """
+
+    if n_bins <= 0:
+        raise ValueError("n_bins must be > 0.")
+    if target_code == earth_code or target_code == space_code or target_code == cloud_code:
+        raise ValueError("observation codes must be distinct.")
+    if earth_code == space_code or earth_code == cloud_code:
+        raise ValueError("observation codes must be distinct.")
+
+    # Keep unit validation consistent with the rest of the optics module.
+    require_compatible_units(altitude, "meter", "altitude")
+
+    sat_pos_xy_km = np.asarray(sat_pos_xy_km, dtype=float)
+    boresight_dir_unit_xy = np.asarray(boresight_dir_unit_xy, dtype=float)
+    if sat_pos_xy_km.shape != (2,) or boresight_dir_unit_xy.shape != (2,):
+        raise ValueError("sat_pos_xy_km and boresight_dir_unit_xy must have shape (2,).")
+
+    # Normalize boresight direction defensively.
+    dir_norm = float(np.linalg.norm(boresight_dir_unit_xy))
+    if dir_norm <= 0.0:
+        raise ValueError("boresight_dir_unit_xy must be non-zero.")
+    boresight_dir_unit_xy = boresight_dir_unit_xy / dir_norm
+
+    if cloud_arc_specs is None:
+        cloud_arc_specs = _compute_cloud_arc_specs_at_time(
+            sim_time_s=sim_time_s,
+            sim_total_s=sim_total_s,
+            earth_radius_km=earth_radius_km,
+        )
+
+    # We reuse the vertical sensor FOV for the 1D strip.
+    _hfov, vertical_fov = calculate_fov_angles()
+    vertical_fov_rad = float(vertical_fov.to(ureg.rad).magnitude)
+    half_vertical_fov_rad = 0.5 * vertical_fov_rad
+
+    # Ray bins: choose bin-center angles so tolerance = half-bin
+    # corresponds to neighbor-inclusive binning (as intended in the plan).
+    half_bin = vertical_fov_rad / (2.0 * n_bins)
+    bin_ray_angles_rel_boresight_rad = np.linspace(
+        -half_vertical_fov_rad + half_bin,
+        +half_vertical_fov_rad - half_bin,
+        n_bins,
+        dtype=float,
+    )
+
+    # Target direction unit vector from the satellite to the target Earth point.
+    target_xy_km = np.array(
+        [
+            float(earth_radius_km * np.cos(float(target_angle_rad))),
+            float(earth_radius_km * np.sin(float(target_angle_rad))),
+        ],
+        dtype=float,
+    )
+    target_vec = target_xy_km - sat_pos_xy_km
+    target_norm = float(np.linalg.norm(target_vec))
+    if target_norm <= 0.0:
+        raise ValueError("target point must not coincide with satellite position.")
+    target_dir_unit_xy = target_vec / target_norm
+
+    target_rel_angle_rad = _signed_angle_between_unit_xy(boresight_dir_unit_xy, target_dir_unit_xy)
+
+    observation_types = np.full(n_bins, int(space_code), dtype=np.int8)
+    # Small numerical slack to make the "half-bin" boundary stable.
+    target_tol_rad = float(half_bin) + 1e-12
+
+    # Classify each bin by first hit (cloud vs earth) and then Earth->target mapping.
+    for i, rel_angle in enumerate(bin_ray_angles_rel_boresight_rad):
+        ray_dir_unit_xy = _rotate_unit_xy(boresight_dir_unit_xy, float(rel_angle))
+
+        hit_type, _t_hit, _hit_xy_km = _first_hit_point_ray_earth_or_clouds(
+            ray_origin_xy_km=sat_pos_xy_km,
+            ray_dir_unit_xy=ray_dir_unit_xy,
+            earth_radius_km=earth_radius_km,
+            cloud_arc_specs=cloud_arc_specs,
+        )
+
+        if hit_type is None:
+            observation_types[i] = int(space_code)
+            continue
+        if hit_type == "cloud":
+            observation_types[i] = int(cloud_code)
+            continue
+        if hit_type == "earth":
+            # Only treat as target if the ray direction points near the target direction.
+            # Use signed angle difference in ray-direction space.
+            delta = abs(_signed_angle_between_unit_xy(boresight_dir_unit_xy, ray_dir_unit_xy) - target_rel_angle_rad)
+            # Normalize delta to [0,pi] to handle wrap-around.
+            delta = min(delta, 2.0 * np.pi - delta)
+            if delta <= target_tol_rad:
+                observation_types[i] = int(target_code)
+            else:
+                observation_types[i] = int(earth_code)
+            continue
+
+        # Defensive fallback (should not happen).
+        observation_types[i] = int(space_code)
+
+    return CameraObservationLine1DResult(
+        observation_types=observation_types,
+        bin_ray_angles_rel_boresight_rad=bin_ray_angles_rel_boresight_rad.astype(float),
+    )
+
+
 def calculate_swath_height(
     altitude: Any,
     *,
