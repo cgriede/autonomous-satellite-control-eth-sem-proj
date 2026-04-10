@@ -9,6 +9,7 @@ from environment_definition.constants.SIMULATION import SIMULATION
 from .attitude_dynamics import AttitudeState2D, propagate_reaction_wheel_attitude_2d
 from .camera_2d import (
     calculate_fov_angles,
+    compute_cloud_arc_specs_at_time,
     simulate_camera_observation_line_1d,
     simulate_camera_strip_2d,
 )
@@ -130,6 +131,11 @@ def run_simulation(
     camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
     camera_observation_line_codes = np.empty((n, n_bins), dtype=np.int8)
 
+    n_clouds = len(SIMULATION.clouds)
+    cloud_arc_radius_km = np.full((n, n_clouds), np.nan, dtype=float)
+    cloud_arc_start_rad = np.full((n, n_clouds), np.nan, dtype=float)
+    cloud_arc_end_rad = np.full((n, n_clouds), np.nan, dtype=float)
+
     _, _vf = calculate_fov_angles()
     camera_vertical_fov_rad = float(_vf.to(ureg.rad).magnitude)
 
@@ -189,6 +195,17 @@ def run_simulation(
         )
         camera_observation_line_codes[k, :] = line_res.observation_types
 
+        for i, spec in enumerate(
+            compute_cloud_arc_specs_at_time(
+                sim_time_s=float(t_s[k]),
+                sim_total_s=sim_total_s,
+                earth_radius_km=r_earth_km,
+            )
+        ):
+            cloud_arc_radius_km[k, i] = float(spec["radius_km"])
+            cloud_arc_start_rad[k, i] = float(spec["start_rad"])
+            cloud_arc_end_rad[k, i] = float(spec["end_rad"])
+
         _controller_agent_placeholder_step(frame_index=k, sim_time_s=float(t_s[k]))
 
     metadata = SimulationMetadata(
@@ -219,5 +236,8 @@ def run_simulation(
         camera_center_ray_observation_code=camera_center_ray_observation_code,
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         camera_observation_line_codes=camera_observation_line_codes,
+        cloud_arc_radius_km=cloud_arc_radius_km,
+        cloud_arc_start_rad=cloud_arc_start_rad,
+        cloud_arc_end_rad=cloud_arc_end_rad,
         metadata=metadata,
     )

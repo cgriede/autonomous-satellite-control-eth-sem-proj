@@ -49,6 +49,7 @@ from simulation.run_simulation import run_simulation
 SHOW_MAIN_PLOT = True
 SHOW_1D_BIRD_VIEW = True
 SHOW_1D_SAT_VIEW = True
+SHOW_FIXED_BIRD_VIEW = True
 SHOW_CLOSEUP = True
 SHOW_TELEMETRY = True
 
@@ -337,12 +338,12 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     artists["cloud_glow"] = []
     artists["cloud_core"] = []
     for _ in cloud_models:
-        glow, = ax.plot([], [], color="#cfefff",
+        glow, = ax.plot([], [], color=to_rgba(RENDER.cloud_grey_rgb, 0.35),
                         linewidth=RENDER.cloud_linewidth * 2.4,
                         alpha=min(1.0, RENDER.cloud_alpha * 0.23),
                         solid_capstyle="round",
                         zorder=RENDER.zorder_cloud - 1)
-        core, = ax.plot([], [], color=RENDER.cloud_color,
+        core, = ax.plot([], [], color=RENDER.cloud_grey_rgb,
                         linewidth=RENDER.cloud_linewidth,
                         alpha=RENDER.cloud_alpha,
                         solid_capstyle="round",
@@ -361,7 +362,7 @@ def _rgba_for_observation_line_code(code: int) -> np.ndarray:
     if c == 0:  # space
         return np.array([0.04, 0.06, 0.12, 1.0], dtype=float)
     if c == 1:  # earth
-        return np.array([0.22, 0.52, 0.92, 1.0], dtype=float)
+        return np.array([*RENDER.earth_green_rgb, 1.0], dtype=float)
     if c == 2:  # cloud
         return np.array([0.78, 0.78, 0.80, 1.0], dtype=float)
     if c == 3:  # target
@@ -417,6 +418,107 @@ def build_1d_sat_view(fig: plt.Figure, _scene: dict) -> tuple[dict, dict]:
         fontweight="bold",
         ha="center",
         va="center",
+    )
+
+    return axes, artists
+
+
+def build_fixed_bird_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
+    """Observer-centered top-down panel: ±bird_view_1d_half_extent_km (500 km default)."""
+    l, b, w, h = RENDER.fixed_bird_view_axes_rect
+    title_frac = 0.22
+    h_title = h * title_frac
+    h_plot = h * (1.0 - title_frac)
+    ax_title = fig.add_axes([l, b + h_plot, w, h_title])
+    ax = fig.add_axes([l, b, w, h_plot])
+
+    axes = {"fixed_bird": ax, "fixed_bird_title": ax_title}
+    artists: dict = {}
+
+    n_clouds = int(simulation.cloud_arc_radius_km.shape[1])
+    h_km = float(scene["bird_view_1d_half_extent_km"])
+    obs = scene["observer_pos"]
+    ox, oy = float(obs[0]), float(obs[1])
+    earth_center_local = (float(-ox), float(-oy))
+    r_earth = float(scene["R_earth"])
+
+    ax_title.set_facecolor("black")
+    ax_title.set_xticks([])
+    ax_title.set_yticks([])
+    ax_title.set_frame_on(False)
+    artists["title_text"] = ax_title.text(
+        0.5,
+        0.5,
+        "fixed bird (500 km)",
+        transform=ax_title.transAxes,
+        color="white",
+        fontsize=9,
+        fontweight="bold",
+        ha="center",
+        va="center",
+    )
+
+    ax.set_facecolor(RENDER.earth_green_rgb)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlim(-h_km, h_km)
+    ax.set_ylim(-h_km, h_km)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for spine in ax.spines.values():
+        spine.set_edgecolor(RENDER.info_text_color)
+        spine.set_linewidth(1.0)
+
+    artists["earth_circle"] = Circle(
+        earth_center_local,
+        r_earth,
+        facecolor=RENDER.earth_green_rgb,
+        edgecolor=to_rgba(RENDER.earth_green_rgb, 0.95),
+        linewidth=0.8,
+        zorder=RENDER.zorder_earth,
+    )
+    ax.add_patch(artists["earth_circle"])
+
+    artists["footprint"] = Polygon(
+        np.zeros((4, 2)),
+        closed=True,
+        facecolor=to_rgba(RENDER.fov_turquoise_rgba[:3], RENDER.fov_turquoise_rgba[3]),
+        edgecolor=to_rgba(RENDER.fov_turquoise_rgba[:3], 0.85),
+        linewidth=RENDER.inset_footprint_edge_linewidth,
+        zorder=RENDER.zorder_inset_footprint,
+    )
+    ax.add_patch(artists["footprint"])
+    artists["footprint"].set_visible(False)
+
+    artists["cloud_glow"] = []
+    artists["cloud_core"] = []
+    for _ in range(n_clouds):
+        g, = ax.plot(
+            [],
+            [],
+            color=to_rgba(RENDER.cloud_grey_rgb, 0.38),
+            linewidth=RENDER.cloud_linewidth * 2.0,
+            solid_capstyle="round",
+            zorder=RENDER.zorder_inset_cloud_glow,
+        )
+        c, = ax.plot(
+            [],
+            [],
+            color=RENDER.cloud_grey_rgb,
+            linewidth=RENDER.cloud_linewidth,
+            solid_capstyle="round",
+            zorder=RENDER.zorder_inset_cloud_core,
+        )
+        artists["cloud_glow"].append(g)
+        artists["cloud_core"].append(c)
+
+    artists["observer"], = ax.plot(
+        [0.0],
+        [0.0],
+        marker="x",
+        color=RENDER.observer_color,
+        markersize=6.0 * RENDER.observer_marker_render_scale,
+        markeredgewidth=1.2,
+        zorder=RENDER.zorder_inset_observer,
     )
 
     return axes, artists
@@ -536,12 +638,12 @@ def build_1d_bird_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     artists["cloud_glow"] = []
     artists["cloud_core"] = []
     for _ in cloud_models:
-        g, = ax.plot([], [], color="#cfefff",
+        g, = ax.plot([], [], color=to_rgba(RENDER.cloud_grey_rgb, 0.38),
                      linewidth=RENDER.cloud_linewidth * 2.0,
                      alpha=min(1.0, RENDER.cloud_alpha * 0.25),
                      solid_capstyle="round",
                      zorder=RENDER.zorder_inset_cloud_glow)
-        c, = ax.plot([], [], color=RENDER.cloud_color,
+        c, = ax.plot([], [], color=RENDER.cloud_grey_rgb,
                      linewidth=RENDER.cloud_linewidth,
                      alpha=RENDER.cloud_alpha,
                      solid_capstyle="round",
@@ -637,14 +739,14 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     for _ in cloud_models:
         g, = ax.plot(
             [], [],
-            color="#cfefff",
+            color=to_rgba(RENDER.cloud_grey_rgb, 0.38),
             linewidth=RENDER.cloud_linewidth * 1.8,
             alpha=0.0,
             zorder=RENDER.zorder_closeup_cloud_glow,
         )
         c, = ax.plot(
             [], [],
-            color=RENDER.cloud_color,
+            color=RENDER.cloud_grey_rgb,
             linewidth=RENDER.cloud_linewidth,
             alpha=RENDER.cloud_alpha,
             zorder=RENDER.zorder_closeup_cloud_core,
@@ -869,47 +971,37 @@ def _sample_bird_view_1d_terrain_elevation_m(lat_deg, lon_deg):
     return float(elev_m)
 
 
-from typing import List, Dict
-import numpy as np
-from numpy.typing import NDArray
-
-
-def _compute_cloud_arcs_at_time(
-    sim_time_s: float,
-    cloud_models: List[dict],
-    observer_pos_xy_km: NDArray[np.floating],
-    sim_total_s: float,
-) -> List[Dict[str, object]]:
-    """
-    Compute cloud arc geometry at a given simulation time.
-
-    Returns per-cloud specs used by renderers (main / inset / closeup).
-    No rendering side-effects.
-    """
-
-    growth_phase = sim_time_s / max(sim_total_s, 1e-9)
-    cloud_growth = 1.0 + (RENDER.cloud_growth_max_span_scale - 1.0) * np.clip(growth_phase, 0.0, 1.0)
+def _cloud_arc_specs_from_simulation(sim_idx: int) -> list[dict[str, object]]:
+    """Build per-cloud plot specs from `SimulationStateSeries` (filled in `run_simulation`)."""
+    sim_time_local = float(simulation.t_s[sim_idx])
+    growth_phase = sim_time_local / max(simulation.metadata.sim_total_s, 1e-9)
     cloud_thickness = 1.0 + (RENDER.cloud_growth_linewidth_scale - 1.0) * np.clip(growth_phase, 0.0, 1.0)
-
-    observer_angle_rad = float(np.arctan2(observer_pos_xy_km[1], observer_pos_xy_km[0]))
-
-    cloud_arc_specs: List[Dict[str, object]] = []
-
-    for model in cloud_models:
-        base_start = model["start_rad_0"]
-        base_end = model["end_rad_0"]
-
-        angular_width = float(base_end - base_start) * cloud_growth
-        start = observer_angle_rad - 0.5 * angular_width
-        end = observer_angle_rad + 0.5 * angular_width
-
+    r = simulation.cloud_arc_radius_km[sim_idx, :]
+    s0 = simulation.cloud_arc_start_rad[sim_idx, :]
+    s1 = simulation.cloud_arc_end_rad[sim_idx, :]
+    n_clouds = int(r.shape[0])
+    specs: list[dict[str, object]] = []
+    for i in range(n_clouds):
+        radius = float(r[i])
+        start = float(s0[i])
+        end = float(s1[i])
+        if not (np.isfinite(radius) and np.isfinite(start) and np.isfinite(end)):
+            specs.append(
+                {
+                    "radius": float("nan"),
+                    "theta": np.array([], dtype=float),
+                    "x": np.array([], dtype=float),
+                    "y": np.array([], dtype=float),
+                    "start": 0.0,
+                    "end": 0.0,
+                    "growth": cloud_thickness,
+                }
+            )
+            continue
         theta = np.linspace(start, end, RENDER.cloud_segment_points)
-        radius = float(model["radius_km"])
-
         x = radius * np.cos(theta)
         y = radius * np.sin(theta)
-
-        cloud_arc_specs.append(
+        specs.append(
             {
                 "radius": radius,
                 "theta": theta,
@@ -920,8 +1012,7 @@ def _compute_cloud_arcs_at_time(
                 "growth": cloud_thickness,
             }
         )
-
-    return cloud_arc_specs
+    return specs
 
 
 
@@ -990,6 +1081,14 @@ def init():
             g.set_data([], [])
             c.set_data([], [])
 
+    # --- FIXED BIRD (observer-local top-down) ---
+    if "fixed_bird" in PANELS:
+        a = PANELS["fixed_bird"]["artists"]
+        a["footprint"].set_visible(False)
+        for g, c in zip(a["cloud_glow"], a["cloud_core"]):
+            g.set_data([], [])
+            c.set_data([], [])
+
     # --- TELEMETRY ---
     if "telemetry" in PANELS:
         PANELS["telemetry"]["artists"]["text"].set_text("")
@@ -997,18 +1096,11 @@ def init():
     return []
 
 def set_scene_at_index(sim_idx: int, speed_label=None):
-    sim_time_local = float(simulation.t_s[sim_idx])
-
     sat_r = simulation.radius_km[sim_idx]
     sat_theta = simulation.theta_orbit_rad[sim_idx]
     sat_pos = np.array([sat_r * np.cos(sat_theta), sat_r * np.sin(sat_theta)], dtype=float)
 
-    cloud_arc_specs = _compute_cloud_arcs_at_time(
-        sim_time_local,
-        SCENE["cloud_models"],
-        SCENE["observer_pos"],
-        simulation.metadata.sim_total_s
-        )
+    cloud_arc_specs = _cloud_arc_specs_from_simulation(sim_idx)
 
     # body z dir (simulated)
     z_angle_rad = float(simulation.body_z_angle_rad[sim_idx])
@@ -1154,6 +1246,31 @@ def set_scene_at_index(sim_idx: int, speed_label=None):
             yl, zl = proj(x, y)
             a["cloud_glow"][i].set_data(yl, zl)
             a["cloud_core"][i].set_data(yl, zl)
+
+    # ---- fixed bird (observer-local top-down) ----
+    if "fixed_bird" in PANELS:
+        a = PANELS["fixed_bird"]["artists"]
+        obs = SCENE["observer_pos"]
+        ground_left = simulation.camera_ground_left_xy_km[sim_idx]
+        ground_right = simulation.camera_ground_right_xy_km[sim_idx]
+        gsd_m = float(simulation.camera_gsd_m[sim_idx])
+        swath_half_km = (N_PIXELS_Y * gsd_m) / 2000.0
+        if np.isnan(ground_left).any() or np.isnan(ground_right).any() or not np.isfinite(swath_half_km):
+            a["footprint"].set_visible(False)
+        else:
+            ll = ground_left - obs
+            rr = ground_right - obs
+            verts = _bird_view_1d_footprint_vertices_xy(ll, rr, swath_half_km)
+            if verts is None:
+                a["footprint"].set_visible(False)
+            else:
+                a["footprint"].set_xy(verts)
+                a["footprint"].set_visible(True)
+        for i, spec in enumerate(cloud_arc_specs):
+            xloc = np.asarray(spec["x"], dtype=float) - obs[0]
+            yloc = np.asarray(spec["y"], dtype=float) - obs[1]
+            a["cloud_glow"][i].set_data(xloc, yloc)
+            a["cloud_core"][i].set_data(xloc, yloc)
 
     # ---- 1D bird view panel artists ----
     if "1d_bird" in PANELS:
@@ -1359,6 +1476,10 @@ if __name__ == "__main__":
     if SHOW_1D_SAT_VIEW:
         axes, artists = build_1d_sat_view(fig, SCENE)
         PANELS["1d_sat_view"] = {"axes": axes, "artists": artists}
+
+    if SHOW_FIXED_BIRD_VIEW:
+        axes, artists = build_fixed_bird_view(fig, SCENE)
+        PANELS["fixed_bird"] = {"axes": axes, "artists": artists}
 
     if args.save_one_pass_30x:
         output_path = save_one_pass_video_30x_to_project_root()

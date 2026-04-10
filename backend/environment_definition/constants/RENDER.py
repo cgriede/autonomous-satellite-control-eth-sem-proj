@@ -22,6 +22,10 @@ class RenderConstants:
     earth_res                   : int
     earth_dark_rgb              : tuple[float, float, float]
     earth_bright_rgb            : tuple[float, float, float]
+    # Shared top-down / strip styling (observer-local 500 km bird panel + 1d_sat_view earth code)
+    earth_green_rgb             : tuple[float, float, float]
+    fov_turquoise_rgba          : tuple[float, float, float, float]
+    cloud_grey_rgb              : tuple[float, float, float]
     light_dir                   : tuple[float, float, float]
     earth_outline_color         : str
     earth_outline_linewidth     : float
@@ -118,6 +122,8 @@ class RenderConstants:
     # 1D camera observation strip (per-bin codes from SimulationStateSeries), below bird view.
     sat_view_1d_axes_rect      : tuple[float, float, float, float]
     closeup_axes_rect          : tuple[float, float, float, float]
+    # Observer-centered ±bird_view_1d_half_extent_km top-down 2D panel (split right column with closeup).
+    fixed_bird_view_axes_rect  : tuple[float, float, float, float]
     transport_bar_rect         : tuple[float, float, float, float]
     interactive_start_maximized: bool
     closeup_half_window_km     : object
@@ -149,6 +155,9 @@ RENDER = RenderConstants(
     earth_res                    = 1000,
     earth_dark_rgb               = (0.02, 0.08, 0.45),
     earth_bright_rgb             = (0.20, 0.55, 1.00),
+    earth_green_rgb              = (0.14, 0.52, 0.30),
+    fov_turquoise_rgba           = (0.12, 0.72, 0.66, 0.38),
+    cloud_grey_rgb               = (0.78, 0.79, 0.81),
     light_dir                    = (-0.6, 0.8, 0.6),
     earth_outline_color          = "royalblue",
     earth_outline_linewidth      = 2.0,
@@ -257,7 +266,8 @@ RENDER = RenderConstants(
     figure_inset_gutter_frac    = 0.012,
     telemetry_axes_rect         = (0.02, 0.078, 0.19, 0.902),
     main_axes_rect              = (0.222, 0.280, 0.758, 0.70),
-    closeup_axes_rect           = (0.606, 0.125, 0.374, 0.135),
+    closeup_axes_rect           = (0.606, 0.125, 0.180, 0.135),
+    fixed_bird_view_axes_rect   = (0.794, 0.125, 0.180, 0.135),
     transport_bar_rect          = (0.02, 0.02, 0.96, 0.048),
     interactive_start_maximized = True,
     

@@ -123,18 +123,17 @@ def _rotate_unit_xy(dir_unit_xy: np.ndarray, angle_rad: float) -> np.ndarray:
     return rot @ dir_unit_xy
 
 
-def _compute_cloud_arc_specs_at_time(
+def compute_cloud_arc_specs_at_time(
     *,
     sim_time_s: float,
     sim_total_s: float,
     earth_radius_km: float,
 ) -> list[dict[str, float]]:
     """
-    Build opaque cloud arc specs in the renderer's 2D geometry convention.
+    Build cloud arc specs (radius + start/end angles in rad) for each `SIMULATION.clouds` entry.
 
-    Note:
-    In the current renderer implementation, cloud *angular placement* is fixed
-    (a shift term is set to 0.0), and only the arc span grows over time.
+    Used by `run_simulation` (per frame) and by camera raytracing. Angular placement follows
+    `SIMULATION.clouds`; span grows over simulated time.
     """
     growth_phase = sim_time_s / max(sim_total_s, 1e-9)
     cloud_growth = 1.0 + (RENDER.cloud_growth_max_span_scale - 1.0) * float(
@@ -304,7 +303,7 @@ def simulate_camera_strip_2d(
     swath_height_flat_km = (N_PIXELS_Y * gsd_m) / 1000.0
 
     # Clouds for this time step
-    cloud_arc_specs = _compute_cloud_arc_specs_at_time(
+    cloud_arc_specs = compute_cloud_arc_specs_at_time(
         sim_time_s=sim_time_s,
         sim_total_s=sim_total_s,
         earth_radius_km=earth_radius_km,
@@ -495,7 +494,7 @@ def simulate_camera_observation_line_1d(
     boresight_dir_unit_xy = boresight_dir_unit_xy / dir_norm
 
     if cloud_arc_specs is None:
-        cloud_arc_specs = _compute_cloud_arc_specs_at_time(
+        cloud_arc_specs = compute_cloud_arc_specs_at_time(
             sim_time_s=sim_time_s,
             sim_total_s=sim_total_s,
             earth_radius_km=earth_radius_km,

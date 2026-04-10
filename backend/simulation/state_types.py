@@ -39,6 +39,12 @@ class SimulationStateSeries:
     # Per-bin codes from simulate_camera_observation_line_1d (shape n_frames x n_bins); -99 = not computed
     camera_observation_line_codes : np.ndarray
 
+    # Cloud arc geometry (same convention as `camera_2d.compute_cloud_arc_specs_at_time`), shape (n_frames, n_clouds).
+    # Kinematic / non-optics runs fill with NaN.
+    cloud_arc_radius_km  : np.ndarray
+    cloud_arc_start_rad  : np.ndarray
+    cloud_arc_end_rad    : np.ndarray
+
     metadata             : SimulationMetadata
 
     def __post_init__(self) -> None:
@@ -72,3 +78,9 @@ class SimulationStateSeries:
             raise ValueError("camera_observation_line_codes must be 2D (n_frames, n_bins).")
         if self.camera_observation_line_codes.shape[0] != n:
             raise ValueError("camera_observation_line_codes must have length n along axis 0.")
+        if self.cloud_arc_radius_km.shape[0] != n:
+            raise ValueError("cloud_arc_radius_km must have length n along axis 0.")
+        if self.cloud_arc_radius_km.shape != self.cloud_arc_start_rad.shape:
+            raise ValueError("cloud_arc_start_rad shape must match cloud_arc_radius_km.")
+        if self.cloud_arc_radius_km.shape != self.cloud_arc_end_rad.shape:
+            raise ValueError("cloud_arc_end_rad shape must match cloud_arc_radius_km.")

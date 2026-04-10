@@ -1,7 +1,7 @@
 # Backlog
 
 ## Bugs
-- 1d strip is updated incorrectly
+- 1d strip is updated incorrectly (still)
 - clouds are not (visibly) moving in the simulation
 
 

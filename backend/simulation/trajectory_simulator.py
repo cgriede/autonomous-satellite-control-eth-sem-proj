@@ -23,6 +23,8 @@ class KinematicSimulationConfig:
 
 
 def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> SimulationStateSeries:
+    from environment_definition.constants.SIMULATION import SIMULATION
+
     if config.num_frames < 2:
         raise ValueError("num_frames must be >= 2.")
     if config.sat_motion_span_scale <= 0.0:
@@ -81,6 +83,10 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
     n_bins = int(DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS)
     camera_observation_line_codes = np.full((n, n_bins), OBSERVATION_LINE_NOT_COMPUTED, dtype=np.int8)
+    n_clouds = len(SIMULATION.clouds)
+    cloud_arc_radius_km = np.full((n, n_clouds), np.nan, dtype=float)
+    cloud_arc_start_rad = np.full((n, n_clouds), np.nan, dtype=float)
+    cloud_arc_end_rad = np.full((n, n_clouds), np.nan, dtype=float)
     return SimulationStateSeries(
         t_s              = t_s,
         theta_orbit_rad  = theta_orbit_rad,
@@ -96,5 +102,8 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         camera_center_ray_observation_code=camera_center_ray_observation_code,
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         camera_observation_line_codes=camera_observation_line_codes,
+        cloud_arc_radius_km=cloud_arc_radius_km,
+        cloud_arc_start_rad=cloud_arc_start_rad,
+        cloud_arc_end_rad=cloud_arc_end_rad,
         metadata         = metadata,
     )
