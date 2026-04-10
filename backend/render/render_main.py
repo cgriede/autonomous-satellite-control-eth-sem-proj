@@ -651,6 +651,7 @@ simulation = run_simulation(
     num_frames=int(num_frames),
     sat_z_offset_deg=float(sat_z_offset_deg),
     ureg=ureg,
+    observer_target_angle_rad=float(np.arctan2(R_earth, 0.0)),
     camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
 )
 orbit_period_s = simulation.metadata.orbit_period_s
