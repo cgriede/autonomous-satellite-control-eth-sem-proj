@@ -4,10 +4,24 @@ from typing import Any
 
 import numpy as np
 
+from environment_definition.constants.SIMULATION import SIMULATION
+
 from .attitude_dynamics import AttitudeState2D, propagate_reaction_wheel_attitude_2d
-from .camera_2d import calculate_fov_angles, simulate_camera_strip_2d
+from .camera_2d import (
+    calculate_fov_angles,
+    simulate_camera_observation_line_1d,
+    simulate_camera_strip_2d,
+)
 from .reaction_wheel import ReactionWheel
 from .state_types import SimulationMetadata, SimulationStateSeries
+
+
+def _controller_agent_placeholder_step(*, frame_index: int, sim_time_s: float) -> None:
+    """
+    Reserved hook for a future controller agent (e.g. torque commands).
+    Reaction-wheel torque is currently fixed inside the attitude update above.
+    """
+    del frame_index, sim_time_s
 
 
 def run_simulation(
@@ -23,10 +37,15 @@ def run_simulation(
     num_frames: int,
     sat_z_offset_deg: float,
     ureg: Any,
+    observer_target_angle_rad: float,
     camera_pixel_ray_samples: int = 96,
+    camera_observation_line_n_bins: int | None = None,
 ) -> SimulationStateSeries:
     """
     Canonical numeric simulation entrypoint for rendering runs.
+
+    Per timestep (conceptually): plant (orbit + reaction-wheel attitude) → camera
+    raytracing (strip + 1D observation line) → controller placeholder.
 
     Contract:
     - performs numeric propagation / simulation
@@ -89,22 +108,18 @@ def run_simulation(
         omega_wheel=0.0 * ureg.rad / ureg.s,
     )
 
-    body_z_angle_rad = np.empty(int(num_frames), dtype=float)
+    n = int(num_frames)
+    n_bins = (
+        int(camera_observation_line_n_bins)
+        if camera_observation_line_n_bins is not None
+        else int(SIMULATION.camera_observation_line_n_bins)
+    )
+    if n_bins < 1:
+        raise ValueError("camera_observation_line_n_bins must be >= 1.")
+
+    body_z_angle_rad = np.empty(n, dtype=float)
     body_z_angle_rad[0] = state.theta.to(ureg.rad).magnitude
 
-    dt = sim_dt_s * ureg.s
-    for k in range(1, int(num_frames)):
-        tau_applied = reaction_wheel.compute_applied_torque(state=state, tau_cmd=wheel_torque_cmd)
-        state = propagate_reaction_wheel_attitude_2d(
-            state=state,
-            wheel_torque=tau_applied,
-            sat_inertia=sat_inertia,
-            wheel_inertia=wheel_inertia,
-            dt=dt,
-        )
-        body_z_angle_rad[k] = state.theta.to(ureg.rad).magnitude
-
-    n = int(num_frames)
     camera_gsd_m = np.full(n, np.nan, dtype=float)
     camera_ground_left_xy_km = np.full((n, 2), np.nan, dtype=float)
     camera_ground_right_xy_km = np.full((n, 2), np.nan, dtype=float)
@@ -113,10 +128,26 @@ def run_simulation(
     camera_center_first_hit_is_cloud = np.zeros(n, dtype=bool)
     camera_center_ray_observation_code = np.zeros(n, dtype=np.int8)
     camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
+    camera_observation_line_codes = np.empty((n, n_bins), dtype=np.int8)
+
     _, _vf = calculate_fov_angles()
     camera_vertical_fov_rad = float(_vf.to(ureg.rad).magnitude)
 
+    dt = sim_dt_s * ureg.s
+    target_angle_rad = float(observer_target_angle_rad)
+
     for k in range(n):
+        if k > 0:
+            tau_applied = reaction_wheel.compute_applied_torque(state=state, tau_cmd=wheel_torque_cmd)
+            state = propagate_reaction_wheel_attitude_2d(
+                state=state,
+                wheel_torque=tau_applied,
+                sat_inertia=sat_inertia,
+                wheel_inertia=wheel_inertia,
+                dt=dt,
+            )
+            body_z_angle_rad[k] = state.theta.to(ureg.rad).magnitude
+
         sat_pos_xy_km = np.array(
             [
                 radius_km[k] * np.cos(theta_orbit_rad[k]),
@@ -126,6 +157,7 @@ def run_simulation(
         )
         z_ang = float(body_z_angle_rad[k])
         boresight_dir_unit_xy = np.array([np.cos(z_ang), np.sin(z_ang)], dtype=float)
+
         cam = simulate_camera_strip_2d(
             sat_pos_xy_km=sat_pos_xy_km,
             boresight_dir_unit_xy=boresight_dir_unit_xy,
@@ -144,6 +176,20 @@ def run_simulation(
         camera_center_first_hit_is_cloud[k] = bool(cam.center_first_hit_is_cloud)
         if cam.center_first_hit_xy_km is not None:
             camera_center_first_hit_xy_km[k, :] = np.asarray(cam.center_first_hit_xy_km, dtype=float)
+
+        line_res = simulate_camera_observation_line_1d(
+            sat_pos_xy_km=sat_pos_xy_km,
+            boresight_dir_unit_xy=boresight_dir_unit_xy,
+            altitude=satellite_altitude,
+            earth_radius_km=r_earth_km,
+            sim_time_s=float(t_s[k]),
+            sim_total_s=sim_total_s,
+            target_angle_rad=target_angle_rad,
+            n_bins=n_bins,
+        )
+        camera_observation_line_codes[k, :] = line_res.observation_types
+
+        _controller_agent_placeholder_step(frame_index=k, sim_time_s=float(t_s[k]))
 
     metadata = SimulationMetadata(
         orbit_period_s=orbit_period_s,
@@ -172,6 +218,6 @@ def run_simulation(
         camera_center_first_hit_is_cloud=camera_center_first_hit_is_cloud,
         camera_center_ray_observation_code=camera_center_ray_observation_code,
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
+        camera_observation_line_codes=camera_observation_line_codes,
         metadata=metadata,
     )
-

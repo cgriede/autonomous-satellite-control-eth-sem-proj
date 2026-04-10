@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .observation_line_constants import DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS, OBSERVATION_LINE_NOT_COMPUTED
 from .state_types import SimulationMetadata, SimulationStateSeries
 
 
@@ -78,6 +79,8 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     camera_center_first_hit_is_cloud = np.zeros(n, dtype=bool)
     camera_center_ray_observation_code = np.zeros(n, dtype=np.int8)
     camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
+    n_bins = int(DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS)
+    camera_observation_line_codes = np.full((n, n_bins), OBSERVATION_LINE_NOT_COMPUTED, dtype=np.int8)
     return SimulationStateSeries(
         t_s              = t_s,
         theta_orbit_rad  = theta_orbit_rad,
@@ -92,5 +95,6 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         camera_center_first_hit_is_cloud=camera_center_first_hit_is_cloud,
         camera_center_ray_observation_code=camera_center_ray_observation_code,
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
+        camera_observation_line_codes=camera_observation_line_codes,
         metadata         = metadata,
     )

@@ -5,7 +5,14 @@ from typing import Any
 
 import numpy as np
 
-from environment_definition.constants import RENDER, SIMULATION, UREG as ureg
+from simulation.observation_line_constants import (
+    DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS,
+    OBSERVATION_LINE_NOT_COMPUTED,
+)
+
+from environment_definition.constants.RENDER import RENDER
+from environment_definition.constants.SIMULATION import SIMULATION
+from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from environment_definition.constants.SATELLITE import (
     FOCAL_LENGTH,
     N_PIXELS_Y,
@@ -199,6 +206,32 @@ OBSERVATION_SPACE = 0
 OBSERVATION_EARTH = 1
 OBSERVATION_CLOUD = 2
 OBSERVATION_TARGET = 3
+
+_ASCII_BY_CODE = {
+    int(OBSERVATION_SPACE): "-",
+    int(OBSERVATION_EARTH): "E",
+    int(OBSERVATION_CLOUD): "C",
+    int(OBSERVATION_TARGET): "X",
+    int(OBSERVATION_LINE_NOT_COMPUTED): "?",
+}
+
+
+def observation_codes_to_ascii_line(codes: np.ndarray) -> str:
+    """
+    Map per-bin observation codes to a single ASCII string.
+
+    Codes follow ``CameraObservationLine1DResult`` (0–3). ``OBSERVATION_LINE_NOT_COMPUTED``
+    is rendered as ``?``.
+    """
+    codes = np.asarray(codes, dtype=np.int8).ravel()
+    parts: list[str] = []
+    for c in codes:
+        ci = int(c)
+        ch = _ASCII_BY_CODE.get(ci)
+        if ch is None:
+            raise ValueError(f"Unknown observation code: {ci}")
+        parts.append(ch)
+    return "".join(parts)
 
 
 @dataclass(frozen=True)

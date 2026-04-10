@@ -36,6 +36,8 @@ class SimulationStateSeries:
     # 0 space, 1 earth, 2 cloud, 3 target (same convention as CameraObservationLine1DResult)
     camera_center_ray_observation_code : np.ndarray
     camera_cloud_blocked_fraction : np.ndarray # per-frame fraction of pixel-strip rays blocked by clouds
+    # Per-bin codes from simulate_camera_observation_line_1d (shape n_frames x n_bins); -99 = not computed
+    camera_observation_line_codes : np.ndarray
 
     metadata             : SimulationMetadata
 
@@ -66,3 +68,7 @@ class SimulationStateSeries:
             raise ValueError("camera_center_ray_observation_code must have length n.")
         if self.camera_cloud_blocked_fraction.shape[0] != n:
             raise ValueError("camera_cloud_blocked_fraction must have length n.")
+        if len(self.camera_observation_line_codes.shape) != 2:
+            raise ValueError("camera_observation_line_codes must be 2D (n_frames, n_bins).")
+        if self.camera_observation_line_codes.shape[0] != n:
+            raise ValueError("camera_observation_line_codes must have length n along axis 0.")
