@@ -115,6 +115,8 @@ class RenderConstants:
     main_axes_rect             : tuple[float, float, float, float]
     telemetry_axes_rect        : tuple[float, float, float, float]
     bird_view_1d_axes_rect     : tuple[float, float, float, float]
+    # 1D camera observation strip (per-bin codes from SimulationStateSeries), below bird view.
+    sat_view_1d_axes_rect      : tuple[float, float, float, float]
     closeup_axes_rect          : tuple[float, float, float, float]
     transport_bar_rect         : tuple[float, float, float, float]
     interactive_start_maximized: bool
@@ -255,11 +257,13 @@ RENDER = RenderConstants(
     figure_inset_gutter_frac    = 0.012,
     telemetry_axes_rect         = (0.02, 0.078, 0.19, 0.902),
     main_axes_rect              = (0.222, 0.280, 0.758, 0.70),
-    closeup_axes_rect           = (0.606, 0.078, 0.374, 0.19),
+    closeup_axes_rect           = (0.606, 0.125, 0.374, 0.135),
     transport_bar_rect          = (0.02, 0.02, 0.96, 0.048),
     interactive_start_maximized = True,
     
-    bird_view_1d_axes_rect=(0.222, 0.078, 0.374, 0.19),
+    # Stacked left column: sat observation strip (above transport), then 1D bird (aligned with closeup row).
+    sat_view_1d_axes_rect=(0.222, 0.068, 0.374, 0.055),
+    bird_view_1d_axes_rect=(0.222, 0.125, 0.374, 0.135),
     bird_view_1d_half_extent_km=250.0 * ureg.km,
 
     export_filename = "satellite_orbit_one_pass_30x.mp4",
