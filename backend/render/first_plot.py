@@ -37,11 +37,12 @@ from environment_definition.constants import (
 from simulation.camera_optics import pinhole_full_fov_rad
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
 from utils.flight_geometry.line_of_sight import minimum_contact_angle
-from simulation.camera_2d import simulate_camera_strip_2d
+from utils.geodesics.geodesic_helpers import (
+    east_north_km_to_lon_lat,
+    geodesic_distance,
+    sigma_deg_to_meters_north,
+)
 from simulation.run_simulation import run_simulation
-
-# Lazy camera: samples per frame in renderer (not 7000; not 500×2000 at import).
-_RENDER_PIXEL_RAY_SAMPLES = 96
 
 #BUG use these for debugging only
 SHOW_MAIN_PLOT = True
@@ -86,6 +87,7 @@ sim_speed_multiplier = SIMULATION.default_speed_multiplier
 sim_time_s = 0.0
 # Playback control state (Pause freezes sim_time_s advance).
 paused = False
+pause_button = None  # Button instance set in build_controls_panel
 simulation = None
 
 # --- Set up the figure ---
@@ -649,10 +651,12 @@ simulation = run_simulation(
     num_frames=int(num_frames),
     sat_z_offset_deg=float(sat_z_offset_deg),
     ureg=ureg,
+    camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
 )
 orbit_period_s = simulation.metadata.orbit_period_s
 
 def build_controls_panel(fig: plt.Figure) -> dict:
+    global pause_button
     artists = {}
 
     button_specs = list(RENDER.speed_button_specs)
@@ -682,6 +686,7 @@ def build_controls_panel(fig: plt.Figure) -> dict:
     artists["pause"].label.set_color(RENDER.speed_button_label_color)
     artists["pause"].label.set_fontsize(RENDER.speed_button_label_fontsize)
     artists["pause"].on_clicked(toggle_pause)
+    pause_button = artists["pause"]
 
     cx += _pause_w + _btn_gap
 
@@ -741,18 +746,6 @@ def _ray_circle_intersection_distance(ray_origin, ray_dir, radius_km):
 
 
 
-def observer_local_km_to_geo(
-    local_xy_km: np.ndarray[np.floating],
-    lat0_deg: float,
-    lon0_deg: float,
-) -> tuple[float, float]:
-    east_km, north_km = float(local_xy_km[0]), float(local_xy_km[1])
-    lat_deg = lat0_deg + north_km / 110.574
-    lon_scale_km = max(111.320 * np.cos(np.deg2rad(lat_deg)), 1e-6)
-    lon_deg = lon0_deg + east_km / lon_scale_km
-    return lat_deg, lon_deg
-
-
 def project_to_frame(
     local_xy_km: np.ndarray[np.floating],
     half_extent_km: float,
@@ -789,10 +782,17 @@ def _sample_bird_view_1d_terrain_elevation_m(lat_deg, lon_deg):
         (46.30, 9.10, 1600.0, 0.22),
         (46.85, 7.60, 1300.0, 0.25),
     ]
+    hit_lat = lat_deg * ureg.deg
+    hit_lon = lon_deg * ureg.deg
     elev_m = 450.0
     for peak_lat, peak_lon, amplitude_m, sigma_deg in peaks:
-        d2 = (lat_deg - peak_lat) ** 2 + (lon_deg - peak_lon) ** 2
-        elev_m += amplitude_m * np.exp(-d2 / (2.0 * sigma_deg**2))
+        plon = peak_lon * ureg.deg
+        plat = peak_lat * ureg.deg
+        sigma_m = sigma_deg_to_meters_north(plon, plat, sigma_deg * ureg.deg)
+        d = geodesic_distance(hit_lon, hit_lat, plon, plat)
+        d_m = float(d.to(ureg.m).magnitude)
+        sigma_m_val = float(sigma_m.to(ureg.m).magnitude)
+        elev_m += amplitude_m * np.exp(-(d_m**2) / (2.0 * sigma_m_val**2))
     return float(elev_m)
 
 
@@ -937,24 +937,84 @@ def set_scene_at_index(sim_idx: int, speed_label=None):
 
 
 
-    # camera sim (shared state, no artists)
-    try:
-        cam = simulate_camera_strip_2d(
-            sat_pos_xy_km=sat_pos,
-            boresight_dir_unit_xy=z_axis_dir,
-            altitude=SATELLITE_ALTITUDE,
-            earth_radius_km=SCENE["R_earth"],
-            sim_time_s=sim_time_local,
-            sim_total_s=float(simulation.metadata.sim_total_s),
-            pixel_ray_samples=_RENDER_PIXEL_RAY_SAMPLES,
-        )
-    except Exception:
-        cam = None
-    
-    if cam is not None:
-        center_local = cam.ground_center_xy_km
-        half_km = SCENE["bird_view_1d_half_extent_km"]
+    # Camera outputs from precomputed simulation series (see simulation.run_simulation).
+    ground_center_xy_km = simulation.camera_ground_center_xy_km[sim_idx]
+    center_first_hit_xy_km = simulation.camera_center_first_hit_xy_km[sim_idx]
+    center_first_hit_is_cloud = bool(simulation.camera_center_first_hit_is_cloud[sim_idx])
+    camera_gsd_m = float(simulation.camera_gsd_m[sim_idx])
+    strip_cloud_blocked_fraction = float(simulation.camera_cloud_blocked_fraction[sim_idx])
+
+    observer_pos = SCENE["observer_pos"]
+    observer_x = SCENE["observer_x"]
+    observer_y = SCENE["observer_y"]
+    half_km = SCENE["bird_view_1d_half_extent_km"]
+
+    if not np.isnan(ground_center_xy_km).any():
+        center_local = ground_center_xy_km - observer_pos
         center_local_frame = project_to_frame(center_local, half_km)
+        hit_lat_q, hit_lon_q = east_north_km_to_lon_lat(
+            SCENE["bird_view_1d_center_lon_deg"] * ureg.deg,
+            SCENE["bird_view_1d_center_lat_deg"] * ureg.deg,
+            center_local_frame[0] * ureg.km,
+            center_local_frame[1] * ureg.km,
+        )
+        hit_lat_deg = float(hit_lat_q.to(ureg.deg).magnitude)
+        hit_lon_deg = float(hit_lon_q.to(ureg.deg).magnitude)
+        hit_elevation_m = _sample_bird_view_1d_terrain_elevation_m(hit_lat_deg, hit_lon_deg)
+        if not np.isnan(center_first_hit_xy_km).any():
+            nearest_intersection_km = float(np.linalg.norm(center_first_hit_xy_km - sat_pos))
+        else:
+            nearest_intersection_km = None
+    else:
+        hit_lat_deg, hit_lon_deg, hit_elevation_m = None, None, None
+        nearest_intersection_km = None
+        center_first_hit_is_cloud = False
+
+    nadir_angle_rad = sat_theta + np.pi
+    z_angle_rel_nadir_rad = np.arctan2(
+        np.sin(np.arctan2(z_axis_dir[1], z_axis_dir[0]) - nadir_angle_rad),
+        np.cos(np.arctan2(z_axis_dir[1], z_axis_dir[0]) - nadir_angle_rad),
+    )
+    z_angle_deg = float(np.rad2deg(z_angle_rel_nadir_rad))
+    sat_to_observer = np.array([observer_x, observer_y], dtype=float) - sat_pos
+    los_angle_rad = float(np.arctan2(sat_to_observer[1], sat_to_observer[0]))
+    los_rel_nadir_rad = np.arctan2(
+        np.sin(los_angle_rad - nadir_angle_rad),
+        np.cos(los_angle_rad - nadir_angle_rad),
+    )
+    los_rel_nadir_deg = float(np.rad2deg(los_rel_nadir_rad))
+
+    if nearest_intersection_km is None:
+        intersection_text = "none"
+    else:
+        hit_type_label = "cloud" if center_first_hit_is_cloud else "earth"
+        intersection_text = f"{nearest_intersection_km:.1f} km ({hit_type_label})"
+    if hit_lat_deg is None:
+        geo_hit_text = "none"
+    else:
+        geo_hit_text = f"{hit_lat_deg:.3f}N {hit_lon_deg:.3f}E @ {hit_elevation_m:.0f}m"
+
+    camera_vertical_fov_deg = float(np.rad2deg(simulation.camera_vertical_fov_rad))
+    camera_swath_height_km = (
+        (N_PIXELS_Y * camera_gsd_m) / 1000.0 if not np.isnan(camera_gsd_m) else float("nan")
+    )
+    strip_cloud_blocked_pct = (
+        100.0 * strip_cloud_blocked_fraction
+        if np.isfinite(strip_cloud_blocked_fraction)
+        else float("nan")
+    )
+    speed_for_text = sim_speed_multiplier if speed_label is None else speed_label
+    gsd_txt = f"{camera_gsd_m:.2f} m" if np.isfinite(camera_gsd_m) else "n/a"
+    swath_txt = (
+        f"{camera_swath_height_km:.1f} km"
+        if np.isfinite(camera_swath_height_km)
+        else "n/a"
+    )
+    blocked_txt = (
+        f"{strip_cloud_blocked_pct:.0f}%"
+        if np.isfinite(strip_cloud_blocked_fraction)
+        else "n/a"
+    )
 
     # ---- MAIN panel artists ----
     if "main" in PANELS:
@@ -1029,8 +1089,42 @@ def set_scene_at_index(sim_idx: int, speed_label=None):
     # ---- TELEMETRY ----
     if "telemetry" in PANELS:
         t = PANELS["telemetry"]["artists"]["text"]
-        speed_for_text = sim_speed_multiplier if speed_label is None else speed_label
-        t.set_text(f"t={sim_time_local:8.2f}s\nspeed={speed_for_text:.0f}x\nsat=({sat_pos[0]:.1f},{sat_pos[1]:.1f})")
+        telemetry_body = "\n\n".join(
+            [
+                "\n".join(
+                    [
+                        "Orbit / attitude",
+                        f"  Orbit height: {sat_altitude:.1f} km",
+                        f"  Body spin: {sat_body_rotation_rate_label}",
+                        f"  z angle rel nadir: {z_angle_deg:+.1f}°",
+                        f"  LOS rel nadir: {los_rel_nadir_deg:+.1f}°",
+                        f"  Render window: {start_angle_deg:+.1f}° to {end_angle_deg:+.1f}°",
+                    ]
+                ),
+                "\n".join(
+                    [
+                        "Camera / strip",
+                        f"  GSD: {gsd_txt}, V-FOV: {camera_vertical_fov_deg:.2f}°",
+                        f"  Swath height: {swath_txt}",
+                        f"  Strip cloud blocked: {blocked_txt}",
+                    ]
+                ),
+                "\n".join(
+                    [
+                        "Hits",
+                        f"  Centerline hit: {intersection_text}",
+                        f"  Ground patch hit: {geo_hit_text}",
+                    ]
+                ),
+                "\n".join(
+                    [
+                        "Playback",
+                        f"  Speed: {speed_for_text:.0f}x",
+                    ]
+                ),
+            ]
+        )
+        t.set_text(telemetry_body)
 
     return []
 
