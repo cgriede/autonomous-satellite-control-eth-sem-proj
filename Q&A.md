@@ -52,6 +52,7 @@ pivot into satellite control for energy efficiency on mission objective
 # Open questions blocking progress
 Dissuss these questions with Alex in Meetings or directly via Mial / Teams.
 
+
 # Quantities estimations, simplifications
 AOCS
 - max angular acceleration  [rad/s^{2}] RW
