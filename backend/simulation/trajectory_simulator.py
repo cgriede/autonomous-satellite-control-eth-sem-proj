@@ -76,6 +76,7 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     camera_ground_center_xy_km = np.full((n, 2), np.nan, dtype=float)
     camera_center_first_hit_xy_km = np.full((n, 2), np.nan, dtype=float)
     camera_center_first_hit_is_cloud = np.zeros(n, dtype=bool)
+    camera_center_ray_observation_code = np.zeros(n, dtype=np.int8)
     camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
     return SimulationStateSeries(
         t_s              = t_s,
@@ -89,6 +90,7 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         camera_ground_center_xy_km=camera_ground_center_xy_km,
         camera_center_first_hit_xy_km=camera_center_first_hit_xy_km,
         camera_center_first_hit_is_cloud=camera_center_first_hit_is_cloud,
+        camera_center_ray_observation_code=camera_center_ray_observation_code,
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         metadata         = metadata,
     )

@@ -194,6 +194,13 @@ def _first_hit_point_ray_earth_or_clouds(
     return best_type, best_t, best_point
 
 
+# Same codes as CameraObservationLine1DResult.observation_types (space/earth/cloud/target).
+OBSERVATION_SPACE = 0
+OBSERVATION_EARTH = 1
+OBSERVATION_CLOUD = 2
+OBSERVATION_TARGET = 3
+
+
 @dataclass(frozen=True)
 class CameraStrip2DResult:
     # Scalar optics quantities
@@ -208,6 +215,9 @@ class CameraStrip2DResult:
     # Center pixel first obstruction (cloud vs Earth)
     center_first_hit_xy_km: np.ndarray | None
     center_first_hit_is_cloud: bool
+
+    # What the center (boresight) ray sees first: 0 space, 1 earth, 2 cloud, 3 target (reserved).
+    center_ray_observation_code: int
 
     # Cloud visibility across the 1D pixel strip
     cloud_blocked_fraction: float
@@ -234,6 +244,11 @@ def simulate_camera_strip_2d(
     - The camera boresight is the satellite body's +Z direction projected into XY.
     - The full sensor rectangle reduces to a 1D ground line segment in this plane.
     - We use the *vertical* FOV for that in-plane 1D strip.
+
+    If the vertical-FOV footprint does not fully intersect the Earth disk (any of the
+    three boundary rays misses), ground points are NaN, ``center_ray_observation_code``
+    is ``OBSERVATION_SPACE`` (0), and ``cloud_blocked_fraction`` is NaN (no valid
+    ground rays to sample). Optics scalars (GSD, FOV) are still returned.
     """
     require_compatible_units(altitude, "meter", "altitude")
 
@@ -277,8 +292,20 @@ def simulate_camera_strip_2d(
         sat_pos_xy_km, right_dir, radius_km=earth_radius_km
     )
 
+    nan2 = np.full(2, np.nan, dtype=float)
     if t_center is None or t_left is None or t_right is None:
-        raise RuntimeError("Camera strip ray did not intersect the Earth; check pointing geometry.")
+        return CameraStrip2DResult(
+            gsd_m=gsd_m,
+            vertical_fov_rad=vertical_fov_rad,
+            ground_center_xy_km=nan2.copy(),
+            ground_left_xy_km=nan2.copy(),
+            ground_right_xy_km=nan2.copy(),
+            center_first_hit_xy_km=None,
+            center_first_hit_is_cloud=False,
+            center_ray_observation_code=OBSERVATION_SPACE,
+            cloud_blocked_fraction=float("nan"),
+            swath_height_flat_km=swath_height_flat_km,
+        )
 
     ground_center_xy_km = sat_pos_xy_km + t_center * center_dir
     ground_left_xy_km = sat_pos_xy_km + t_left * left_dir
@@ -292,6 +319,12 @@ def simulate_camera_strip_2d(
         cloud_arc_specs=cloud_arc_specs,
     )
     center_first_hit_is_cloud = bool(hit_type == "cloud")
+    if hit_type == "cloud":
+        center_ray_observation_code = OBSERVATION_CLOUD
+    elif hit_type == "earth":
+        center_ray_observation_code = OBSERVATION_EARTH
+    else:
+        center_ray_observation_code = OBSERVATION_SPACE
 
     # Cloud blocked fraction: fraction of pixel rays that intersect clouds first.
     #
@@ -345,6 +378,7 @@ def simulate_camera_strip_2d(
         ground_right_xy_km=ground_right_xy_km,
         center_first_hit_xy_km=center_first_hit_xy_km,
         center_first_hit_is_cloud=center_first_hit_is_cloud,
+        center_ray_observation_code=center_ray_observation_code,
         cloud_blocked_fraction=cloud_blocked_fraction,
         swath_height_flat_km=swath_height_flat_km,
     )

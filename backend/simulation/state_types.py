@@ -33,6 +33,8 @@ class SimulationStateSeries:
     camera_ground_center_xy_km  : np.ndarray # per-frame (x,y) Earth intersection at boresight
     camera_center_first_hit_xy_km : np.ndarray # per-frame (x,y) first obstruction (cloud or Earth); NaN if none
     camera_center_first_hit_is_cloud : np.ndarray # per-frame bool
+    # 0 space, 1 earth, 2 cloud, 3 target (same convention as CameraObservationLine1DResult)
+    camera_center_ray_observation_code : np.ndarray
     camera_cloud_blocked_fraction : np.ndarray # per-frame fraction of pixel-strip rays blocked by clouds
 
     metadata             : SimulationMetadata
@@ -60,5 +62,7 @@ class SimulationStateSeries:
             raise ValueError("camera_center_first_hit_xy_km must have shape (n,2).")
         if self.camera_center_first_hit_is_cloud.shape[0] != n:
             raise ValueError("camera_center_first_hit_is_cloud must have length n.")
+        if self.camera_center_ray_observation_code.shape[0] != n:
+            raise ValueError("camera_center_ray_observation_code must have length n.")
         if self.camera_cloud_blocked_fraction.shape[0] != n:
             raise ValueError("camera_cloud_blocked_fraction must have length n.")

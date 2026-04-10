@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 
 from .attitude_dynamics import AttitudeState2D, propagate_reaction_wheel_attitude_2d
-from .camera_2d import calculate_fov_angles
+from .camera_2d import calculate_fov_angles, simulate_camera_strip_2d
 from .reaction_wheel import ReactionWheel
 from .state_types import SimulationMetadata, SimulationStateSeries
 
@@ -23,6 +23,7 @@ def run_simulation(
     num_frames: int,
     sat_z_offset_deg: float,
     ureg: Any,
+    camera_pixel_ray_samples: int = 96,
 ) -> SimulationStateSeries:
     """
     Canonical numeric simulation entrypoint for rendering runs.
@@ -103,8 +104,6 @@ def run_simulation(
         )
         body_z_angle_rad[k] = state.theta.to(ureg.rad).magnitude
 
-    # Camera arrays: left as NaN — strip/footprint is computed lazily per rendered frame
-    # in `backend/render/first_plot.py` (precomputing all frames was ~67s for 2000×500 rays).
     n = int(num_frames)
     camera_gsd_m = np.full(n, np.nan, dtype=float)
     camera_ground_left_xy_km = np.full((n, 2), np.nan, dtype=float)
@@ -112,9 +111,39 @@ def run_simulation(
     camera_ground_center_xy_km = np.full((n, 2), np.nan, dtype=float)
     camera_center_first_hit_xy_km = np.full((n, 2), np.nan, dtype=float)
     camera_center_first_hit_is_cloud = np.zeros(n, dtype=bool)
+    camera_center_ray_observation_code = np.zeros(n, dtype=np.int8)
     camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
     _, _vf = calculate_fov_angles()
     camera_vertical_fov_rad = float(_vf.to(ureg.rad).magnitude)
+
+    for k in range(n):
+        sat_pos_xy_km = np.array(
+            [
+                radius_km[k] * np.cos(theta_orbit_rad[k]),
+                radius_km[k] * np.sin(theta_orbit_rad[k]),
+            ],
+            dtype=float,
+        )
+        z_ang = float(body_z_angle_rad[k])
+        boresight_dir_unit_xy = np.array([np.cos(z_ang), np.sin(z_ang)], dtype=float)
+        cam = simulate_camera_strip_2d(
+            sat_pos_xy_km=sat_pos_xy_km,
+            boresight_dir_unit_xy=boresight_dir_unit_xy,
+            altitude=satellite_altitude,
+            earth_radius_km=r_earth_km,
+            sim_time_s=float(t_s[k]),
+            sim_total_s=sim_total_s,
+            pixel_ray_samples=int(camera_pixel_ray_samples),
+        )
+        camera_gsd_m[k] = float(cam.gsd_m)
+        camera_ground_left_xy_km[k, :] = cam.ground_left_xy_km
+        camera_ground_right_xy_km[k, :] = cam.ground_right_xy_km
+        camera_ground_center_xy_km[k, :] = cam.ground_center_xy_km
+        camera_cloud_blocked_fraction[k] = float(cam.cloud_blocked_fraction)
+        camera_center_ray_observation_code[k] = np.int8(cam.center_ray_observation_code)
+        camera_center_first_hit_is_cloud[k] = bool(cam.center_first_hit_is_cloud)
+        if cam.center_first_hit_xy_km is not None:
+            camera_center_first_hit_xy_km[k, :] = np.asarray(cam.center_first_hit_xy_km, dtype=float)
 
     metadata = SimulationMetadata(
         orbit_period_s=orbit_period_s,
@@ -141,6 +170,7 @@ def run_simulation(
         camera_ground_center_xy_km=camera_ground_center_xy_km,
         camera_center_first_hit_xy_km=camera_center_first_hit_xy_km,
         camera_center_first_hit_is_cloud=camera_center_first_hit_is_cloud,
+        camera_center_ray_observation_code=camera_center_ray_observation_code,
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         metadata=metadata,
     )
