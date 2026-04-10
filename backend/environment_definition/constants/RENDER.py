@@ -89,7 +89,7 @@ class RenderConstants:
     zorder_observer             : int
     zorder_cloud                : int
     zorder_info                 : int
-    # Swiss patch inset (bottom → top: footprint, centerline, observer, hit, clouds)
+    # 1D bird-view inset panel (bottom → top: footprint, centerline, observer, hit, clouds)
     zorder_inset_footprint        : int
     zorder_inset_centerline       : int
     zorder_inset_observer         : int
@@ -114,19 +114,22 @@ class RenderConstants:
     figure_inset_gutter_frac   : float
     main_axes_rect             : tuple[float, float, float, float]
     telemetry_axes_rect        : tuple[float, float, float, float]
-    swiss_inset_axes_rect      : tuple[float, float, float, float]
+    bird_view_1d_axes_rect     : tuple[float, float, float, float]
     closeup_axes_rect          : tuple[float, float, float, float]
     transport_bar_rect         : tuple[float, float, float, float]
     interactive_start_maximized: bool
     closeup_half_window_km     : object
     closeup_cloud_height_scale : float
-    # Swiss XY inset: square window [-half, +half] km each axis (full width = 2 * half).
-    swiss_inset_half_extent_km: object
+    # 1D bird-view XY: square window [-half, +half] km each axis (full width = 2 * half).
+    bird_view_1d_half_extent_km: object
 
 
 RENDER = RenderConstants(
-    figure_size                  = (24.0, 14.0),
+    # WINDOW SIZE
+    figure_size                  = (12.0, 7.0),
+
     constrained_layout           = True,
+    # MARGINS
     plot_margin                  = 600.0 * ureg.km,
     zoom_pad_x                   = 220.0 * ureg.km,
     zoom_pad_y_bottom            = 90.0 * ureg.km,
@@ -248,7 +251,7 @@ RENDER = RenderConstants(
     closeup_half_window_km=380.0 * ureg.km,
     closeup_cloud_height_scale=1.8,
 
-    # Left telemetry | right: main (top) + Swiss | YZ insets (bottom). Values tuned with figure_inset_gutter_frac.
+    # Left telemetry | right: main (top) + 1D bird-view | YZ insets (bottom). Values tuned with figure_inset_gutter_frac.
     figure_inset_gutter_frac    = 0.012,
     telemetry_axes_rect         = (0.02, 0.078, 0.19, 0.902),
     main_axes_rect              = (0.222, 0.280, 0.758, 0.70),
@@ -256,8 +259,8 @@ RENDER = RenderConstants(
     transport_bar_rect          = (0.02, 0.02, 0.96, 0.048),
     interactive_start_maximized = True,
     
-    swiss_inset_axes_rect=(0.222, 0.078, 0.374, 0.19),
-    swiss_inset_half_extent_km=250.0 * ureg.km,
+    bird_view_1d_axes_rect=(0.222, 0.078, 0.374, 0.19),
+    bird_view_1d_half_extent_km=250.0 * ureg.km,
 
     export_filename = "satellite_orbit_one_pass_30x.mp4",
     export_fps      = 20,

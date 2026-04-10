@@ -132,10 +132,8 @@ for cloud in SIMULATION.clouds:
 
 # Observer point at Earth's north pole
 observer_x, observer_y = 0.0, R_earth
-swiss_map = SIMULATION.switzerland_map
-swiss_center_lat_deg = float(swiss_map.lat_center_deg)
-swiss_center_lon_deg = float(swiss_map.lon_center_deg)
-# Observer reference in Swiss inset frame matches observer-relative km (origin).
+_ground_patch_geo = SIMULATION.switzerland_map
+# Observer reference in the 1D bird-view frame matches observer-relative km (origin).
 observer_cross_local = np.array([0.0, 0.0])
 
 #######################################################################################
@@ -152,9 +150,9 @@ SCENE = dict(
     observer_x=observer_x,
     observer_y=observer_y,
     cloud_models=cloud_models,
-    swiss_center_lat_deg= float(swiss_map.lat_center_deg),
-    swiss_center_lon_deg= float(swiss_map.lon_center_deg),
-    swiss_half_km= float(RENDER.swiss_inset_half_extent_km.to(ureg.km).magnitude),
+    bird_view_1d_center_lat_deg=float(_ground_patch_geo.lat_center_deg),
+    bird_view_1d_center_lon_deg=float(_ground_patch_geo.lon_center_deg),
+    bird_view_1d_half_extent_km=float(RENDER.bird_view_1d_half_extent_km.to(ureg.km).magnitude),
     observer_pos = np.array([observer_x, observer_y], dtype=float)
 
 )
@@ -351,19 +349,19 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     return axes, artists
 
 def build_1d_bird_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
-    ax = fig.add_axes(RENDER.swiss_inset_axes_rect)
+    ax = fig.add_axes(RENDER.bird_view_1d_axes_rect)
 
-    axes = {"swiss": ax}
+    axes = {"1d_bird": ax}
     artists: dict = {}
 
     cloud_models = scene["cloud_models"]
-    swiss_center_lat_deg = scene["swiss_center_lat_deg"]
-    swiss_center_lon_deg = scene["swiss_center_lon_deg"]
+    center_lat_deg = scene["bird_view_1d_center_lat_deg"]
+    center_lon_deg = scene["bird_view_1d_center_lon_deg"]
     observer_cross_local = scene.get("observer_cross_local", np.array([0.0, 0.0], dtype=float))
 
-    swiss_half_km = float(RENDER.swiss_inset_half_extent_km.to(ureg.km).magnitude)
-    swiss_full_km = int(round(2.0 * swiss_half_km))
-    inset_range_km = float(swiss_half_km)
+    half_extent_km = float(RENDER.bird_view_1d_half_extent_km.to(ureg.km).magnitude)
+    full_extent_km = int(round(2.0 * half_extent_km))
+    inset_range_km = float(half_extent_km)
 
     ax.set_facecolor(RENDER.space_background)
     ax.set_aspect("auto", adjustable="box")
@@ -407,7 +405,7 @@ def build_1d_bird_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     label_z = max(RENDER.zorder_inset_cloud_core, RENDER.zorder_info) + 1
     ax.text(
         0.02, 0.98,
-        f"Swiss {swiss_full_km}×{swiss_full_km} km\n{swiss_center_lat_deg:.2f}N {swiss_center_lon_deg:.2f}E",
+        f"1D bird view {full_extent_km}×{full_extent_km} km\n{center_lat_deg:.2f}N {center_lon_deg:.2f}E",
         transform=ax.transAxes,
         color=RENDER.info_text_color,
         fontsize=8,
@@ -764,10 +762,10 @@ def project_to_frame(
 
 
 
-def _inset_swiss_footprint_vertices_xy(left_local_km, right_local_km, half_swath_km):
+def _bird_view_1d_footprint_vertices_xy(left_local_km, right_local_km, half_swath_km):
     """Rectangle in observer-local km: chord = left→right, half-width along perpendicular (swath/2).
 
-    Note: returns *unclipped* observer-local vertices (do not project/clip to the swiss inset range here).
+    Note: returns *unclipped* observer-local vertices (do not project/clip to the 1D bird-view extent here).
     The caller (1D inset rendering) can decide how to clip/map to pixels.
     """
     chord = np.asarray(right_local_km, dtype=float) - np.asarray(left_local_km, dtype=float)
@@ -784,8 +782,8 @@ def _inset_swiss_footprint_vertices_xy(left_local_km, right_local_km, half_swath
     return np.array([p0, p1, p2, p3], dtype=float)
 
 
-def _sample_swiss_elevation_m(lat_deg, lon_deg):
-    # Deterministic terrain sampler over the Swiss patch (replace with DEM lookup later).
+def _sample_bird_view_1d_terrain_elevation_m(lat_deg, lon_deg):
+    # Deterministic terrain sampler over the ground patch (replace with DEM lookup later).
     peaks = [
         (46.55, 8.00, 2100.0, 0.28),
         (46.30, 9.10, 1600.0, 0.22),
@@ -886,7 +884,7 @@ def init():
             g.set_data([], [])
             c.set_data([], [])
 
-    # --- SWISS INSET ---
+    # --- 1D BIRD VIEW PANEL ---
     if "1d_bird" in PANELS:
         a = PANELS["1d_bird"]["artists"]
 
@@ -955,7 +953,7 @@ def set_scene_at_index(sim_idx: int, speed_label=None):
     
     if cam is not None:
         center_local = cam.ground_center_xy_km
-        half_km = SCENE["swiss_half_km"]
+        half_km = SCENE["bird_view_1d_half_extent_km"]
         center_local_frame = project_to_frame(center_local, half_km)
 
     # ---- MAIN panel artists ----
