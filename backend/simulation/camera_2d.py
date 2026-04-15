@@ -8,6 +8,10 @@ import numpy as np
 from simulation.observation_line_constants import (
     DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS,
     OBSERVATION_LINE_NOT_COMPUTED,
+    OBSERVATION_CLOUD,
+    OBSERVATION_EARTH,
+    OBSERVATION_SPACE,
+    OBSERVATION_TARGET,
 )
 
 from environment_definition.constants.RENDER import RENDER
@@ -199,12 +203,6 @@ def _first_hit_point_ray_earth_or_clouds(
 
     return best_type, best_t, best_point
 
-
-# Same codes as CameraObservationLine1DResult.observation_types (space/earth/cloud/target).
-OBSERVATION_SPACE = 0
-OBSERVATION_EARTH = 1
-OBSERVATION_CLOUD = 2
-OBSERVATION_TARGET = 3
 
 _ASCII_BY_CODE = {
     int(OBSERVATION_SPACE): "-",

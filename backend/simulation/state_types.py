@@ -38,6 +38,8 @@ class SimulationStateSeries:
     camera_cloud_blocked_fraction : np.ndarray # per-frame fraction of pixel-strip rays blocked by clouds
     # Per-bin codes from simulate_camera_observation_line_1d (shape n_frames x n_bins); -99 = not computed
     camera_observation_line_codes : np.ndarray
+    # Per-bin fixed-ground line codes (shape n_frames x n_bins), including cone-hit marker code.
+    fixed_ground_line_codes : np.ndarray
 
     # Cloud arc geometry (same convention as `camera_2d.compute_cloud_arc_specs_at_time`), shape (n_frames, n_clouds).
     # Kinematic / non-optics runs fill with NaN.
@@ -78,6 +80,16 @@ class SimulationStateSeries:
             raise ValueError("camera_observation_line_codes must be 2D (n_frames, n_bins).")
         if self.camera_observation_line_codes.shape[0] != n:
             raise ValueError("camera_observation_line_codes must have length n along axis 0.")
+        if self.camera_observation_line_codes.dtype != np.int8:
+            raise ValueError("camera_observation_line_codes must have dtype int8.")
+        if len(self.fixed_ground_line_codes.shape) != 2:
+            raise ValueError("fixed_ground_line_codes must be 2D (n_frames, n_bins).")
+        if self.fixed_ground_line_codes.shape[0] != n:
+            raise ValueError("fixed_ground_line_codes must have length n along axis 0.")
+        if self.fixed_ground_line_codes.dtype != np.int8:
+            raise ValueError("fixed_ground_line_codes must have dtype int8.")
+        if self.fixed_ground_line_codes.shape[1] != self.camera_observation_line_codes.shape[1]:
+            raise ValueError("fixed_ground_line_codes bin count must match camera_observation_line_codes.")
         if self.cloud_arc_radius_km.shape[0] != n:
             raise ValueError("cloud_arc_radius_km must have length n along axis 0.")
         if self.cloud_arc_radius_km.shape != self.cloud_arc_start_rad.shape:
