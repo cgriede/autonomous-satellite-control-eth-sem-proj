@@ -38,15 +38,17 @@ def build_1d_fixed_bird_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     artists: dict = {}
 
     n_bins = int(scene["n_bins"])
+    half_extent_km = float(RENDER.fixed_bird_view_half_extent_km.to("km").magnitude)
     h_pix = 24
     artists["H"] = h_pix
     artists["N_BINS"] = n_bins
-    artists["obs_bin"] = n_bins // 2
+    artists["fixed_half_extent_km"] = half_extent_km
+    artists["obs_x_km"] = 0.0
 
     img = np.zeros((h_pix, n_bins, 4), dtype=float)
     artists["img"] = ax_strip.imshow(
         img,
-        extent=(0, n_bins, 0, 1),
+        extent=(-half_extent_km, half_extent_km, 0, 1),
         origin="lower",
         interpolation="none",
         aspect="auto",
@@ -54,9 +56,9 @@ def build_1d_fixed_bird_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     )
 
     # Observer marker is always visible; color is updated by policy in updater.
-    obs_bin = float(artists["obs_bin"])
+    obs_x_km = float(artists["obs_x_km"])
     (artists["observer_line"],) = ax_strip.plot(
-        [obs_bin, obs_bin],
+        [obs_x_km, obs_x_km],
         [0.0, 1.0],
         color="red",
         linewidth=1.8,
@@ -64,7 +66,7 @@ def build_1d_fixed_bird_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     )
 
     ax_strip.set_facecolor(RENDER.space_background)
-    ax_strip.set_xlim(0, n_bins)
+    ax_strip.set_xlim(-half_extent_km, half_extent_km)
     ax_strip.set_ylim(0, 1)
     ax_strip.set_xticks([])
     ax_strip.set_yticks([])

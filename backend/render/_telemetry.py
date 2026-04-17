@@ -42,17 +42,40 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
         f"{scene['camera_swath_height_km']:.1f} km" if np.isfinite(scene["camera_swath_height_km"]) else "n/a"
     )
     blocked_txt = f"{scene['cloud_blocked_pct']:.0f}%" if np.isfinite(scene["cloud_blocked_pct"]) else "n/a"
-
-    text = "\n".join(
+    text = "\n\n".join(
         [
-            "Render telemetry",
-            f"  frame: {scene['sim_idx']}",
-            f"  orbit altitude: {scene['orbit_altitude_km']:.1f} km",
-            f"  GSD: {gsd_txt}",
-            f"  V-FOV: {scene['camera_vfov_deg']:.2f} deg",
-            f"  swath: {swath_txt}",
-            f"  strip cloud blocked: {blocked_txt}",
-            f"  speed: {scene['sim_speed_multiplier']:.0f}x",
+            "\n".join(
+                [
+                    "Orbit / attitude",
+                    f"  Orbit height: {scene['orbit_altitude_km']:.1f} km",
+                    f"  Body spin: {scene['sat_body_rotation_rate_label']}",
+                    f"  z angle rel nadir: {scene['z_angle_rel_nadir_deg']:+.1f} deg",
+                    f"  LOS rel nadir: {scene['los_rel_nadir_deg']:+.1f} deg",
+                    f"  Render window: {scene['render_window_text']}",
+                ]
+            ),
+            "\n".join(
+                [
+                    "Camera / strip",
+                    f"  GSD: {gsd_txt}, V-FOV: {scene['camera_vfov_deg']:.2f} deg",
+                    f"  Swath height: {swath_txt}",
+                    f"  Strip cloud blocked: {blocked_txt}",
+                ]
+            ),
+            "\n".join(
+                [
+                    "Hits",
+                    f"  Centerline hit: {scene['intersection_text']}",
+                    f"  Ground patch hit: {scene['ground_patch_hit_text']}",
+                ]
+            ),
+            "\n".join(
+                [
+                    "Playback",
+                    f"  Speed: {scene['sim_speed_multiplier']:.0f}x",
+                    f"  Frame: {scene['sim_idx']}",
+                ]
+            ),
         ]
     )
     artists["text"].set_text(text)

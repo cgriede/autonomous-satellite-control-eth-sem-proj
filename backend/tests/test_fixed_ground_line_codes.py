@@ -17,9 +17,59 @@ from simulation.observation_line_constants import (
     OBSERVATION_TARGET,
 )
 from simulation.run_simulation import run_simulation
+from simulation.run_simulation import _fixed_ground_codes_from_observation_line
 
 
 class FixedGroundLineCodesTest(unittest.TestCase):
+    def test_fixed_ground_conversion_remaps_space_to_earth(self):
+        observation = np.array(
+            [
+                OBSERVATION_SPACE,
+                OBSERVATION_EARTH,
+                OBSERVATION_CLOUD,
+                OBSERVATION_TARGET,
+                OBSERVATION_SPACE,
+            ],
+            dtype=np.int8,
+        )
+        rel = np.array([-0.4, -0.1, 0.0, 0.2, 0.5], dtype=float)
+
+        fixed_codes = _fixed_ground_codes_from_observation_line(
+            observation_codes=observation,
+            rel_angles_rad=rel,
+            center_ray_code=np.int8(OBSERVATION_CLOUD),
+        )
+
+        self.assertFalse(np.any(fixed_codes == np.int8(OBSERVATION_SPACE)))
+        self.assertEqual(int(fixed_codes[0]), int(OBSERVATION_EARTH))
+        self.assertEqual(int(fixed_codes[4]), int(OBSERVATION_EARTH))
+        self.assertEqual(int(fixed_codes[2]), int(OBSERVATION_CLOUD))
+        self.assertEqual(int(fixed_codes[3]), int(OBSERVATION_TARGET))
+
+    def test_fixed_ground_s_marker_only_when_center_hits_earth(self):
+        observation = np.array([OBSERVATION_EARTH, OBSERVATION_EARTH, OBSERVATION_EARTH], dtype=np.int8)
+        rel = np.array([-0.2, 0.0, 0.2], dtype=float)
+
+        with_s = _fixed_ground_codes_from_observation_line(
+            observation_codes=observation,
+            rel_angles_rad=rel,
+            center_ray_code=np.int8(OBSERVATION_EARTH),
+        )
+        without_s = _fixed_ground_codes_from_observation_line(
+            observation_codes=observation,
+            rel_angles_rad=rel,
+            center_ray_code=np.int8(OBSERVATION_CLOUD),
+        )
+
+        self.assertEqual(
+            int(np.sum(with_s == np.int8(FIXED_GROUND_CONE_HIT_EARTH))),
+            1,
+        )
+        self.assertEqual(
+            int(np.sum(without_s == np.int8(FIXED_GROUND_CONE_HIT_EARTH))),
+            0,
+        )
+
     def test_fixed_ground_line_codes_shape_dtype_and_values(self):
         theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
         earth_radius_km = EARTH_RADIUS.to(ureg.km).magnitude
@@ -49,7 +99,6 @@ class FixedGroundLineCodesTest(unittest.TestCase):
         self.assertEqual(fixed_codes.dtype, np.int8)
 
         allowed = {
-            int(OBSERVATION_SPACE),
             int(OBSERVATION_EARTH),
             int(OBSERVATION_CLOUD),
             int(OBSERVATION_TARGET),
@@ -63,6 +112,7 @@ class FixedGroundLineCodesTest(unittest.TestCase):
             axis=1,
         )
         self.assertTrue(np.all(cone_hit_count_per_frame <= 1))
+        self.assertFalse(np.any(fixed_codes == np.int8(OBSERVATION_SPACE)))
 
 
 if __name__ == "__main__":

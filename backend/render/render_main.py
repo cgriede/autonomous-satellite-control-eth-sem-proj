@@ -26,11 +26,20 @@ from simulation.observation_line_constants import OBSERVATION_CLOUD
 from simulation.run_simulation import run_simulation
 from utils.flight_geometry.line_of_sight import minimum_contact_angle
 
-from ._closeup_view import build_closeup_panel, update_closeup_panel
-from ._fixed_bird_view import build_1d_fixed_bird_view, update_1d_fixed_bird_view
-from ._main_view import build_main_panel, update_main_panel
-from ._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
-from ._telemetry import build_telemetry_panel, update_telemetry_panel
+if __package__:
+    from ._closeup_view import build_closeup_panel, update_closeup_panel
+    from ._controls import RenderControls, build_controls_panel
+    from ._fixed_bird_view import build_1d_fixed_bird_view, update_1d_fixed_bird_view
+    from ._main_view import build_main_panel, update_main_panel
+    from ._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
+    from ._telemetry import build_telemetry_panel, update_telemetry_panel
+else:
+    from render._closeup_view import build_closeup_panel, update_closeup_panel
+    from render._controls import RenderControls, build_controls_panel
+    from render._fixed_bird_view import build_1d_fixed_bird_view, update_1d_fixed_bird_view
+    from render._main_view import build_main_panel, update_main_panel
+    from render._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
+    from render._telemetry import build_telemetry_panel, update_telemetry_panel
 
 
 SHOW_MAIN_PLOT = True
@@ -50,6 +59,7 @@ START_ANGLE_DEG = -(CONTACT_HALF_ANGLE_DEG + MARGIN_DEG)
 END_ANGLE_DEG = CONTACT_HALF_ANGLE_DEG + MARGIN_DEG
 ANIMATION_INTERVAL_MS = SIMULATION.animation_interval.to(ureg.ms).magnitude
 SIM_SPEED_MULTIPLIER = float(SIMULATION.default_speed_multiplier)
+SAT_BODY_ROTATION_RATE_LABEL = "torque cmd: +max"
 
 
 SIMULATION_SERIES = run_simulation(
@@ -88,6 +98,7 @@ STATIC_SCENE = {
 FIG = plt.figure(figsize=RENDER.figure_size, facecolor=RENDER.space_background)
 SIM_TIME_S = 0.0
 PANELS: dict[str, dict] = {}
+CONTROLS = RenderControls(sim_speed_multiplier=SIM_SPEED_MULTIPLIER)
 
 
 def _cloud_world_xy_for_frame(sim_idx: int) -> list[dict[str, np.ndarray]]:
@@ -140,6 +151,26 @@ def sample_scene(sim_idx: int) -> dict:
     camera_gsd_m = float(SIMULATION_SERIES.camera_gsd_m[sim_idx])
     camera_swath_height_km = (N_PIXELS_Y * camera_gsd_m) / 1000.0 if np.isfinite(camera_gsd_m) else float("nan")
     blocked_fraction = float(SIMULATION_SERIES.camera_cloud_blocked_fraction[sim_idx])
+    center_first_hit_xy = np.asarray(SIMULATION_SERIES.camera_center_first_hit_xy_km[sim_idx], dtype=float)
+    ground_center_xy = np.asarray(SIMULATION_SERIES.camera_ground_center_xy_km[sim_idx], dtype=float)
+
+    nadir_angle = sat_theta + np.pi
+    z_angle_rel_nadir_rad = np.arctan2(np.sin(z_angle - nadir_angle), np.cos(z_angle - nadir_angle))
+    sat_to_observer = STATIC_SCENE["observer_pos"] - sat_pos
+    los_angle = float(np.arctan2(sat_to_observer[1], sat_to_observer[0]))
+    los_rel_nadir_rad = np.arctan2(np.sin(los_angle - nadir_angle), np.cos(los_angle - nadir_angle))
+
+    if np.isnan(center_first_hit_xy).any():
+        intersection_text = "none"
+    else:
+        hit_type = "cloud" if bool(SIMULATION_SERIES.camera_center_first_hit_is_cloud[sim_idx]) else "earth"
+        hit_distance_km = float(np.linalg.norm(center_first_hit_xy - sat_pos))
+        intersection_text = f"{hit_distance_km:.1f} km ({hit_type})"
+
+    if np.isnan(ground_center_xy).any():
+        ground_patch_hit_text = "none"
+    else:
+        ground_patch_hit_text = f"x={ground_center_xy[0]:.1f} km, y={ground_center_xy[1]:.1f} km"
 
     return {
         "sim_idx": sim_idx,
@@ -149,7 +180,7 @@ def sample_scene(sim_idx: int) -> dict:
         "observer_x": STATIC_SCENE["observer_x"],
         "observer_y": STATIC_SCENE["observer_y"],
         "orbit_altitude_km": SAT_ALTITUDE_KM,
-        "sim_speed_multiplier": SIM_SPEED_MULTIPLIER,
+        "sim_speed_multiplier": CONTROLS.sim_speed_multiplier,
         "edge_l": edge_l,
         "edge_r": edge_r,
         "cloud_world": _cloud_world_xy_for_frame(sim_idx),
@@ -162,6 +193,12 @@ def sample_scene(sim_idx: int) -> dict:
         "camera_vfov_deg": float(np.rad2deg(SIMULATION_SERIES.camera_vertical_fov_rad)),
         "camera_swath_height_km": camera_swath_height_km,
         "cloud_blocked_pct": 100.0 * blocked_fraction if np.isfinite(blocked_fraction) else float("nan"),
+        "sat_body_rotation_rate_label": SAT_BODY_ROTATION_RATE_LABEL,
+        "z_angle_rel_nadir_deg": float(np.rad2deg(z_angle_rel_nadir_rad)),
+        "los_rel_nadir_deg": float(np.rad2deg(los_rel_nadir_rad)),
+        "intersection_text": intersection_text,
+        "ground_patch_hit_text": ground_patch_hit_text,
+        "render_window_text": f"{START_ANGLE_DEG:+.1f} deg to {END_ANGLE_DEG:+.1f} deg",
     }
 
 
@@ -225,7 +262,8 @@ def update_panels(scene: dict) -> None:
 
 def update(_frame: int) -> list:
     global SIM_TIME_S
-    SIM_TIME_S += (ANIMATION_INTERVAL_MS / 1000.0) * SIM_SPEED_MULTIPLIER
+    if not CONTROLS.paused:
+        SIM_TIME_S += (ANIMATION_INTERVAL_MS / 1000.0) * CONTROLS.sim_speed_multiplier
     sim_idx = simulation_index_from_time(SIM_TIME_S, wrap_orbit=True)
     scene = sample_scene(sim_idx)
     update_panels(scene)
@@ -351,6 +389,7 @@ if __name__ == "__main__":
     )
 
     _build_panels()
+    _controls = build_controls_panel(FIG, CONTROLS)
 
     if args.save_one_pass_30x:
         output_path = save_one_pass_video_30x_to_project_root()

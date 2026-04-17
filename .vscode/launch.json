@@ -61,6 +61,19 @@
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
       }
+    },
+    {
+      "name": "Sat Sim: fixed bird observation (headless)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/scripts/print_fixed_bird_observation_line.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": ["--stride", "1", "--num-frames", "500"],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      }
     }
   ]
 }

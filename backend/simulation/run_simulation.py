@@ -16,6 +16,7 @@ from environment_definition.mission_profiles.mission_1_random_fl import SATELLIT
 from .attitude_dynamics import AttitudeState2D, propagate_reaction_wheel_attitude_2d
 from .camera_2d import (
     OBSERVATION_EARTH,
+    OBSERVATION_SPACE,
     calculate_fov_angles,
     compute_cloud_arc_specs_at_time,
     simulate_camera_observation_line_1d,
@@ -44,6 +45,10 @@ def _fixed_ground_codes_from_observation_line(
         raise ValueError("observation_codes must be a 1D array.")
     if rel_angles_rad.shape != fixed_codes.shape:
         raise ValueError("rel_angles_rad shape must match observation_codes shape.")
+
+    # In earth-fixed view, bins always represent ground in the fixed stripe.
+    # Therefore camera "space" bins are rendered as Earth for fixed-ground output.
+    fixed_codes[fixed_codes == np.int8(OBSERVATION_SPACE)] = np.int8(OBSERVATION_EARTH)
 
     # Mark the boresight cone hit bin only when center ray first-hit is Earth.
     if int(center_ray_code) == int(OBSERVATION_EARTH):

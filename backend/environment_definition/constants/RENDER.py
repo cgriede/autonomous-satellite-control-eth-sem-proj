@@ -122,7 +122,9 @@ class RenderConstants:
     # 1D camera observation strip (per-bin codes from SimulationStateSeries), below bird view.
     sat_view_1d_axes_rect      : tuple[float, float, float, float]
     closeup_axes_rect          : tuple[float, float, float, float]
-    # Observer-centered ±bird_view_1d_half_extent_km top-down 2D panel (split right column with closeup).
+    # Observer-centered ±fixed_bird_view_half_extent_km 1D fixed-bird strip coverage.
+    fixed_bird_view_half_extent_km: object
+    # Observer-centered ±bird_view_1d_half_extent_km top-down 2D panel (legacy naming kept for compatibility).
     fixed_bird_view_axes_rect  : tuple[float, float, float, float]
     transport_bar_rect         : tuple[float, float, float, float]
     interactive_start_maximized: bool
@@ -262,19 +264,20 @@ RENDER = RenderConstants(
     closeup_half_window_km=380.0 * ureg.km,
     closeup_cloud_height_scale=1.8,
 
-    # Left telemetry | right: main (top) + 1D bird-view | YZ insets (bottom). Values tuned with figure_inset_gutter_frac.
+    # Left telemetry | right: main (top) + lower half split (left stacked strips, right enlarged closeup).
     figure_inset_gutter_frac    = 0.012,
     telemetry_axes_rect         = (0.02, 0.078, 0.19, 0.902),
     main_axes_rect              = (0.222, 0.280, 0.758, 0.70),
-    closeup_axes_rect           = (0.606, 0.125, 0.180, 0.135),
-    fixed_bird_view_axes_rect   = (0.794, 0.125, 0.180, 0.135),
+    closeup_axes_rect           = (0.606, 0.068, 0.374, 0.192),
+    fixed_bird_view_axes_rect   = (0.222, 0.125, 0.374, 0.055),
     transport_bar_rect          = (0.02, 0.02, 0.96, 0.048),
     interactive_start_maximized = True,
     
-    # Stacked left column: sat observation strip (above transport), then 1D bird (aligned with closeup row).
+    # Stacked left column: fixed-bird strip above sat observation strip.
     sat_view_1d_axes_rect=(0.222, 0.068, 0.374, 0.055),
-    bird_view_1d_axes_rect=(0.222, 0.125, 0.374, 0.135),
-    bird_view_1d_half_extent_km=250.0 * ureg.km,
+    bird_view_1d_axes_rect=(0.222, 0.125, 0.374, 0.055),
+    fixed_bird_view_half_extent_km=500.0 * ureg.km,
+    bird_view_1d_half_extent_km=500.0 * ureg.km,
 
     export_filename = "satellite_orbit_one_pass_30x.mp4",
     export_fps      = 20,
