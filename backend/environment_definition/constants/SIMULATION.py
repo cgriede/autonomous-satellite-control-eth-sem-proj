@@ -50,6 +50,10 @@ class SimulationConstants:
     switzerland_map: SwitzerlandMap
     clouds: tuple[Cloud, ...]
     export_speed_multiplier: float
+    # Rays sampled along the sensor column for camera strip cloud-blocked stats (see simulation.camera_2d).
+    camera_pixel_ray_samples: int
+    # Bins along the vertical FOV for simulate_camera_observation_line_1d and SimulationStateSeries.
+    camera_observation_line_n_bins: int
 
 
 SIMULATION = SimulationConstants(
@@ -82,4 +86,6 @@ SIMULATION = SimulationConstants(
         ),
     ),
     export_speed_multiplier=30.0,
+    camera_pixel_ray_samples=96,
+    camera_observation_line_n_bins=100,
 )

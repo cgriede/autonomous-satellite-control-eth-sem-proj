@@ -5,7 +5,18 @@ from typing import Any
 
 import numpy as np
 
-from environment_definition.constants import RENDER, SIMULATION, UREG as ureg
+from simulation.observation_line_constants import (
+    DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS,
+    OBSERVATION_LINE_NOT_COMPUTED,
+    OBSERVATION_CLOUD,
+    OBSERVATION_EARTH,
+    OBSERVATION_SPACE,
+    OBSERVATION_TARGET,
+)
+
+from environment_definition.constants.RENDER import RENDER
+from environment_definition.constants.SIMULATION import SIMULATION
+from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from environment_definition.constants.SATELLITE import (
     FOCAL_LENGTH,
     N_PIXELS_Y,
@@ -116,18 +127,17 @@ def _rotate_unit_xy(dir_unit_xy: np.ndarray, angle_rad: float) -> np.ndarray:
     return rot @ dir_unit_xy
 
 
-def _compute_cloud_arc_specs_at_time(
+def compute_cloud_arc_specs_at_time(
     *,
     sim_time_s: float,
     sim_total_s: float,
     earth_radius_km: float,
 ) -> list[dict[str, float]]:
     """
-    Build opaque cloud arc specs in the renderer's 2D geometry convention.
+    Build cloud arc specs (radius + start/end angles in rad) for each `SIMULATION.clouds` entry.
 
-    Note:
-    In the current renderer implementation, cloud *angular placement* is fixed
-    (a shift term is set to 0.0), and only the arc span grows over time.
+    Used by `run_simulation` (per frame) and by camera raytracing. Angular placement follows
+    `SIMULATION.clouds`; span grows over simulated time.
     """
     growth_phase = sim_time_s / max(sim_total_s, 1e-9)
     cloud_growth = 1.0 + (RENDER.cloud_growth_max_span_scale - 1.0) * float(
@@ -194,6 +204,33 @@ def _first_hit_point_ray_earth_or_clouds(
     return best_type, best_t, best_point
 
 
+_ASCII_BY_CODE = {
+    int(OBSERVATION_SPACE): "-",
+    int(OBSERVATION_EARTH): "E",
+    int(OBSERVATION_CLOUD): "C",
+    int(OBSERVATION_TARGET): "X",
+    int(OBSERVATION_LINE_NOT_COMPUTED): "?",
+}
+
+
+def observation_codes_to_ascii_line(codes: np.ndarray) -> str:
+    """
+    Map per-bin observation codes to a single ASCII string.
+
+    Codes follow ``CameraObservationLine1DResult`` (0–3). ``OBSERVATION_LINE_NOT_COMPUTED``
+    is rendered as ``?``.
+    """
+    codes = np.asarray(codes, dtype=np.int8).ravel()
+    parts: list[str] = []
+    for c in codes:
+        ci = int(c)
+        ch = _ASCII_BY_CODE.get(ci)
+        if ch is None:
+            raise ValueError(f"Unknown observation code: {ci}")
+        parts.append(ch)
+    return "".join(parts)
+
+
 @dataclass(frozen=True)
 class CameraStrip2DResult:
     # Scalar optics quantities
@@ -208,6 +245,9 @@ class CameraStrip2DResult:
     # Center pixel first obstruction (cloud vs Earth)
     center_first_hit_xy_km: np.ndarray | None
     center_first_hit_is_cloud: bool
+
+    # What the center (boresight) ray sees first: 0 space, 1 earth, 2 cloud, 3 target (reserved).
+    center_ray_observation_code: int
 
     # Cloud visibility across the 1D pixel strip
     cloud_blocked_fraction: float
@@ -234,6 +274,11 @@ def simulate_camera_strip_2d(
     - The camera boresight is the satellite body's +Z direction projected into XY.
     - The full sensor rectangle reduces to a 1D ground line segment in this plane.
     - We use the *vertical* FOV for that in-plane 1D strip.
+
+    If the vertical-FOV footprint does not fully intersect the Earth disk (any of the
+    three boundary rays misses), ground points are NaN, ``center_ray_observation_code``
+    is ``OBSERVATION_SPACE`` (0), and ``cloud_blocked_fraction`` is NaN (no valid
+    ground rays to sample). Optics scalars (GSD, FOV) are still returned.
     """
     require_compatible_units(altitude, "meter", "altitude")
 
@@ -256,7 +301,7 @@ def simulate_camera_strip_2d(
     swath_height_flat_km = (N_PIXELS_Y * gsd_m) / 1000.0
 
     # Clouds for this time step
-    cloud_arc_specs = _compute_cloud_arc_specs_at_time(
+    cloud_arc_specs = compute_cloud_arc_specs_at_time(
         sim_time_s=sim_time_s,
         sim_total_s=sim_total_s,
         earth_radius_km=earth_radius_km,
@@ -277,8 +322,20 @@ def simulate_camera_strip_2d(
         sat_pos_xy_km, right_dir, radius_km=earth_radius_km
     )
 
+    nan2 = np.full(2, np.nan, dtype=float)
     if t_center is None or t_left is None or t_right is None:
-        raise RuntimeError("Camera strip ray did not intersect the Earth; check pointing geometry.")
+        return CameraStrip2DResult(
+            gsd_m=gsd_m,
+            vertical_fov_rad=vertical_fov_rad,
+            ground_center_xy_km=nan2.copy(),
+            ground_left_xy_km=nan2.copy(),
+            ground_right_xy_km=nan2.copy(),
+            center_first_hit_xy_km=None,
+            center_first_hit_is_cloud=False,
+            center_ray_observation_code=OBSERVATION_SPACE,
+            cloud_blocked_fraction=float("nan"),
+            swath_height_flat_km=swath_height_flat_km,
+        )
 
     ground_center_xy_km = sat_pos_xy_km + t_center * center_dir
     ground_left_xy_km = sat_pos_xy_km + t_left * left_dir
@@ -292,6 +349,12 @@ def simulate_camera_strip_2d(
         cloud_arc_specs=cloud_arc_specs,
     )
     center_first_hit_is_cloud = bool(hit_type == "cloud")
+    if hit_type == "cloud":
+        center_ray_observation_code = OBSERVATION_CLOUD
+    elif hit_type == "earth":
+        center_ray_observation_code = OBSERVATION_EARTH
+    else:
+        center_ray_observation_code = OBSERVATION_SPACE
 
     # Cloud blocked fraction: fraction of pixel rays that intersect clouds first.
     #
@@ -345,6 +408,7 @@ def simulate_camera_strip_2d(
         ground_right_xy_km=ground_right_xy_km,
         center_first_hit_xy_km=center_first_hit_xy_km,
         center_first_hit_is_cloud=center_first_hit_is_cloud,
+        center_ray_observation_code=center_ray_observation_code,
         cloud_blocked_fraction=cloud_blocked_fraction,
         swath_height_flat_km=swath_height_flat_km,
     )
@@ -428,7 +492,7 @@ def simulate_camera_observation_line_1d(
     boresight_dir_unit_xy = boresight_dir_unit_xy / dir_norm
 
     if cloud_arc_specs is None:
-        cloud_arc_specs = _compute_cloud_arc_specs_at_time(
+        cloud_arc_specs = compute_cloud_arc_specs_at_time(
             sim_time_s=sim_time_s,
             sim_total_s=sim_total_s,
             earth_radius_km=earth_radius_km,

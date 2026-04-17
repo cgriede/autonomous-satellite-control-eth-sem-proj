@@ -16,7 +16,7 @@
       "name": "Sat Sim Export",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/backend/render/first_plot.py",
+      "program": "${workspaceFolder}/backend/render/render_main.py",
       "cwd": "${workspaceFolder}/backend",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
@@ -29,7 +29,7 @@
       "name": "Sat Sim Interactive",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/backend/render/first_plot.py",
+      "program": "${workspaceFolder}/backend/render/render_main.py",
       "cwd": "${workspaceFolder}/backend",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
@@ -49,5 +49,18 @@
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
       }
     },
+    {
+      "name": "Sat Sim: camera observation (headless)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/scripts/print_camera_observation_line.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": ["--stride", "1", "--num-frames", "500"],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      }
+    }
   ]
 }

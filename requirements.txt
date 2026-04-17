@@ -5,3 +5,4 @@ Pint
 opencv-python
 rich
 tqdm
+pyproj

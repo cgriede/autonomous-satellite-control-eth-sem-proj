@@ -11,13 +11,14 @@ alwaysApply: true
 
 ## Allowed in `backend/render/*`
 
-- Loading/consuming simulation outputs such as `simulation.state_types.SimulationStateSeries`.
+- Loading/consuming simulation outputs such as `simulation.state_types.SimulationStateSeries` (including per-timestep fields like `camera_gsd_m`, `camera_ground_center_xy_km`, etc., produced by `simulation.run_simulation.run_simulation()`).
 - Pure geometry/visual framing (plot extents, camera windows, UI controls).
 - Drawing / exporting images and videos.
 
 ## Forbidden in `backend/render/*`
 
 - Calling any numeric simulator/integrator directly (e.g. `simulate_*`, propagation loops).
+- Calling camera **simulation** entry points from render code (e.g. `simulate_camera_strip_2d`, `simulate_camera_observation_line_1d`). Those belong under `backend/simulation/*` and must be run as part of producing `SimulationStateSeries` (or another documented simulation API), not from the renderer.
 - Creating simulation configs for integration (e.g. `KinematicSimulationConfig`) and running them in the renderer.
 
 ## How to add new rendered data

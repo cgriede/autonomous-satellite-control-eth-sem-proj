@@ -1,11 +1,11 @@
 # Render Module API Interface
 
-This document describes the public interface exposed by the current render module implementation in `backend/render/first_plot.py`.
+This document describes the public interface exposed by the current render module implementation in `backend/render/render_main.py`.
 
 ## Overview
 
 - **Module role:** render a 2D Earth-orbit scene with a satellite, animated state updates, and optional one-pass MP4 export.
-- **Current boundary:** single Python script module (`first_plot.py`) with module-level initialization and function APIs.
+- **Current boundary:** single Python script module (`render_main.py`) with module-level initialization and function APIs.
 - **Execution context:** intended to run with `backend/` as import root (see `.vscode/launch.json`).
 
 ## Runtime Context and Dependencies
@@ -105,7 +105,7 @@ This document describes the public interface exposed by the current render modul
 
 ## CLI Interface
 
-`first_plot.py` exposes a script entrypoint:
+`render_main.py` exposes a script entrypoint:
 
 - **Default mode:** live interactive animation window.
 - **Flag:** `--save-one-pass-30x`
@@ -116,7 +116,7 @@ This document describes the public interface exposed by the current render modul
 Example:
 
 ```bash
-python backend/render/first_plot.py --save-one-pass-30x
+python backend/render/render_main.py --save-one-pass-30x
 ```
 
 ## State and Side Effects

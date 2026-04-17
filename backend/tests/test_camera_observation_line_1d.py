@@ -4,7 +4,11 @@ import numpy as np
 
 from environment_definition.constants import EARTH_RADIUS
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
-from simulation.camera_2d import simulate_camera_observation_line_1d
+from simulation.camera_2d import (
+    OBSERVATION_LINE_NOT_COMPUTED,
+    observation_codes_to_ascii_line,
+    simulate_camera_observation_line_1d,
+)
 
 
 class CameraObservationLine1DTest(unittest.TestCase):
@@ -83,6 +87,14 @@ class CameraObservationLine1DTest(unittest.TestCase):
 
         # Sanity: only {earth, target} codes appear.
         self.assertTrue(set(int(x) for x in obs.tolist()).issubset({1, 3}))
+
+    def test_observation_codes_to_ascii_line(self):
+        arr = np.array([0, 1, 2, 3, OBSERVATION_LINE_NOT_COMPUTED], dtype=np.int8)
+        self.assertEqual(observation_codes_to_ascii_line(arr), "-ECX?")
+
+    def test_observation_codes_to_ascii_line_unknown_raises(self):
+        with self.assertRaises(ValueError):
+            observation_codes_to_ascii_line(np.array([42], dtype=np.int8))
 
 
 if __name__ == "__main__":

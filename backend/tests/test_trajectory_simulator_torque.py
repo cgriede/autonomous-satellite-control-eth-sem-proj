@@ -1,5 +1,8 @@
 import unittest
 
+import numpy as np
+
+from simulation.camera_2d import OBSERVATION_LINE_NOT_COMPUTED
 from simulation.trajectory_simulator import KinematicSimulationConfig, simulate_kinematic_trajectory
 
 
@@ -38,6 +41,10 @@ class TorqueDrivenTrajectorySimulatorTest(unittest.TestCase):
         series = simulate_kinematic_trajectory(self._base_config())
         deltas = series.body_z_angle_rad[1:] - series.body_z_angle_rad[:-1]
         self.assertTrue((deltas > 0.0).all())
+
+    def test_kinematic_trajectory_marks_camera_line_not_computed(self):
+        series = simulate_kinematic_trajectory(self._base_config())
+        self.assertTrue(np.all(series.camera_observation_line_codes == OBSERVATION_LINE_NOT_COMPUTED))
 
 
 if __name__ == "__main__":
