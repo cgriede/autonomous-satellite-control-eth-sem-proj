@@ -1,13 +1,26 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+
 
 @dataclass(frozen=True)
 class AutonomousControllerState:
-    #satellite position
-    #target position (as requested by mission objective)
-    #satellite orientation / attitude
-    #camera view preclassified as space, earth, cloud, target
+    """
+    Minimal state for the linear dummy policy: a fixed-length feature vector.
+    Optional flags are placeholders for wiring camera / sim codes later.
+    """
+
+    obs_vector: np.ndarray
+    target_visible: bool | None = None
+    distance_to_target: Any | None = None  # pint Quantity length, when available
+
 
 @dataclass(frozen=True)
 class AutonomousControllerAction:
-    #torque on reaction wheel
-    #send image of target to command center (target is visible)
+    """Torque command (SI) and whether to expose / downlink an image this step."""
+
+    wheel_torque_cmd: Any  # pint Quantity, N*m
+    active_observation: bool

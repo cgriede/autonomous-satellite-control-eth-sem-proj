@@ -1,0 +1,37 @@
+---
+description: Record math/physics/ML/env/tech constant changes in docs/presentation until the next project presentation update
+alwaysApply: true
+---
+
+# Mathematical and technical documentation record
+
+## When to update
+
+Whenever a change is **mathematical or technical-definition in nature**, update the matching slideshow under `docs/presentation/`. Treat that folder as the **live written record** of definitions, formulas, hyperparameters, and reference constants **until** a new project presentation or deck is produced from an updated snapshot of the repo—then align or replace these files as part of that release so slides and code stay consistent.
+
+**Qualifying changes include (non-exhaustive):**
+
+- **Environment & simulation:** reward shaping, termination, randomization (ranges, seeds policy), mission profile (e.g. altitude sampling, target region), cloud model placement/speed, `SIMULATION` / `RENDER` / `MISSION` constants, time steps, episode length.
+- **Machine learning:** reward terms and weights, loss functions, network architecture (layers, activations), policy/value targets, transfer or normalization of observations/actions.
+- **Technical / hardware-style constants:** camera optics (FOV, focal length, resolution, pixel pitch), satellite mass and inertia, reaction wheel torque/momentum limits, star tracker limits, any **module latency / inference time** budgets used in design or sim.
+- **Physical reference:** gravitational parameter, Earth radius/ellipsoid model, coordinate frames (ECI/ECEF/body), and other canonical constants used for orbit or geometry.
+
+## Where to write
+
+| Theme | File |
+|------|------|
+| Environment, randomness, mission area, sim hyperparameters | `docs/presentation/environment-hyperparameters.md` |
+| ML: rewards, losses, networks, transfers | `docs/presentation/machine-learning.md` |
+| Device / subsystem constants (camera, sat, RW, timing) | `docs/presentation/technical-constants.md` |
+| Physics reference: \(G\), Earth model, frames | `docs/presentation/physical-reference.md` |
+
+## How to write
+
+- Use the **slideshow layout** in those files: slides separated by a line containing only `---`, one top-level `# Title` (or `##` if preferred) per slide, bullets for parameters and **numeric values with units** (pint-compatible where the code uses pint).
+- Cite **source files** (e.g. `environment_definition/constants/...`) when adding or changing entries so future readers can trace definitions.
+- If a value is not yet fixed, record `TBD` and the intended unit.
+
+## What not to do
+
+- Do not rely on chat-only summaries for these definitions; the markdown files are the durable record until the next presentation pass.
+- Do not strip units or duplicate conflicting numbers—if code and doc disagree after a change, **update the doc to match the code** (or fix the code if the doc reflects the agreed spec).
