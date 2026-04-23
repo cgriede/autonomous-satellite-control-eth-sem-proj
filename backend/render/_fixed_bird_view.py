@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from environment_definition.constants import RENDER
-from simulation.observation_line_constants import (
+from environment_definition.constants import (
     FIXED_GROUND_CONE_HIT_EARTH,
     OBSERVATION_LINE_NOT_COMPUTED,
 )

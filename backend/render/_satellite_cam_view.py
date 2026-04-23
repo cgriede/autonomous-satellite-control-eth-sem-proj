@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from environment_definition.constants import RENDER
-from simulation.observation_line_constants import OBSERVATION_LINE_NOT_COMPUTED
+from environment_definition.constants import OBSERVATION_LINE_NOT_COMPUTED
 
 
 def _rgba_for_observation_line_code(code: int) -> np.ndarray:

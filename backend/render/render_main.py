@@ -22,7 +22,6 @@ from environment_definition.constants import (
     UREG as ureg,
 )
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
-from simulation.observation_line_constants import OBSERVATION_CLOUD
 from simulation.run_simulation import run_simulation
 from utils.flight_geometry.line_of_sight import minimum_contact_angle
 
