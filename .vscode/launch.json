@@ -16,7 +16,7 @@
       "name": "Sat Sim Export",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/backend/render/render_main.py",
+      "program": "${workspaceFolder}/backend/scripts/simulation_runner.py",
       "cwd": "${workspaceFolder}/backend",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
@@ -29,7 +29,7 @@
       "name": "Sat Sim Interactive",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/backend/render/render_main.py",
+      "program": "${workspaceFolder}/backend/scripts/simulation_runner.py",
       "cwd": "${workspaceFolder}/backend",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"

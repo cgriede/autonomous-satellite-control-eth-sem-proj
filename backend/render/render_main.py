@@ -1,24 +1,4 @@
-import argparse
-import sys
 from pathlib import Path
-
-def _non_interactive_cli_mode(argv: list[str]) -> bool:
-    if "--save-one-pass-30x" in argv:
-        return True
-    if "--render-mode" in argv:
-        try:
-            mode = argv[argv.index("--render-mode") + 1].strip().lower()
-            return mode in {"export", "headless"}
-        except (IndexError, ValueError):
-            return False
-    return False
-
-
-# Non-interactive modes must not open a GUI backend.
-if _non_interactive_cli_mode(sys.argv):
-    import matplotlib
-
-    matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,17 +6,15 @@ from matplotlib import animation as mpl_animation
 from matplotlib.animation import FuncAnimation
 
 from environment_definition.constants import (
-    EARTH_GRAVITATIONAL_PARAMETER,
     EARTH_RADIUS,
     N_PIXELS_Y,
     RenderMode,
     RENDER,
     SIMULATION,
-    SimulationConfig,
     UREG as ureg,
 )
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
-from simulation.run_simulation import run_simulation
+from simulation.state_types import SimulationStateSeries
 from utils.flight_geometry.line_of_sight import minimum_contact_angle
 
 if __package__:
@@ -75,72 +53,25 @@ START_ANGLE_DEG = -(CONTACT_HALF_ANGLE_DEG + MARGIN_DEG)
 END_ANGLE_DEG = CONTACT_HALF_ANGLE_DEG + MARGIN_DEG
 ANIMATION_INTERVAL_MS = SIMULATION.animation_interval.to(ureg.ms).magnitude
 SIM_SPEED_MULTIPLIER = float(SIMULATION.default_speed_multiplier)
-SAT_BODY_ROTATION_RATE_LABEL = "torque cmd: +max"
-DEFAULT_SIMULATION_CONFIG = SimulationConfig(
-    render_mode=RenderMode.INTERACTIVE,
-    controller_mode="random",
-)
-
-
-SIMULATION_SERIES = run_simulation(
-    simulation_config=DEFAULT_SIMULATION_CONFIG,
-    earth_radius=EARTH_RADIUS,
-    earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
-    satellite=SATELLITE,
-    satellite_altitude=SATELLITE_ALTITUDE,
-    theta_center_rad=float(THETA_CENTER),
-    start_angle_deg=float(START_ANGLE_DEG),
-    end_angle_deg=float(END_ANGLE_DEG),
-    sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
-    num_frames=int(SIMULATION.num_frames),
-    sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
-    ureg=ureg,
-    observer_target_angle_rad=float(np.arctan2(R_EARTH_KM, 0.0)),
-    camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
-)
-
-N_CLOUDS = int(SIMULATION_SERIES.cloud_arc_radius_km.shape[1])
-N_BINS = int(SIMULATION_SERIES.camera_observation_line_codes.shape[1])
-
-STATIC_SCENE = {
-    "R_earth": R_EARTH_KM,
-    "R_orbit": R_ORBIT_KM,
-    "theta_center": THETA_CENTER,
-    "start_angle_deg": START_ANGLE_DEG,
-    "end_angle_deg": END_ANGLE_DEG,
-    "observer_x": 0.0,
-    "observer_y": R_EARTH_KM,
-    "observer_pos": np.array([0.0, R_EARTH_KM], dtype=float),
-    "cloud_models": [None] * N_CLOUDS,
-    "n_clouds": N_CLOUDS,
-    "n_bins": N_BINS,
-    "controller_mode": SIMULATION_SERIES.metadata.controller_mode,
-}
-
-FIG = plt.figure(figsize=RENDER.figure_size, facecolor=RENDER.space_background)
+SIMULATION_SERIES: SimulationStateSeries | None = None
+N_CLOUDS = 0
+N_BINS = 0
+STATIC_SCENE: dict[str, object] = {}
+FIG: plt.Figure | None = None
 SIM_TIME_S = 0.0
 PANELS: dict[str, dict] = {}
 CONTROLS = RenderControls(sim_speed_multiplier=SIM_SPEED_MULTIPLIER)
 
 
-def _reconfigure_runtime(simulation_config: SimulationConfig) -> None:
-    global SIMULATION_SERIES, N_CLOUDS, N_BINS, STATIC_SCENE, CONTROLS
-    SIMULATION_SERIES = run_simulation(
-        simulation_config=simulation_config,
-        earth_radius=EARTH_RADIUS,
-        earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
-        satellite=SATELLITE,
-        satellite_altitude=SATELLITE_ALTITUDE,
-        theta_center_rad=float(THETA_CENTER),
-        start_angle_deg=float(START_ANGLE_DEG),
-        end_angle_deg=float(END_ANGLE_DEG),
-        sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
-        num_frames=int(SIMULATION.num_frames),
-        sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
-        ureg=ureg,
-        observer_target_angle_rad=float(np.arctan2(R_EARTH_KM, 0.0)),
-        camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
-    )
+def _require_runtime() -> SimulationStateSeries:
+    if SIMULATION_SERIES is None:
+        raise RuntimeError("Renderer runtime has not been configured with simulation data.")
+    return SIMULATION_SERIES
+
+
+def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> None:
+    global SIMULATION_SERIES, N_CLOUDS, N_BINS, STATIC_SCENE, CONTROLS, FIG, PANELS
+    SIMULATION_SERIES = simulation_series
     N_CLOUDS = int(SIMULATION_SERIES.cloud_arc_radius_km.shape[1])
     N_BINS = int(SIMULATION_SERIES.camera_observation_line_codes.shape[1])
     STATIC_SCENE = {
@@ -158,13 +89,16 @@ def _reconfigure_runtime(simulation_config: SimulationConfig) -> None:
         "controller_mode": SIMULATION_SERIES.metadata.controller_mode,
     }
     CONTROLS = RenderControls(sim_speed_multiplier=SIM_SPEED_MULTIPLIER)
+    FIG = plt.figure(figsize=RENDER.figure_size, facecolor=RENDER.space_background)
+    PANELS = {}
 
 
 def _cloud_world_xy_for_frame(sim_idx: int) -> list[dict[str, np.ndarray]]:
+    sim_series = _require_runtime()
     specs: list[dict[str, np.ndarray]] = []
-    radii = SIMULATION_SERIES.cloud_arc_radius_km[sim_idx]
-    starts = SIMULATION_SERIES.cloud_arc_start_rad[sim_idx]
-    ends = SIMULATION_SERIES.cloud_arc_end_rad[sim_idx]
+    radii = sim_series.cloud_arc_radius_km[sim_idx]
+    starts = sim_series.cloud_arc_start_rad[sim_idx]
+    ends = sim_series.cloud_arc_end_rad[sim_idx]
     for i in range(N_CLOUDS):
         r = float(radii[i])
         s = float(starts[i])
@@ -178,40 +112,42 @@ def _cloud_world_xy_for_frame(sim_idx: int) -> list[dict[str, np.ndarray]]:
 
 
 def simulation_index_from_time(sim_time_s: float, wrap_orbit: bool = True) -> int:
-    sim_total_s = float(SIMULATION_SERIES.metadata.sim_total_s)
+    sim_series = _require_runtime()
+    sim_total_s = float(sim_series.metadata.sim_total_s)
     if wrap_orbit:
         normalized = (sim_time_s / sim_total_s) % 1.0
     else:
         normalized = np.clip(sim_time_s / sim_total_s, 0.0, 1.0)
-    return int(np.floor(normalized * (SIMULATION_SERIES.t_s.shape[0] - 1)))
+    return int(np.floor(normalized * (sim_series.t_s.shape[0] - 1)))
 
 
 def sample_scene(sim_idx: int) -> dict:
-    sat_r = float(SIMULATION_SERIES.radius_km[sim_idx])
-    sat_theta = float(SIMULATION_SERIES.theta_orbit_rad[sim_idx])
+    sim_series = _require_runtime()
+    sat_r = float(sim_series.radius_km[sim_idx])
+    sat_theta = float(sim_series.theta_orbit_rad[sim_idx])
     sat_pos = np.array([sat_r * np.cos(sat_theta), sat_r * np.sin(sat_theta)], dtype=float)
 
-    z_angle = float(SIMULATION_SERIES.body_z_angle_rad[sim_idx])
+    z_angle = float(sim_series.body_z_angle_rad[sim_idx])
     z_axis_dir = np.array([np.cos(z_angle), np.sin(z_angle)], dtype=float)
 
     k = max(sim_idx + 1, 2)
-    theta = SIMULATION_SERIES.theta_orbit_rad[:k]
-    radius = SIMULATION_SERIES.radius_km[:k]
+    theta = sim_series.theta_orbit_rad[:k]
+    radius = sim_series.radius_km[:k]
     trail_xy = (radius * np.cos(theta), radius * np.sin(theta))
 
     cone_len = float(SIMULATION.cone_length.to(ureg.km).magnitude * RENDER.cone_length_render_scale)
-    cone_half = float(SIMULATION_SERIES.camera_vertical_fov_rad / 2.0)
+    cone_half = float(sim_series.camera_vertical_fov_rad / 2.0)
     cos_h, sin_h = np.cos(cone_half), np.sin(cone_half)
     rot_l = np.array([[cos_h, -sin_h], [sin_h, cos_h]], dtype=float)
     rot_r = np.array([[cos_h, sin_h], [-sin_h, cos_h]], dtype=float)
     edge_l = sat_pos + cone_len * (rot_l @ z_axis_dir)
     edge_r = sat_pos + cone_len * (rot_r @ z_axis_dir)
 
-    camera_gsd_m = float(SIMULATION_SERIES.camera_gsd_m[sim_idx])
+    camera_gsd_m = float(sim_series.camera_gsd_m[sim_idx])
     camera_swath_height_km = (N_PIXELS_Y * camera_gsd_m) / 1000.0 if np.isfinite(camera_gsd_m) else float("nan")
-    blocked_fraction = float(SIMULATION_SERIES.camera_cloud_blocked_fraction[sim_idx])
-    center_first_hit_xy = np.asarray(SIMULATION_SERIES.camera_center_first_hit_xy_km[sim_idx], dtype=float)
-    ground_center_xy = np.asarray(SIMULATION_SERIES.camera_ground_center_xy_km[sim_idx], dtype=float)
+    blocked_fraction = float(sim_series.camera_cloud_blocked_fraction[sim_idx])
+    center_first_hit_xy = np.asarray(sim_series.camera_center_first_hit_xy_km[sim_idx], dtype=float)
+    ground_center_xy = np.asarray(sim_series.camera_ground_center_xy_km[sim_idx], dtype=float)
 
     nadir_angle = sat_theta + np.pi
     z_angle_rel_nadir_rad = np.arctan2(np.sin(z_angle - nadir_angle), np.cos(z_angle - nadir_angle))
@@ -222,7 +158,7 @@ def sample_scene(sim_idx: int) -> dict:
     if np.isnan(center_first_hit_xy).any():
         intersection_text = "none"
     else:
-        hit_type = "cloud" if bool(SIMULATION_SERIES.camera_center_first_hit_is_cloud[sim_idx]) else "earth"
+        hit_type = "cloud" if bool(sim_series.camera_center_first_hit_is_cloud[sim_idx]) else "earth"
         hit_distance_km = float(np.linalg.norm(center_first_hit_xy - sat_pos))
         intersection_text = f"{hit_distance_km:.1f} km ({hit_type})"
 
@@ -230,6 +166,16 @@ def sample_scene(sim_idx: int) -> dict:
         ground_patch_hit_text = "none"
     else:
         ground_patch_hit_text = f"x={ground_center_xy[0]:.1f} km, y={ground_center_xy[1]:.1f} km"
+
+    dt_s = float(sim_series.metadata.sim_dt_s)
+    if sim_idx > 0 and dt_s > 0.0:
+        raw_delta = float(sim_series.body_z_angle_rad[sim_idx] - sim_series.body_z_angle_rad[sim_idx - 1])
+        wrapped_delta = float(np.arctan2(np.sin(raw_delta), np.cos(raw_delta)))
+        body_spin_deg_s = float(np.rad2deg(wrapped_delta / dt_s))
+    else:
+        body_spin_deg_s = 0.0
+
+    sat_body_rotation_rate_label = f"{body_spin_deg_s:+.2f} deg/s"
 
     return {
         "sim_idx": sim_idx,
@@ -243,22 +189,22 @@ def sample_scene(sim_idx: int) -> dict:
         "edge_l": edge_l,
         "edge_r": edge_r,
         "cloud_world": _cloud_world_xy_for_frame(sim_idx),
-        "ground_left": np.asarray(SIMULATION_SERIES.camera_ground_left_xy_km[sim_idx], dtype=float),
-        "ground_right": np.asarray(SIMULATION_SERIES.camera_ground_right_xy_km[sim_idx], dtype=float),
-        "camera_codes": np.asarray(SIMULATION_SERIES.camera_observation_line_codes[sim_idx], dtype=np.int8),
-        "fixed_codes": np.asarray(SIMULATION_SERIES.fixed_ground_line_codes[sim_idx], dtype=np.int8),
-        "center_hit_cloud": bool(SIMULATION_SERIES.camera_center_first_hit_is_cloud[sim_idx]),
+        "ground_left": np.asarray(sim_series.camera_ground_left_xy_km[sim_idx], dtype=float),
+        "ground_right": np.asarray(sim_series.camera_ground_right_xy_km[sim_idx], dtype=float),
+        "camera_codes": np.asarray(sim_series.camera_observation_line_codes[sim_idx], dtype=np.int8),
+        "fixed_codes": np.asarray(sim_series.fixed_ground_line_codes[sim_idx], dtype=np.int8),
+        "center_hit_cloud": bool(sim_series.camera_center_first_hit_is_cloud[sim_idx]),
         "camera_gsd_m": camera_gsd_m,
-        "camera_vfov_deg": float(np.rad2deg(SIMULATION_SERIES.camera_vertical_fov_rad)),
+        "camera_vfov_deg": float(np.rad2deg(sim_series.camera_vertical_fov_rad)),
         "camera_swath_height_km": camera_swath_height_km,
         "cloud_blocked_pct": 100.0 * blocked_fraction if np.isfinite(blocked_fraction) else float("nan"),
-        "sat_body_rotation_rate_label": SAT_BODY_ROTATION_RATE_LABEL,
+        "sat_body_rotation_rate_label": sat_body_rotation_rate_label,
         "z_angle_rel_nadir_deg": float(np.rad2deg(z_angle_rel_nadir_rad)),
         "los_rel_nadir_deg": float(np.rad2deg(los_rel_nadir_rad)),
         "intersection_text": intersection_text,
         "ground_patch_hit_text": ground_patch_hit_text,
         "render_window_text": f"{START_ANGLE_DEG:+.1f} deg to {END_ANGLE_DEG:+.1f} deg",
-        "controller_mode": SIMULATION_SERIES.metadata.controller_mode,
+        "controller_mode": sim_series.metadata.controller_mode,
     }
 
 
@@ -337,9 +283,12 @@ def update(_frame: int) -> list:
 
 
 def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
+    sim_series = _require_runtime()
+    if FIG is None:
+        raise RuntimeError("Figure has not been initialized.")
     export_speed_multiplier = float(SIMULATION.export_speed_multiplier)
     export_fps = int(RENDER.export_fps)
-    sim_total_s = float(SIMULATION_SERIES.metadata.sim_total_s)
+    sim_total_s = float(sim_series.metadata.sim_total_s)
     dt_sim_s = (ANIMATION_INTERVAL_MS / 1000.0) * export_speed_multiplier
     export_num_frames = max(2, int(np.ceil(sim_total_s / dt_sim_s)) + 1)
     if export_path is None:
@@ -397,6 +346,8 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
 
 
 def _maximize_interactive_window() -> None:
+    if FIG is None:
+        raise RuntimeError("Figure has not been initialized.")
     if not RENDER.interactive_start_maximized:
         return
     mgr = getattr(FIG.canvas, "manager", None)
@@ -420,12 +371,15 @@ def _maximize_interactive_window() -> None:
 
 
 def _build_panels() -> None:
+    sim_series = _require_runtime()
+    if FIG is None:
+        raise RuntimeError("Figure has not been initialized.")
     if SHOW_TELEMETRY:
         axes, artists = build_telemetry_panel(FIG, STATIC_SCENE)
         PANELS["telemetry"] = {"axes": axes, "artists": artists}
     if SHOW_REWARD_PLOT:
         axes, artists = build_reward_panel(
-            FIG, SIMULATION_SERIES.t_s, SIMULATION_SERIES.simulation_reward
+            FIG, sim_series.t_s, sim_series.simulation_reward
         )
         PANELS["reward"] = {"axes": axes, "artists": artists}
     if SHOW_MAIN_PLOT:
@@ -442,48 +396,20 @@ def _build_panels() -> None:
         PANELS["1d_sat_view"] = {"axes": axes, "artists": artists}
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Satellite render and video export")
-    parser.add_argument(
-        "--render-mode",
-        type=str,
-        choices=(RenderMode.HEADLESS.value, RenderMode.INTERACTIVE.value, RenderMode.EXPORT.value),
-        default=RenderMode.INTERACTIVE.value,
-        help="Rendering mode driven by simulation configuration.",
-    )
-    parser.add_argument(
-        "--controller-mode",
-        type=str,
-        choices=("baseline", "random"),
-        default=DEFAULT_SIMULATION_CONFIG.controller_mode,
-        help="Controller mode used to generate the simulation state series (no proxy MPO mode).",
-    )
-    parser.add_argument(
-        "--save-one-pass-30x",
-        action="store_true",
-        help="Save one-pass MP4 at 30x speed to project root",
-    )
-    parser.add_argument(
-        "--output-path",
-        type=Path,
-        default=None,
-        help="Optional explicit MP4 output path for one-pass export.",
-    )
-    args = parser.parse_args()
-    selected_render_mode = RenderMode(args.render_mode)
-    if args.save_one_pass_30x:
-        selected_render_mode = RenderMode.EXPORT
-
-    runtime_config = SimulationConfig(
-        render_mode=selected_render_mode,
-        controller_mode=args.controller_mode,
-    )
-    _reconfigure_runtime(runtime_config)
+def render_from_series(
+    *,
+    simulation_series: SimulationStateSeries,
+    render_mode: RenderMode,
+    output_path: Path | None = None,
+) -> Path | None:
+    _configure_runtime_from_series(simulation_series)
+    if FIG is None:
+        raise RuntimeError("Figure has not been initialized.")
 
     FIG.text(
         0.5,
         0.995,
-        f"2D Satellite Orbit around Earth (h={SAT_ALTITUDE_KM:.0f} km, T={SIMULATION_SERIES.metadata.orbit_period_s/60:.1f} min)",
+        f"2D Satellite Orbit around Earth (h={SAT_ALTITUDE_KM:.0f} km, T={simulation_series.metadata.orbit_period_s/60:.1f} min)",
         color="white",
         ha="center",
         va="top",
@@ -491,24 +417,24 @@ if __name__ == "__main__":
     )
 
     _build_panels()
-    _controls = build_controls_panel(FIG, CONTROLS)
+    build_controls_panel(FIG, CONTROLS)
 
-    if selected_render_mode == RenderMode.EXPORT:
-        output_path = save_one_pass_video_30x(export_path=args.output_path)
-        print(f"Saved one-pass video to: {output_path}")
-    elif selected_render_mode == RenderMode.HEADLESS:
+    if render_mode == RenderMode.EXPORT:
+        return save_one_pass_video_30x(export_path=output_path)
+    if render_mode == RenderMode.HEADLESS:
         init()
         scene = sample_scene(0)
         update_panels(scene)
-        print("Headless render mode initialized.")
-    else:
-        _ani = FuncAnimation(
-            FIG,
-            update,
-            init_func=init,
-            blit=False,
-            interval=ANIMATION_INTERVAL_MS,
-            cache_frame_data=False,
-        )
-        _maximize_interactive_window()
-        plt.show()
+        return None
+
+    _ani = FuncAnimation(
+        FIG,
+        update,
+        init_func=init,
+        blit=False,
+        interval=ANIMATION_INTERVAL_MS,
+        cache_frame_data=False,
+    )
+    _maximize_interactive_window()
+    plt.show()
+    return None

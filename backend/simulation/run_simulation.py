@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from tqdm import tqdm
 
 import numpy as np
 
@@ -225,7 +226,7 @@ def run_simulation(
     )
     prev_omega_wheel = state.omega_wheel
 
-    for k in range(n):
+    for k in tqdm(range(n), desc="Running simulation"):
         if k > 0:
             prev_omega_wheel = state.omega_wheel
             tau_cmd_nm = _controller_torque_command_nm(

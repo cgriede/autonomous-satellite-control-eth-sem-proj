@@ -4,7 +4,6 @@ import numpy as np
 from environment_definition.constants import RENDER, ureg
 
 
-
 def build_telemetry_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     ax = fig.add_axes(RENDER.telemetry_axes_rect)
 
@@ -47,6 +46,7 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
             "\n".join(
                 [
                     "Orbit / attitude",
+                    f"  Controller mode: {scene['controller_mode']}",
                     f"  Orbit height: {scene['orbit_altitude_km']:.1f} km",
                     f"  Body spin: {scene['sat_body_rotation_rate_label']}",
                     f"  z angle rel nadir: {scene['z_angle_rel_nadir_deg']:+.1f} deg",
@@ -72,7 +72,6 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
             "\n".join(
                 [
                     "Playback",
-                    f"  Controller mode: {scene['controller_mode']}",
                     f"  Speed: {scene['sim_speed_multiplier']:.0f}x",
                     f"  Frame: {scene['sim_idx']}",
                 ]

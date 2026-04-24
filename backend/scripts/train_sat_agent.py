@@ -92,7 +92,7 @@ def _save_sat_sim_export_video(output_path: Path, *, controller_mode: str) -> Pa
         )
     command = [
         sys.executable,
-        str(BACKEND_DIR / "render" / "render_main.py"),
+        str(BACKEND_DIR / "scripts" / "simulation_runner.py"),
         "--render-mode",
         "export",
         "--controller-mode",
