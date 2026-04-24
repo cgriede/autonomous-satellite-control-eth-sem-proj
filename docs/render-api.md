@@ -7,17 +7,20 @@ This document describes the current render API in `backend/render/render_main.py
 - **Module role:** consume a precomputed `SimulationStateSeries` and render/export visualization panels.
 - **Boundary:** render code is view-only; it does not implement physics propagation itself.
 - **Execution context:** run with `backend/` as import root.
+- **Ownership contract:** simulation computes dynamics, camera/cloud outputs, and reward signals; renderer only visualizes simulation outputs.
 
 ## Fidelity Contract
 
 - Render outputs must reflect the real simulation controller selected for the run.
 - No hidden controller substitution is allowed in render paths.
 - Current render simulation supports `baseline` and `random` controller modes only.
+- Renderer must never generate substitute simulation state for train/eval semantics.
 
 ## Runtime Dependencies
 
 - `numpy`, `matplotlib` (`FuncAnimation`), optional `cv2` fallback when ffmpeg is unavailable.
 - Simulation source: `simulation.run_simulation.run_simulation()`.
+- Episode-level expected artifact contract: `SimulationStateSeries`.
 
 ## Key Runtime Functions
 
@@ -64,3 +67,4 @@ python backend/render/render_main.py --render-mode export --controller-mode base
 
 - Module import creates figure/panel globals; this is a singleton-style render script.
 - Designed for 2D orbit visualization from precomputed series data.
+- For architecture goals and invariants, see `docs/project-charter.md`.

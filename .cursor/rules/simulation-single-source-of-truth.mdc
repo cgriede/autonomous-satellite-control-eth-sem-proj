@@ -1,0 +1,27 @@
+---
+alwaysApply: true
+---
+
+# Single simulation source of truth
+
+## Rule
+
+- Episode semantics must follow: one episode = one canonical simulation rollout.
+- `backend/simulation/run_simulation.py::run_simulation` is the canonical simulation source for episode-level world-state generation.
+- Train, eval, and render paths must use the same canonical simulation outputs and must not diverge into parallel simulation implementations.
+
+## Required artifact contract
+
+- Episode-level runs must produce/consume `simulation.state_types.SimulationStateSeries`.
+- If an interface currently returns partial state only, refactor plans must include convergence to `SimulationStateSeries` instead of adding new ad-hoc state types.
+
+## Forbidden patterns
+
+- Re-running a separate simulation path for export/visualization when the episode simulation output is already available.
+- Maintaining duplicated simulation logic across script-specific helper functions.
+- Computing reward-critical world signals outside canonical simulation ownership.
+
+## Scope declaration
+
+- Long-term architecture target is hierarchical mission-level control over OBC low-level control.
+- Direct low-level torque-learning interfaces are interim experimental tools and must be documented as such.

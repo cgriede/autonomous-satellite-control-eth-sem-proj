@@ -10,6 +10,7 @@ alwaysApply: true
 - Rendering code must **not** perform numeric propagation / integration / simulation.
 - Render outputs must reflect the real modeled behavior selected for the run.
 - Do not use hidden substitute/emulated logic in visualization paths.
+- Renderer must consume canonical simulation artifacts (episode-level: `SimulationStateSeries`) instead of recomputing an alternate simulation path.
 
 ## Allowed in `backend/render/*`
 
@@ -23,6 +24,7 @@ alwaysApply: true
 - Calling camera **simulation** entry points from render code (e.g. `simulate_camera_strip_2d`, `simulate_camera_observation_line_1d`). Those belong under `backend/simulation/*` and must be run as part of producing `SimulationStateSeries` (or another documented simulation API), not from the renderer.
 - Creating simulation configs for integration (e.g. `KinematicSimulationConfig`) and running them in the renderer.
 - Mapping a selected runtime mode to a different hidden behavior (for example, labeling a heuristic as a learned controller mode).
+- Triggering side-path simulation reruns from render-only helper code when canonical simulation output already exists for the episode/run.
 
 ## How to add new rendered data
 

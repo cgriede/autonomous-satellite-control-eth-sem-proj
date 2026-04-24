@@ -34,6 +34,12 @@ This document describes the first wired integration of the MPO (Maximum a Poster
 7. Polyak updates:
    - soft-update actor/critic target networks.
 
+## Architectural position
+
+- Long-term target architecture is hierarchical mission control (high-level planner over OBC low-level control).
+- Current MPO setup with direct wheel-torque action is an interim experimental interface for rapid iteration.
+- Episode semantics target: one episode equals one canonical simulation rollout artifact (`SimulationStateSeries`).
+
 ## Hyperparameter source of truth
 
 All tunable MPO constants are centralized in `backend/autonomous_control/mpo_config.py`:
@@ -56,6 +62,9 @@ Artifact root is resolved from `backend/paths.py`:
   - `sat_sim_export.mp4` (optional rendered world-effect video)
 - `backend/autonomous_control/models/runs.jsonl`
   - append-only global run records for train/eval runs
+
+Primary episode-level artifact contract:
+- `SimulationStateSeries` is required for episode-level simulation semantics.
 
 Timestamp run IDs use UTC format:
 
@@ -91,3 +100,9 @@ python render/render_main.py --render-mode export --controller-mode baseline --s
 
 - `--save-video ...` writes the state-trace rollout video.
 - Sat Sim render export is available for simulation-native controller modes (`baseline`, `random`).
+
+## Reward authority and document alignment
+
+- Runtime reward behavior in code is canonical for this phase.
+- Semester-project PDF is design reference; explicit deltas must be documented.
+- Current known intentional delta: energy-related reward terms exist in code and are enabled/disabled through flags.

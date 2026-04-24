@@ -2,6 +2,13 @@
 
 This manual explains how to run controller experiments and how rendering maps to simulation behavior.
 
+## Project semantics (must hold)
+
+- One episode is one canonical simulation rollout over the configured overflight window.
+- `SimulationStateSeries` is the required episode-level artifact.
+- Train/eval/render are expected to consume the same simulation core outputs.
+- Renderer is strictly view-only and must not run numeric simulation logic.
+
 ## Environment Setup
 
 From the repository root:
@@ -18,6 +25,10 @@ Training/evaluation scripts support:
 - `mpo`: learned MPO policy (`MPOAgent`), supports checkpoint load/save.
 - `baseline`: deterministic max-torque sweep policy.
 - `random`: uniform random torque policy.
+
+Note:
+- The long-term architecture target is hierarchical mission control over OBC low-level control.
+- Current direct wheel-torque control is an interim experimental interface.
 
 ## Train Controllers
 
@@ -70,6 +81,12 @@ python render/render_main.py --render-mode export --controller-mode random --sav
 - Rendered behavior must come from the real simulation model and selected controller mode.
 - No hidden substitute controller is used in visualization.
 - If a model component exists (for example reaction-wheel dynamics), that same modeled behavior drives both simulation state and rendered output.
+
+## Reward authority
+
+- Runtime reward behavior in code is canonical.
+- The semester project PDF is design context.
+- Any intentional delta between PDF and code must be documented (for example, energy term implementation controlled via flags).
 
 ## VS Code Launch Configs
 

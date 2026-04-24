@@ -1,11 +1,21 @@
 # Autonomous Satellite Control (ETH SEM Project)
 
+## Project aim
+
+The project aims to build autonomous mission-oriented satellite control that maximizes observation value while respecting physical constraints.
+
+- Near-term: fast, cloud-aware 2D simulation and control development.
+- Long-term: hierarchical mission planner over OBC low-level control, with extension to 3D, real imagery, and area targets.
+
+See the formal charter in `docs/project-charter.md`.
+
 ## Architecture spec: simulation vs rendering
 
 This repository separates **numeric simulation** from **rendering/visualization**.
 
 - **Simulation** (`backend/simulation/*`)
   - Owns all numeric propagation / integration.
+  - Owns physics, camera/cloud sensing, and reward signal computation.
   - Produces typed simulation outputs such as `simulation.state_types.SimulationStateSeries`.
   - Canonical entrypoint for rendered runs: `simulation.run_simulation.run_simulation()`.
 
@@ -13,6 +23,13 @@ This repository separates **numeric simulation** from **rendering/visualization*
   - View-only: consumes simulation outputs and draws/exports visuals.
   - Must not run numeric propagation/integration itself.
   - If additional data is needed for visuals, extend the simulation output and/or the simulation entrypoint.
+
+## Core invariants
+
+- One episode equals one canonical simulation rollout.
+- Train/eval/render must consume the same simulation core outputs.
+- `SimulationStateSeries` is the mandatory episode-level artifact.
+- Rendering remains view-only.
 
 ## Model-to-render fidelity
 
@@ -32,6 +49,7 @@ This repository separates **numeric simulation** from **rendering/visualization*
 
 ## Documentation
 
+- Project charter: `docs/project-charter.md`
 - Render module API: `docs/render-api.md`
 - User manual (controllers + rendering): `docs/user-manual.md`
 
