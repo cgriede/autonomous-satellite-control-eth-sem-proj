@@ -15,6 +15,8 @@ class SimulationMetadata :
     sat_theta_span_rad : float 
     start_angle_deg    : float 
     end_angle_deg      : float
+    controller_mode    : str = "unknown"
+    render_mode        : str = "interactive"
 
 
 @dataclass(frozen=True)

@@ -8,16 +8,17 @@ import numpy as np
 class RandomTorquePolicy:
     """Uniform random torque policy within the environment action space."""
 
-    def __init__(self, env) -> None:
+    def __init__(self, env, *, rng: np.random.Generator | None = None) -> None:
         self._low = float(env.action_space.low[0])
         self._high = float(env.action_space.high[0])
+        self._rng = rng if rng is not None else np.random.default_rng()
 
     def reset_episode(self) -> None:
         return None
 
     def get_action(self, obs: np.ndarray, train: bool) -> np.ndarray:
         del obs, train
-        return np.array([np.random.uniform(self._low, self._high)], dtype=np.float64)
+        return np.array([self._rng.uniform(self._low, self._high)], dtype=np.float64)
 
 
 class MaxTorqueSweepPolicy:

@@ -6,7 +6,7 @@ This document describes the first wired integration of the MPO (Maximum a Poster
 
 - `backend/autonomous_control/controller_actor.py`: Gaussian actor network.
 - `backend/autonomous_control/controller_critic.py`: twin Q critics.
-- `backend/autonomous_control/controller_agent.py`: MPO training loop, action selection, replay usage.
+- `backend/autonomous_control/controller_agent.py`: MPO training loop, action selection, replay usage (`MPOAgent`).
 - `backend/autonomous_control/mpo_config.py`: central hyperparameter/config source.
 - `backend/autonomous_control/training_runtime.py`: replay buffer, environment factory, episode loop.
 - `backend/utils/ml_training/ml_training_utils.py`: run directory, checkpoint pathing, run logs, aggregate JSONL.
@@ -17,7 +17,7 @@ This document describes the first wired integration of the MPO (Maximum a Poster
 
 ## MPO flow in this project
 
-1. Collect transitions from `SatelliteAttitude2D` episodes.
+1. Collect transitions from `SatelliteAttitudeControlEnv` episodes.
 2. Store transitions in `ReplayBuffer`.
 3. Critic target:
    - sample `K_q` actions from target actor at `next_obs`,
@@ -72,7 +72,7 @@ python scripts/train_sat_agent.py --seed 0 --train-episodes 20 --warmup-episodes
 Optional video exports on train:
 
 ```bash
-python scripts/train_sat_agent.py --seed 0 --train-episodes 20 --save-video --save-render-video
+python scripts/train_sat_agent.py --seed 0 --train-episodes 20 --save-video
 ```
 
 ```bash
@@ -86,8 +86,8 @@ python scripts/eval_sat_agent.py --checkpoint autonomous_control/models/<run_id>
 ```
 
 ```bash
-python scripts/eval_sat_agent.py --checkpoint autonomous_control/models/<run_id>/agent.pt --save-render-video
+python render/render_main.py --render-mode export --controller-mode baseline --save-one-pass-30x
 ```
 
 - `--save-video ...` writes the state-trace rollout video.
-- `--save-render-video` writes the Sat Sim Export video (real-world visual effect render).
+- Sat Sim render export is available for simulation-native controller modes (`baseline`, `random`).

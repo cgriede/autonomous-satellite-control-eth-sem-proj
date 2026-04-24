@@ -1,15 +1,10 @@
 ---
 alwaysApply: true
 ---
-In this project find the correct python environment which is usually called something like:
+# Python environment selection
 
-"auto-sat"
-or
-"ASC"
-if these do not work inspect the environments by:
-"conda list env"
-
-you should find an entry that matches what youd expect from the other two like:
-"autonomous-sat-control"
-
-or something similar
+- Always activate the configured project conda environment before Python commands.
+- Default in this workspace: `conda activate auto-sat`.
+- If `auto-sat` is unavailable on this machine, discover environments with `conda env list` and use the project-specific environment selected by the user.
+- If there is ambiguity, ask the user which environment to use before running Python commands.
+- Do not assume `LRF` in this repository unless the user explicitly requests it for this project.

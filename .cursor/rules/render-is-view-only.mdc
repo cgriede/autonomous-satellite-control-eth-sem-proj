@@ -8,6 +8,8 @@ alwaysApply: true
 
 - `backend/render/*` must be **rendering/view code only**.
 - Rendering code must **not** perform numeric propagation / integration / simulation.
+- Render outputs must reflect the real modeled behavior selected for the run.
+- Do not use hidden substitute/emulated logic in visualization paths.
 
 ## Allowed in `backend/render/*`
 
@@ -20,10 +22,12 @@ alwaysApply: true
 - Calling any numeric simulator/integrator directly (e.g. `simulate_*`, propagation loops).
 - Calling camera **simulation** entry points from render code (e.g. `simulate_camera_strip_2d`, `simulate_camera_observation_line_1d`). Those belong under `backend/simulation/*` and must be run as part of producing `SimulationStateSeries` (or another documented simulation API), not from the renderer.
 - Creating simulation configs for integration (e.g. `KinematicSimulationConfig`) and running them in the renderer.
+- Mapping a selected runtime mode to a different hidden behavior (for example, labeling a heuristic as a learned controller mode).
 
 ## How to add new rendered data
 
 If the renderer needs new values:
 - Extend the simulation output types and/or `simulation.run_simulation.run_simulation()` to produce them.
 - Keep the renderer as a pure consumer of that output.
+- For any modeled subsystem (for example reaction-wheel dynamics), keep simulation and rendering aligned to the same model outputs.
 

@@ -42,7 +42,7 @@ class LinearDummyPolicy:
         return (self._w @ obs + self._b).astype(np.float64)
 
 
-class Agent:
+class MPOAgent:
     def __init__(self, env: Any, config: MPOConfig | None = None) -> None:
         self.config = config if config is not None else MPOConfig()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

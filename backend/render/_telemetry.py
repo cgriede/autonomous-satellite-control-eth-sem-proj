@@ -72,6 +72,7 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
             "\n".join(
                 [
                     "Playback",
+                    f"  Controller mode: {scene['controller_mode']}",
                     f"  Speed: {scene['sim_speed_multiplier']:.0f}x",
                     f"  Frame: {scene['sim_idx']}",
                 ]

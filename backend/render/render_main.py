@@ -2,8 +2,20 @@ import argparse
 import sys
 from pathlib import Path
 
-# Video export must not open a GUI backend.
-if "--save-one-pass-30x" in sys.argv:
+def _non_interactive_cli_mode(argv: list[str]) -> bool:
+    if "--save-one-pass-30x" in argv:
+        return True
+    if "--render-mode" in argv:
+        try:
+            mode = argv[argv.index("--render-mode") + 1].strip().lower()
+            return mode in {"export", "headless"}
+        except (IndexError, ValueError):
+            return False
+    return False
+
+
+# Non-interactive modes must not open a GUI backend.
+if _non_interactive_cli_mode(sys.argv):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -17,8 +29,10 @@ from environment_definition.constants import (
     EARTH_GRAVITATIONAL_PARAMETER,
     EARTH_RADIUS,
     N_PIXELS_Y,
+    RenderMode,
     RENDER,
     SIMULATION,
+    SimulationConfig,
     UREG as ureg,
 )
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
@@ -62,9 +76,14 @@ END_ANGLE_DEG = CONTACT_HALF_ANGLE_DEG + MARGIN_DEG
 ANIMATION_INTERVAL_MS = SIMULATION.animation_interval.to(ureg.ms).magnitude
 SIM_SPEED_MULTIPLIER = float(SIMULATION.default_speed_multiplier)
 SAT_BODY_ROTATION_RATE_LABEL = "torque cmd: +max"
+DEFAULT_SIMULATION_CONFIG = SimulationConfig(
+    render_mode=RenderMode.INTERACTIVE,
+    controller_mode="random",
+)
 
 
 SIMULATION_SERIES = run_simulation(
+    simulation_config=DEFAULT_SIMULATION_CONFIG,
     earth_radius=EARTH_RADIUS,
     earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
     satellite=SATELLITE,
@@ -95,12 +114,50 @@ STATIC_SCENE = {
     "cloud_models": [None] * N_CLOUDS,
     "n_clouds": N_CLOUDS,
     "n_bins": N_BINS,
+    "controller_mode": SIMULATION_SERIES.metadata.controller_mode,
 }
 
 FIG = plt.figure(figsize=RENDER.figure_size, facecolor=RENDER.space_background)
 SIM_TIME_S = 0.0
 PANELS: dict[str, dict] = {}
 CONTROLS = RenderControls(sim_speed_multiplier=SIM_SPEED_MULTIPLIER)
+
+
+def _reconfigure_runtime(simulation_config: SimulationConfig) -> None:
+    global SIMULATION_SERIES, N_CLOUDS, N_BINS, STATIC_SCENE, CONTROLS
+    SIMULATION_SERIES = run_simulation(
+        simulation_config=simulation_config,
+        earth_radius=EARTH_RADIUS,
+        earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
+        satellite=SATELLITE,
+        satellite_altitude=SATELLITE_ALTITUDE,
+        theta_center_rad=float(THETA_CENTER),
+        start_angle_deg=float(START_ANGLE_DEG),
+        end_angle_deg=float(END_ANGLE_DEG),
+        sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
+        num_frames=int(SIMULATION.num_frames),
+        sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
+        ureg=ureg,
+        observer_target_angle_rad=float(np.arctan2(R_EARTH_KM, 0.0)),
+        camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
+    )
+    N_CLOUDS = int(SIMULATION_SERIES.cloud_arc_radius_km.shape[1])
+    N_BINS = int(SIMULATION_SERIES.camera_observation_line_codes.shape[1])
+    STATIC_SCENE = {
+        "R_earth": R_EARTH_KM,
+        "R_orbit": R_ORBIT_KM,
+        "theta_center": THETA_CENTER,
+        "start_angle_deg": START_ANGLE_DEG,
+        "end_angle_deg": END_ANGLE_DEG,
+        "observer_x": 0.0,
+        "observer_y": R_EARTH_KM,
+        "observer_pos": np.array([0.0, R_EARTH_KM], dtype=float),
+        "cloud_models": [None] * N_CLOUDS,
+        "n_clouds": N_CLOUDS,
+        "n_bins": N_BINS,
+        "controller_mode": SIMULATION_SERIES.metadata.controller_mode,
+    }
+    CONTROLS = RenderControls(sim_speed_multiplier=SIM_SPEED_MULTIPLIER)
 
 
 def _cloud_world_xy_for_frame(sim_idx: int) -> list[dict[str, np.ndarray]]:
@@ -201,6 +258,7 @@ def sample_scene(sim_idx: int) -> dict:
         "intersection_text": intersection_text,
         "ground_patch_hit_text": ground_patch_hit_text,
         "render_window_text": f"{START_ANGLE_DEG:+.1f} deg to {END_ANGLE_DEG:+.1f} deg",
+        "controller_mode": SIMULATION_SERIES.metadata.controller_mode,
     }
 
 
@@ -387,6 +445,20 @@ def _build_panels() -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Satellite render and video export")
     parser.add_argument(
+        "--render-mode",
+        type=str,
+        choices=(RenderMode.HEADLESS.value, RenderMode.INTERACTIVE.value, RenderMode.EXPORT.value),
+        default=RenderMode.INTERACTIVE.value,
+        help="Rendering mode driven by simulation configuration.",
+    )
+    parser.add_argument(
+        "--controller-mode",
+        type=str,
+        choices=("baseline", "random"),
+        default=DEFAULT_SIMULATION_CONFIG.controller_mode,
+        help="Controller mode used to generate the simulation state series (no proxy MPO mode).",
+    )
+    parser.add_argument(
         "--save-one-pass-30x",
         action="store_true",
         help="Save one-pass MP4 at 30x speed to project root",
@@ -398,6 +470,15 @@ if __name__ == "__main__":
         help="Optional explicit MP4 output path for one-pass export.",
     )
     args = parser.parse_args()
+    selected_render_mode = RenderMode(args.render_mode)
+    if args.save_one_pass_30x:
+        selected_render_mode = RenderMode.EXPORT
+
+    runtime_config = SimulationConfig(
+        render_mode=selected_render_mode,
+        controller_mode=args.controller_mode,
+    )
+    _reconfigure_runtime(runtime_config)
 
     FIG.text(
         0.5,
@@ -412,9 +493,14 @@ if __name__ == "__main__":
     _build_panels()
     _controls = build_controls_panel(FIG, CONTROLS)
 
-    if args.save_one_pass_30x:
+    if selected_render_mode == RenderMode.EXPORT:
         output_path = save_one_pass_video_30x(export_path=args.output_path)
         print(f"Saved one-pass video to: {output_path}")
+    elif selected_render_mode == RenderMode.HEADLESS:
+        init()
+        scene = sample_scene(0)
+        update_panels(scene)
+        print("Headless render mode initialized.")
     else:
         _ani = FuncAnimation(
             FIG,

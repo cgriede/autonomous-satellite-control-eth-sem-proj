@@ -19,7 +19,7 @@ class Mission:
 
 
 @dataclass(frozen=True)
-class Environment:
+class MissionScenario:
     earth_radius: object
     earth_gravitational_parameter: object
     simulation: object

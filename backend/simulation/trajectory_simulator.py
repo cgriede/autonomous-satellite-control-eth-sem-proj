@@ -74,6 +74,8 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         sat_theta_span_rad  = float(sat_theta_span_rad),
         start_angle_deg     = float(config.start_angle_deg),
         end_angle_deg       = float(config.end_angle_deg),
+        controller_mode     = "constant_torque",
+        render_mode         = "headless",
     )
     n = int(config.num_frames)
     # Kinematic trajectory helper does not run camera/cloud optics; fill with NaNs

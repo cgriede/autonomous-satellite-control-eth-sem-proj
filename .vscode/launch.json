@@ -23,7 +23,7 @@
       },
       "console": "integratedTerminal",
       "justMyCode": true,
-      "args": ["--save-one-pass-30x"]
+      "args": ["--render-mode", "export", "--save-one-pass-30x"]
     },
     {
       "name": "Sat Sim Interactive",
@@ -34,20 +34,9 @@
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
       },
+      "args": ["--render-mode", "interactive", "--controller-mode", "random"],
       "console": "integratedTerminal",
-      "justMyCode": true,
-    },
-    {
-      "name": "Showcase: Mission profile sample",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/backend/environment_definition/mission_profiles/mission_1_random_fl.py",
-      "cwd": "${workspaceFolder}/backend",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
-      }
+      "justMyCode": true
     },
     {
       "name": "Sat Sim: camera observation (headless)",

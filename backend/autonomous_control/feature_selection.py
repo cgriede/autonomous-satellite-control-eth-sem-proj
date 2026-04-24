@@ -18,7 +18,7 @@ from environment_definition.constants.SIMULATION import OBSERVATION_TARGET
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 
 if TYPE_CHECKING:
-    from environment_definition.environment import SatelliteAttitude2D
+    from environment_definition.attitude_control_env import SatelliteAttitudeControlEnv
     from simulation.state_types import SimulationStateSeries
 
 
@@ -47,10 +47,10 @@ class AutonomousControllerAction:
 
 
 def build_controller_state_from_env(
-    env: "SatelliteAttitude2D",
+    env: "SatelliteAttitudeControlEnv",
 ) -> AutonomousControllerState:
     """
-    Adapter from :class:`SatelliteAttitude2D` internal state to the controller
+    Adapter from :class:`SatelliteAttitudeControlEnv` internal state to the controller
     state. Uses the same obs vector the env already returns from
     ``_build_observation`` (5-D attitude kinematics).
     """

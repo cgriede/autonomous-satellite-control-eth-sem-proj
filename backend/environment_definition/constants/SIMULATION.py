@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from enum import Enum
+from typing import Literal
 
 import numpy as np
 
@@ -71,6 +73,19 @@ class SimulationConstants:
     camera_pixel_ray_samples: int
     # Bins along the vertical FOV for simulate_camera_observation_line_1d and SimulationStateSeries.
     camera_observation_line_n_bins: int
+
+
+class RenderMode(str, Enum):
+    HEADLESS = "headless"
+    INTERACTIVE = "interactive"
+    EXPORT = "export"
+
+
+@dataclass(frozen=True)
+class SimulationConfig:
+    render_mode: RenderMode = RenderMode.INTERACTIVE
+    controller_mode: Literal["baseline", "random"] = "random"
+    controller_seed: int | None = None
 
 
 SIMULATION = SimulationConstants(

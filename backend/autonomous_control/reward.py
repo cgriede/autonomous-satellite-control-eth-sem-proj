@@ -2,7 +2,7 @@
 Canonical slide-based reward with per-component flags + legacy helpers.
 
 The canonical entrypoint is :func:`canonical_reward`. Both
-``simulation/run_simulation.py`` and ``environment_definition/environment.py``
+``simulation/run_simulation.py`` and ``environment_definition/attitude_control_env.py``
 route through it so that ``SimulationStateSeries.simulation_reward`` and the RL
 ``env.step`` scalar reward share a single definition.
 

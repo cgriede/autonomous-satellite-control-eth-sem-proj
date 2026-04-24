@@ -23,19 +23,19 @@ Source: `environment_definition/constants/SATELLITE.py`.
 
 # Satellite bus & RW
 
-Source: `environment_definition/constants/SATELLITE.py` (and `environment.py` for 2D env overrides).
+Source: `environment_definition/constants/SATELLITE.py` (and `attitude_control_env.py` for control-env overrides).
 
 - **Mass:** `SATELLITE_MASS` = 250 kg.
 - **Inertia (3D):** Ixx = 16.6, Iyy = 21.7, Izz = 31.2 kg·m²; **2D env uses** `MOMENT_OF_INERTIA_2D` = Izz.
 - **Star tracker:** `STAR_TRACKER_MAX_MANEUVER_RATE` = 3°/s.
 - **Reaction wheel (generic Rocket Lab–style labels in code):** `REACTION_WHEEL_MAX_TORQUE` = 0.1 N·m, `REACTION_WHEEL_MAX_MOMENTUM` = 0.4 N·m·s.
-- **Gym env torque cap:** `tau_max` = 0.02 N·m in `SatelliteAttitude2D` (differs from catalog `REACTION_WHEEL_MAX_TORQUE` — document both).
+- **Gym env torque cap:** `tau_max` = 0.02 N·m in `SatelliteAttitudeControlEnv` (differs from catalog `REACTION_WHEEL_MAX_TORQUE` — document both).
 
 ---
 
 # Wheel model in 2D env
 
-Source: `environment_definition/environment.py`.
+Source: `environment_definition/attitude_control_env.py`.
 
 - **Saturation speed:** `omega_w_max` = 150 rad/s.
 - **Wheel inertia:** `I_w` = `REACTION_WHEEL_MAX_MOMENTUM` / (ω_max as quantity).
@@ -55,5 +55,5 @@ If the stack assigns **per-module inference time** or pipeline budgets (onboard 
 | Topic | Primary code |
 |--------|----------------|
 | Camera & inertia catalog | `constants/SATELLITE.py` |
-| Env-specific torque / ω limits | `environment_definition/environment.py` |
-| RW dynamics | `simulation/reaction_wheel.py`, `simulation/...attitude...` |
+| Env-specific torque / ω limits | `environment_definition/attitude_control_env.py` |
+| RW dynamics | `simulation/reaction_wheel.py`, `simulation/attitude_dynamics.py` |

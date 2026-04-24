@@ -9,7 +9,7 @@ from autonomous_control.feature_selection import (
 )
 from environment_definition.constants.SIMULATION import OBSERVATION_TARGET
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
-from environment_definition.environment import SatelliteAttitude2D
+from environment_definition.attitude_control_env import SatelliteAttitudeControlEnv
 from simulation.state_types import SimulationMetadata, SimulationStateSeries
 
 
@@ -79,7 +79,7 @@ def _make_trivial_series(n_bins: int = 4, n_frames: int = 2) -> SimulationStateS
 
 class FeatureSelectionTest(unittest.TestCase):
     def test_build_from_env_returns_expected_shape_and_metadata(self):
-        env = SatelliteAttitude2D()
+        env = SatelliteAttitudeControlEnv()
         env.reset(seed=0)
         cs = build_controller_state_from_env(env)
         self.assertIsInstance(cs, AutonomousControllerState)

@@ -1,135 +1,66 @@
 # Render Module API Interface
 
-This document describes the public interface exposed by the current render module implementation in `backend/render/render_main.py`.
+This document describes the current render API in `backend/render/render_main.py`.
 
 ## Overview
 
-- **Module role:** render a 2D Earth-orbit scene with a satellite, animated state updates, and optional one-pass MP4 export.
-- **Current boundary:** single Python script module (`render_main.py`) with module-level initialization and function APIs.
-- **Execution context:** intended to run with `backend/` as import root (see `.vscode/launch.json`).
+- **Module role:** consume a precomputed `SimulationStateSeries` and render/export visualization panels.
+- **Boundary:** render code is view-only; it does not implement physics propagation itself.
+- **Execution context:** run with `backend/` as import root.
 
-## Runtime Context and Dependencies
+## Fidelity Contract
 
-- **Core libraries:** `numpy`, `matplotlib` (`pyplot`, `FuncAnimation`, widgets, patches).
-- **Optional export fallback:** `cv2` (OpenCV) used only if `ffmpeg` writer is unavailable.
-- **Project dependencies:**
-  - `environment_definition.constants` (`EARTH_RADIUS`, `EARTH_GRAVITATIONAL_PARAMETER`, `SIMULATION`, `RENDER`, `UREG`)
-  - `environment_definition.mission_profiles.mission_1_random_fl` (`SATELLITE_ALTITUDE`)
-  - `utils.flight_geometry.line_of_sight` (`minimum_contact_angle`)
-- **State model:** module-level globals hold simulation clock, speed multiplier, spin rate, and pre-created matplotlib artists.
+- Render outputs must reflect the real simulation controller selected for the run.
+- No hidden controller substitution is allowed in render paths.
+- Current render simulation supports `baseline` and `random` controller modes only.
 
-## Public API
+## Runtime Dependencies
 
-### `set_sim_speed(multiplier)`
+- `numpy`, `matplotlib` (`FuncAnimation`), optional `cv2` fallback when ffmpeg is unavailable.
+- Simulation source: `simulation.run_simulation.run_simulation()`.
 
-- **Purpose:** set live animation simulation speed multiplier.
-- **Parameters:**
-  - `multiplier` (`float`-convertible): scales simulated seconds advanced per render tick.
-- **Returns:** `None`.
-- **Side effects:** updates module global `sim_speed_multiplier`.
-- **Failure modes:** `ValueError`/`TypeError` may surface if `multiplier` is not float-convertible.
+## Key Runtime Functions
 
-### `set_sat_body_rotation_rate(rate, unit="arcsec")`
+### `run_simulation(...)` (called from render module)
 
-- **Purpose:** set constant inertial-frame body spin rate used for +z-axis orientation.
-- **Parameters:**
-  - `rate` (`float`-convertible): spin magnitude in the selected unit.
-  - `unit` (`str`): one of `"arcsec"`, `"arcmin"`, `"deg"`.
-- **Returns:** `None`.
-- **Side effects:**
-  - updates `sat_body_rotation_rate_rad_s` (internal rad/s value),
-  - updates `sat_body_rotation_rate_label` (UI text).
-- **Failure modes:**
-  - raises `ValueError` for unsupported `unit`,
-  - `ValueError`/`TypeError` may surface if `rate` is not float-convertible.
+- Produces `SimulationStateSeries` consumed by all render panels.
+- Receives `SimulationConfig` with `render_mode` and `controller_mode`.
 
-### `get_satellite_z_axis_dir(theta_now, elapsed_s)`
+### `_reconfigure_runtime(simulation_config)`
 
-- **Purpose:** compute current body +z unit direction from initial angle and constant spin.
-- **Parameters:**
-  - `theta_now` (`float`): accepted but currently not used in computation.
-  - `elapsed_s` (`float`): elapsed simulated time in seconds.
-- **Returns:** `numpy.ndarray` shape `(2,)`, direction vector `[cos(angle), sin(angle)]`.
-- **Side effects:** none.
-- **Failure modes:** numeric conversion/runtime warnings if invalid numeric inputs are passed.
+- Rebuilds `SIMULATION_SERIES` and derived globals (`N_CLOUDS`, `N_BINS`, `STATIC_SCENE`).
 
 ### `init()`
 
-- **Purpose:** reset artists and simulation time before animation starts.
-- **Parameters:** none.
-- **Returns:** tuple of matplotlib artists:
-  - `sat`, `obs_to_sat_line`, `trail`, `cone`, `z_axis_arrow`, `z_axis_label`, `info_text`.
-- **Side effects:**
-  - sets global `sim_time_s = 0.0`,
-  - resets artist geometry/text.
-- **Failure modes:** any matplotlib artist state errors propagate.
+- Resets panel artists and playback time.
+- Returns an empty list for `FuncAnimation` compatibility.
 
-### `set_scene_at_time(sim_time_local, wrap_orbit=True, speed_label=None)`
+### `update(_frame)`
 
-- **Purpose:** render/update the full scene for an explicit simulation timestamp.
-- **Parameters:**
-  - `sim_time_local` (`float`, seconds): timestamp used to compute orbital angle and spin state.
-  - `wrap_orbit` (`bool`, default `True`):
-    - `True`: orbit angle wraps via modulo over configured span,
-    - `False`: orbit angle clamps at end of span.
-  - `speed_label` (`float | None`, default `None`): optional value used in info text instead of live multiplier.
-- **Returns:** same artist tuple as `init()`.
-- **Side effects:** mutates all scene artists (satellite point, LOS line, trail, cone, z-axis arrow/label, info bar).
-- **Failure modes:** numeric errors or matplotlib artist update errors propagate.
+- Advances playback time (unless paused) and refreshes all panels from current series index.
 
-### `update(frame)`
+### `save_one_pass_video_30x(export_path=None)`
 
-- **Purpose:** animation callback for live playback (`FuncAnimation`).
-- **Parameters:**
-  - `frame` (`int`): frame index (not otherwise used directly).
-- **Returns:** same artist tuple as `set_scene_at_time(...)`.
-- **Side effects:**
-  - increments global `sim_time_s` by `animation_interval_ms/1000 * sim_speed_multiplier`,
-  - updates all scene artists by delegating to `set_scene_at_time`.
-- **Failure modes:** inherits failures from numeric update and `set_scene_at_time`.
-
-### `save_one_pass_video_30x_to_project_root()`
-
-- **Purpose:** export a non-looping MP4 pass using configured export speed.
-- **Parameters:** none.
-- **Returns:** `pathlib.Path` to output file (project root + configured filename).
-- **Side effects:**
-  - writes MP4 file to project root (`RENDER.export_filename`),
-  - runs frame-by-frame rendering in the current matplotlib figure.
-- **Writer behavior:**
-  - uses matplotlib `ffmpeg` writer when available,
-  - falls back to OpenCV writer (`mp4v`) when `ffmpeg` is unavailable.
-- **Failure modes:**
-  - raises runtime errors from writer initialization/saving,
-  - raises `RuntimeError` if OpenCV fallback writer cannot be opened.
+- Exports one pass through the precomputed series.
+- Uses ffmpeg writer when available, otherwise OpenCV fallback.
 
 ## CLI Interface
 
-`render_main.py` exposes a script entrypoint:
+`render_main.py` entrypoint arguments:
 
-- **Default mode:** live interactive animation window.
-- **Flag:** `--save-one-pass-30x`
-  - runs export path instead of live window,
-  - prints saved output path,
-  - output file location resolves to project root (`Path(__file__).resolve().parents[2] / RENDER.export_filename`).
+- `--render-mode {headless,interactive,export}` (default `interactive`)
+- `--controller-mode {baseline,random}` (default from `SimulationConfig`)
+- `--save-one-pass-30x` (forces export mode)
+- `--output-path <path>` (optional export path)
 
-Example:
+Examples:
 
 ```bash
-python backend/render/render_main.py --save-one-pass-30x
+python backend/render/render_main.py --render-mode interactive --controller-mode random
+python backend/render/render_main.py --render-mode export --controller-mode baseline --save-one-pass-30x
 ```
 
-## State and Side Effects
+## Notes
 
-- Module import performs substantial initialization:
-  - derives physical/orbital values,
-  - creates `fig`, `ax`, static scene, widgets, and artists.
-- API functions operate on module singleton state; this is not a stateless library API.
-- Repeated imports/reloads can recreate figures and widgets.
-
-## Known Constraints
-
-- Designed around 2D circular orbit visualization assumptions.
-- Uses matplotlib GUI/event-loop behavior for live mode.
-- Export fallback requires `cv2` installed when `ffmpeg` is not present.
-- Some function contracts are pragmatic rather than strict (for example `theta_now` is accepted in `get_satellite_z_axis_dir` but currently unused).
+- Module import creates figure/panel globals; this is a singleton-style render script.
+- Designed for 2D orbit visualization from precomputed series data.

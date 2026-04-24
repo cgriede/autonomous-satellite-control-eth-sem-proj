@@ -1,12 +1,15 @@
 ---
-description: Use auto-sat or ASC conda environment for Python commands
+description: Use the configured project conda environment for Python commands
 alwaysApply: true
 ---
 
 # Python Environment
 
-- Always run Python commands in this project after activating the `auto-sat` conda environment.
-- Use: `conda activate auto-sat` before `python ...`, `pip ...`, pytest, or any Python tooling command.
+- Always run Python commands in this project after activating the configured project conda environment.
+- Default in this workspace: `conda activate auto-sat` before `python ...`, `pip ...`, `pytest`, or other Python tooling.
+- If `auto-sat` is not present on this machine, run `conda env list` and use the environment selected by the user for this project.
+- If multiple plausible environments exist and none is explicitly selected, ask the user which one to use before running Python commands.
 
 # Fallback
-if `auto-sat` is not available try `ASC`
+- If `auto-sat` is unavailable, inspect environments via `conda env list` and use the project-specific environment configured by the user.
+- Do not assume `LRF` in this repository unless the user explicitly requests it for this project.

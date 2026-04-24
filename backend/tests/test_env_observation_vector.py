@@ -1,11 +1,11 @@
 import unittest
 
-from environment_definition.environment import SatelliteAttitude2D
+from environment_definition.attitude_control_env import SatelliteAttitudeControlEnv
 
 
 class EnvObservationVectorTest(unittest.TestCase):
     def test_observation_contains_required_kinematic_terms(self):
-        env = SatelliteAttitude2D()
+        env = SatelliteAttitudeControlEnv()
         obs, _ = env.reset(seed=0)
         self.assertEqual(obs.shape, (5,))
         # [angle_rel_nadir, angular_velocity, angular_acceleration, angle_to_target, omega_wheel]

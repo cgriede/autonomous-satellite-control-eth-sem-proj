@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
+from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
 from autonomous_control.reward import RewardConfig, RewardSignals, canonical_reward
 from environment_definition.constants.SIMULATION import (
     FIXED_GROUND_CONE_HIT_EARTH,
     OBSERVATION_LINE_NOT_COMPUTED,
+    RenderMode,
     SIMULATION,
+    SimulationConfig,
 )
 
 from .attitude_dynamics import AttitudeState2D, propagate_reaction_wheel_attitude_2d
@@ -25,12 +29,38 @@ from .reaction_wheel import ReactionWheel
 from .state_types import SimulationMetadata, SimulationStateSeries
 
 
-def _controller_agent_placeholder_step(*, frame_index: int, sim_time_s: float) -> None:
-    """
-    Reserved hook for a future controller agent (e.g. torque commands).
-    Reaction-wheel torque is currently fixed inside the attitude update above.
-    """
-    del frame_index, sim_time_s
+@dataclass(frozen=True)
+class _ControllerAdapterEnv:
+    action_space: Any
+    dt: Any
+
+
+def _build_simulation_controller(*, controller_mode: str, tau_max_nm: float, dt: Any, rng: np.random.Generator):
+    from gymnasium import spaces
+
+    adapter_env = _ControllerAdapterEnv(
+        action_space=spaces.Box(
+            low=np.array([-tau_max_nm], dtype=np.float32),
+            high=np.array([tau_max_nm], dtype=np.float32),
+            shape=(1,),
+            dtype=np.float32,
+        ),
+        dt=dt,
+    )
+    mode = str(controller_mode).lower()
+    if mode == "random":
+        return RandomTorquePolicy(adapter_env, rng=rng)
+    if mode == "baseline":
+        return MaxTorqueSweepPolicy(adapter_env, period_s=10.0)
+    raise ValueError(f"Unsupported controller_mode: {controller_mode!r}")
+
+
+def _controller_torque_command_nm(
+    *,
+    controller: Any,
+) -> float:
+    action = controller.get_action(np.zeros(1, dtype=np.float64), train=False)
+    return float(np.asarray(action, dtype=np.float64).reshape(-1)[0])
 
 
 def _fixed_ground_codes_from_observation_line(
@@ -54,6 +84,7 @@ def _fixed_ground_codes_from_observation_line(
 
 def run_simulation(
     *,
+    simulation_config: SimulationConfig | None = None,
     earth_radius: Any,
     earth_gravitational_parameter: Any,
     satellite: Any,
@@ -74,13 +105,19 @@ def run_simulation(
     Canonical numeric simulation entrypoint for rendering runs.
 
     Per timestep (conceptually): plant (orbit + reaction-wheel attitude) → camera
-    raytracing (strip + 1D observation line) → controller placeholder.
+    raytracing (strip + 1D observation line) using a selected real controller policy.
 
     Contract:
     - performs numeric propagation / simulation
     - returns a typed `SimulationStateSeries`
     - rendering code should only consume the returned state series
     """
+
+    sim_config = simulation_config if simulation_config is not None else SimulationConfig()
+    controller_mode = str(sim_config.controller_mode).lower()
+    if controller_mode not in {"random", "baseline"}:
+        raise ValueError("controller_mode must be one of: random, baseline.")
+    render_mode = str(sim_config.render_mode.value if isinstance(sim_config.render_mode, RenderMode) else sim_config.render_mode)
 
     if num_frames < 2:
         raise ValueError("num_frames must be >= 2.")
@@ -120,10 +157,10 @@ def run_simulation(
     if wheel_inertia.to(ureg.kg * ureg.m**2).magnitude <= 0.0:
         raise ValueError("wheel_inertia must be > 0.")
 
-    # Map the prior "body torque cmd" sign convention to this dynamics model:
-    # propagate_reaction_wheel_attitude_2d uses alpha_sat = -wheel_torque / sat_inertia.
+    # Controller commands are generated in N*m and then routed through the wheel model.
     body_torque_cmd_nm = satellite.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude
-    wheel_torque_cmd = (-float(body_torque_cmd_nm)) * ureg.N * ureg.m
+    tau_max_nm = float(body_torque_cmd_nm)
+    rng = np.random.default_rng(sim_config.controller_seed)
 
     reaction_wheel = ReactionWheel(
         wheel_inertia=wheel_inertia,
@@ -180,11 +217,21 @@ def run_simulation(
         ],
         dtype=float,
     )
+    controller = _build_simulation_controller(
+        controller_mode=controller_mode,
+        tau_max_nm=tau_max_nm,
+        dt=dt,
+        rng=rng,
+    )
     prev_omega_wheel = state.omega_wheel
 
     for k in range(n):
         if k > 0:
             prev_omega_wheel = state.omega_wheel
+            tau_cmd_nm = _controller_torque_command_nm(
+                controller=controller,
+            )
+            wheel_torque_cmd = (-float(tau_cmd_nm)) * ureg.N * ureg.m
             tau_applied = reaction_wheel.compute_applied_torque(state=state, tau_cmd=wheel_torque_cmd)
             state = propagate_reaction_wheel_attitude_2d(
                 state=state,
@@ -264,8 +311,6 @@ def run_simulation(
             cloud_arc_start_rad[k, i] = float(spec["start_rad"])
             cloud_arc_end_rad[k, i] = float(spec["end_rad"])
 
-        _controller_agent_placeholder_step(frame_index=k, sim_time_s=float(t_s[k]))
-
     metadata = SimulationMetadata(
         orbit_period_s=orbit_period_s,
         omega_rad_s=omega_rad_s,
@@ -277,6 +322,8 @@ def run_simulation(
         sat_theta_span_rad=float(sat_theta_span_rad),
         start_angle_deg=float(start_angle_deg),
         end_angle_deg=float(end_angle_deg),
+        controller_mode=controller_mode,
+        render_mode=render_mode,
     )
 
     return SimulationStateSeries(

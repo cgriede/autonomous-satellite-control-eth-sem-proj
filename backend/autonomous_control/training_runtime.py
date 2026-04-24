@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from environment_definition.environment import SatelliteAttitude2D
+from environment_definition.attitude_control_env import SatelliteAttitudeControlEnv
 
 from .reward import RewardConfig
 
@@ -63,16 +63,16 @@ class EpisodeResult:
     states: list[np.ndarray]
 
 
-def get_env(
+def make_attitude_control_env(
     *,
     render_mode: str | None = None,
     reward_config: RewardConfig | None = None,
-) -> SatelliteAttitude2D:
-    return SatelliteAttitude2D(render_mode=render_mode, reward_config=reward_config)
+) -> SatelliteAttitudeControlEnv:
+    return SatelliteAttitudeControlEnv(render_mode=render_mode, reward_config=reward_config)
 
 
 def run_episode(
-    env: SatelliteAttitude2D,
+    env: SatelliteAttitudeControlEnv,
     agent: Any,
     *,
     mode: str,

@@ -31,13 +31,13 @@ Source: `environment_definition/constants/SIMULATION.py`.
 
 ---
 
-# Gym environment (`SatelliteAttitude2D`)
+# Gym environment (`SatelliteAttitudeControlEnv`)
 
-Source: `environment_definition/environment.py`.
+Source: `environment_definition/attitude_control_env.py`.
 
 - **Integration step:** `dt` = 0.1 s (pint).
 - **Episode:** `max_episode_steps` = 500.
-- **Initial state (reset):** θ ~ U(−π/4, π/4), ω_s ~ U(−0.5, 0.5), ω_w = 0.
+- **Initial state (reset):** θ ~ U(−π/4, π/4), ω_s ~ U(−0.5, 0.5), ω_w = 0, `target_theta` ~ U(−π/3, π/3).
 - **Wheel limit used in env:** `omega_w_max` = 150 rad/s (float; saturation / termination).
 
 ---
@@ -48,4 +48,4 @@ Source: `environment_definition/environment.py`.
 |--------|----------------|
 | Mission sampling | `mission_profiles/mission_1_random_fl.py`, `constants/MISSION.py` |
 | Sim / clouds / map | `constants/SIMULATION.py` |
-| RL env dynamics & reward | `environment.py` |
+| RL env dynamics & reward | `attitude_control_env.py` |

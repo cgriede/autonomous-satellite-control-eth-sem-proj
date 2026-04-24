@@ -15,10 +15,10 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from autonomous_control.controller_agent import Agent
+from autonomous_control.controller_agent import MPOAgent
 from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
 from autonomous_control.mpo_config import MPOConfig
-from autonomous_control.training_runtime import get_env, run_episode
+from autonomous_control.training_runtime import make_attitude_control_env, run_episode
 from utils.ml_training.ml_training_utils import (
     append_jsonl_record,
     append_run_markdown_event,
@@ -36,7 +36,7 @@ def _seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _save_checkpoint(agent: Agent, path: str) -> None:
+def _save_checkpoint(agent: MPOAgent, path: str) -> None:
     payload = {
         "pi": agent.pi.state_dict(),
         "pi_target": agent.pi_target.state_dict(),
@@ -83,10 +83,20 @@ def _save_trace_video(states: list[np.ndarray], output_path: Path, fps: int = 20
     return output_path
 
 
-def _save_sat_sim_export_video(output_path: Path) -> Path:
+def _save_sat_sim_export_video(output_path: Path, *, controller_mode: str) -> Path:
+    if controller_mode == "mpo":
+        raise ValueError(
+            "Sat Sim render export only supports controller modes with direct simulation policies "
+            "(baseline, random). MPO render export is disabled until a real checkpoint-driven "
+            "simulation controller is wired."
+        )
     command = [
         sys.executable,
         str(BACKEND_DIR / "render" / "render_main.py"),
+        "--render-mode",
+        "export",
+        "--controller-mode",
+        controller_mode,
         "--save-one-pass-30x",
         "--output-path",
         str(output_path),
@@ -110,7 +120,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint-name", type=str, default="agent.pt")
     parser.add_argument("--save-video", action="store_true")
     parser.add_argument("--video-name", type=str, default="policy_trace.mp4")
-    parser.add_argument("--save-render-video", action="store_true")
+    parser.add_argument(
+        "--save-render-video",
+        action="store_true",
+        help="Export Sat Sim render video (supported for baseline/random controller modes).",
+    )
     parser.add_argument("--render-video-name", type=str, default="sat_sim_export.mp4")
     parser.add_argument(
         "--controller-mode",
@@ -127,25 +141,26 @@ def main() -> None:
 
     if args.controller_mode == "mpo":
         config = MPOConfig(warmup_episodes=args.warmup_episodes)
-        env = get_env(reward_config=config.reward)
-        agent = Agent(env, config=config)
+        env = make_attitude_control_env(reward_config=config.reward)
+        agent = MPOAgent(env, config=config)
     elif args.controller_mode == "baseline":
-        env = get_env()
+        env = make_attitude_control_env()
         agent = MaxTorqueSweepPolicy(env, period_s=10.0)
     else:
-        env = get_env()
+        env = make_attitude_control_env()
         agent = RandomTorquePolicy(env)
     run_dir = create_run_dir(run_id=args.run_id)
     ckpt = checkpoint_path(run_dir, filename=args.checkpoint_name)
 
     init_run_markdown(
         run_dir,
-        title="MPO Training Run",
+        title=f"Controller Training Run ({args.controller_mode})",
         metadata={
             "run_dir": str(run_dir),
             "seed": args.seed,
             "train_episodes": args.train_episodes,
             "warmup_episodes": args.warmup_episodes,
+            "controller_mode": args.controller_mode,
             "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
         },
     )
@@ -199,7 +214,9 @@ def main() -> None:
     render_video_path: str | None = None
     if args.save_render_video:
         output_path = run_dir / args.render_video_name
-        render_video_path = str(_save_sat_sim_export_video(output_path))
+        render_video_path = str(
+            _save_sat_sim_export_video(output_path, controller_mode=args.controller_mode)
+        )
         append_run_markdown_event(
             run_dir,
             heading="Sat Sim Export video",

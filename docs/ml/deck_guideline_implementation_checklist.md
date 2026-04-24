@@ -13,10 +13,10 @@ Source: `docs/Semester project - autonomous sat machine learning.pdf`
 
 - `r_sat(t)` deterministic orbital location
   - Status: **Missing in active Gym RL env**
-  - Note: available in renderer simulation (`backend/simulation/run_simulation.py`), not in `SatelliteAttitude2D` training state.
+  - Note: available in renderer simulation (`backend/simulation/run_simulation.py`), not in `SatelliteAttitudeControlEnv` training state.
 - attitude orientation controllable
   - Status: **Implemented**
-  - Path: `backend/environment_definition/environment.py`
+  - Path: `backend/environment_definition/attitude_control_env.py`
 - cloud location random
   - Status: **Partial**
   - Path: cloud geometry exists in renderer simulation, not in active RL training state.
@@ -39,11 +39,11 @@ Source: `docs/Semester project - autonomous sat machine learning.pdf`
 ## Reward objectives (v1)
 
 - no-picture / not-visible / beyond-threshold penalties
-  - Status: **Partial**
-  - Path: implemented in `backend/autonomous_control/reward.py`, not yet the active env reward.
+  - Status: **Implemented**
+  - Path: active in `backend/environment_definition/attitude_control_env.py` via `canonical_reward`.
 - in-threshold distance scaling toward optimal
-  - Status: **Partial**
-  - Path: implemented in `backend/autonomous_control/reward.py`.
+  - Status: **Implemented**
+  - Path: active in `backend/environment_definition/attitude_control_env.py` via `canonical_reward`.
 - secondary objective for avoiding random torque/energy waste
   - Status: **Implemented (proxy)**
   - Path: active env reward penalizes wheel speed and torque use.
@@ -53,12 +53,13 @@ Source: `docs/Semester project - autonomous sat machine learning.pdf`
 - Added hardcoded 10s baseline torque sweep policy: `backend/autonomous_control/controller_baselines.py`.
 - Added random baseline policy for comparisons: `backend/autonomous_control/controller_baselines.py`.
 - Added controller mode switching to train/eval scripts (`mpo`, `baseline`, `random`).
+- Sat Sim render pipeline supports simulation-native controller modes (`baseline`, `random`) without MPO emulation.
 - Updated training-state observation to include:
   - angle relative to nadir
   - angular velocity
   - angular acceleration
   - angle to target
   - wheel speed (additional safety-relevant term)
-- Separated action mapping and safety gating explicitly:
+- Separated action mapping and safety handling explicitly:
   - mapping: `raw_policy_to_action`
-  - safety gate: `apply_rate_safety_gate` (uses reaction wheel cutoff model)
+  - reaction-wheel torque limiting: `ReactionWheel.compute_applied_torque`

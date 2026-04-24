@@ -1,12 +1,16 @@
 import gymnasium as gym
 import numpy as np
 from autonomous_control.reward import RewardConfig, RewardSignals, canonical_reward
+
 from .constants.SATELLITE import *
 from simulation import AttitudeState2D, propagate_reaction_wheel_attitude_2d
 from simulation.camera_2d import calculate_fov_angles
 from simulation.reaction_wheel import ReactionWheel
 
-class SatelliteAttitude2D(gym.Env):
+
+class SatelliteAttitudeControlEnv(gym.Env):
+    """Gym environment for single-axis satellite attitude control episodes."""
+
     metadata = {"render_modes": ["human"], "render_fps": 30}
 
     def __init__(self, render_mode=None, reward_config: RewardConfig | None = None):
@@ -23,7 +27,7 @@ class SatelliteAttitude2D(gym.Env):
             # Safety cutoff threshold comes from the mission configuration.
             max_manouver_rate=STAR_TRACKER_MAX_MANEUVER_RATE,
         )
-        self.dt = 0.1 * ureg.s   # Time step (s)
+        self.dt = 0.1 * ureg.s  # Time step (s)
         self.max_episode_steps = 500
 
         # Canonical reward config (flags selected from MPOConfig.reward when
@@ -109,7 +113,7 @@ class SatelliteAttitude2D(gym.Env):
         self._omega_w = omega_w
         self.state = self._build_observation()
 
-        # Slide-based reward via canonical entrypoint. In the 2D attitude env
+        # Slide-based reward via canonical entrypoint. In this control env
         # there is no full orbit geometry, so distance_to_target is a slant-range
         # proxy (altitude / cos(pointing_error)) and target_visible is derived
         # from whether the pointing error falls inside the vertical FOV.
@@ -142,7 +146,6 @@ class SatelliteAttitude2D(gym.Env):
         info = {"reward_components": reward_components}
         return self.state, reward, terminated, truncated, info
 
-    # Simple text render; extend to matplotlib arrow for angle viz
     def render(self):
         if self.render_mode == "human":
             print(

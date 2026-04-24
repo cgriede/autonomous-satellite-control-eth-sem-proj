@@ -14,6 +14,12 @@ This repository separates **numeric simulation** from **rendering/visualization*
   - Must not run numeric propagation/integration itself.
   - If additional data is needed for visuals, extend the simulation output and/or the simulation entrypoint.
 
+## Model-to-render fidelity
+
+- Rendered behavior must reflect the real modeled implementation selected for a run.
+- Do not use hidden substitute logic for visualization (for example, no proxy "MPO-like" controller in render simulation).
+- If a component model is defined (for example, reaction-wheel dynamics), the same model must drive both simulated system behavior and rendered outputs.
+
 ## Common commands
 
 - Run interactive renderer (uses simulation entrypoint under the hood):
@@ -27,6 +33,7 @@ This repository separates **numeric simulation** from **rendering/visualization*
 ## Documentation
 
 - Render module API: `docs/render-api.md`
+- User manual (controllers + rendering): `docs/user-manual.md`
 
 ## Semester Project Simplifications
 

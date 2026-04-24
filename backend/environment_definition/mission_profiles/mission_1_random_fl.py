@@ -22,7 +22,7 @@ from environment_definition.constants import (
     STAR_TRACKER_MAX_MANEUVER_RATE,
 )
 from utils.leo_adapter.orbit_geometry import circular_orbital_speed_from_altitude
-from environment_definition.runtime_types import Environment, Mission, Satellite
+from environment_definition.runtime_types import Mission, MissionScenario, Satellite
 
 lower_mag = SATELLITE_ALTITUDE_LOWER_BOUND.magnitude
 upper_mag = SATELLITE_ALTITUDE_UPPER_BOUND.to(SATELLITE_ALTITUDE_LOWER_BOUND.units).magnitude
@@ -45,7 +45,7 @@ MISSION_PROFILE = Mission(
     orbit_speed=SATELLITE_ORBIT_SPEED,
 )
 
-ENVIRONMENT = Environment(
+MISSION_SCENARIO = MissionScenario(
     earth_radius=EARTH_RADIUS,
     earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
     simulation=SIMULATION,
