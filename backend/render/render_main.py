@@ -30,6 +30,7 @@ if __package__:
     from ._controls import RenderControls, build_controls_panel
     from ._fixed_bird_view import build_1d_fixed_bird_view, update_1d_fixed_bird_view
     from ._main_view import build_main_panel, update_main_panel
+    from ._reward_plot import build_reward_panel, update_reward_panel
     from ._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
     from ._telemetry import build_telemetry_panel, update_telemetry_panel
 else:
@@ -37,6 +38,7 @@ else:
     from render._controls import RenderControls, build_controls_panel
     from render._fixed_bird_view import build_1d_fixed_bird_view, update_1d_fixed_bird_view
     from render._main_view import build_main_panel, update_main_panel
+    from render._reward_plot import build_reward_panel, update_reward_panel
     from render._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
     from render._telemetry import build_telemetry_panel, update_telemetry_panel
 
@@ -46,6 +48,7 @@ SHOW_1D_FIXED_BIRD_VIEW = True
 SHOW_1D_SAT_VIEW = True
 SHOW_CLOSEUP = True
 SHOW_TELEMETRY = True
+SHOW_REWARD_PLOT = True
 
 R_EARTH_KM = EARTH_RADIUS.to(ureg.km).magnitude
 SAT_ALTITUDE_KM = SATELLITE_ALTITUDE.to(ureg.km).magnitude
@@ -237,6 +240,10 @@ def init() -> list:
 
     if "telemetry" in PANELS:
         PANELS["telemetry"]["artists"]["text"].set_text("")
+    if "reward" in PANELS:
+        a = PANELS["reward"]["artists"]
+        a["line"].set_data([], [])
+        a["cursor"].set_data([], [])
 
     return []
 
@@ -257,6 +264,8 @@ def update_panels(scene: dict) -> None:
         update_1d_sat_view(PANELS["1d_sat_view"]["artists"], scene["camera_codes"])
     if "telemetry" in PANELS:
         update_telemetry_panel(PANELS["telemetry"]["artists"], scene)
+    if "reward" in PANELS:
+        update_reward_panel(PANELS["reward"]["artists"], scene["sim_idx"])
 
 
 def update(_frame: int) -> list:
@@ -269,13 +278,15 @@ def update(_frame: int) -> list:
     return []
 
 
-def save_one_pass_video_30x_to_project_root() -> Path:
+def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
     export_speed_multiplier = float(SIMULATION.export_speed_multiplier)
     export_fps = int(RENDER.export_fps)
     sim_total_s = float(SIMULATION_SERIES.metadata.sim_total_s)
     dt_sim_s = (ANIMATION_INTERVAL_MS / 1000.0) * export_speed_multiplier
     export_num_frames = max(2, int(np.ceil(sim_total_s / dt_sim_s)) + 1)
-    export_path = Path(__file__).resolve().parents[2] / RENDER.export_filename
+    if export_path is None:
+        export_path = Path(__file__).resolve().parents[2] / RENDER.export_filename
+    export_path.parent.mkdir(parents=True, exist_ok=True)
 
     def export_update(frame: int) -> list:
         sim_t = min(float(frame) * dt_sim_s, sim_total_s)
@@ -354,6 +365,11 @@ def _build_panels() -> None:
     if SHOW_TELEMETRY:
         axes, artists = build_telemetry_panel(FIG, STATIC_SCENE)
         PANELS["telemetry"] = {"axes": axes, "artists": artists}
+    if SHOW_REWARD_PLOT:
+        axes, artists = build_reward_panel(
+            FIG, SIMULATION_SERIES.t_s, SIMULATION_SERIES.simulation_reward
+        )
+        PANELS["reward"] = {"axes": axes, "artists": artists}
     if SHOW_MAIN_PLOT:
         axes, artists = build_main_panel(FIG, STATIC_SCENE)
         PANELS["main"] = {"axes": axes, "artists": artists}
@@ -375,6 +391,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Save one-pass MP4 at 30x speed to project root",
     )
+    parser.add_argument(
+        "--output-path",
+        type=Path,
+        default=None,
+        help="Optional explicit MP4 output path for one-pass export.",
+    )
     args = parser.parse_args()
 
     FIG.text(
@@ -391,7 +413,7 @@ if __name__ == "__main__":
     _controls = build_controls_panel(FIG, CONTROLS)
 
     if args.save_one_pass_30x:
-        output_path = save_one_pass_video_30x_to_project_root()
+        output_path = save_one_pass_video_30x(export_path=args.output_path)
         print(f"Saved one-pass video to: {output_path}")
     else:
         _ani = FuncAnimation(
