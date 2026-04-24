@@ -4,10 +4,18 @@ from typing import Any
 
 import numpy as np
 
-from environment_definition.constants.SIMULATION import SIMULATION
+from autonomous_control.reward import RewardConfig, RewardSignals, canonical_reward
+from environment_definition.constants.SIMULATION import (
+    FIXED_GROUND_CONE_HIT_EARTH,
+    OBSERVATION_LINE_NOT_COMPUTED,
+    SIMULATION,
+)
 
 from .attitude_dynamics import AttitudeState2D, propagate_reaction_wheel_attitude_2d
 from .camera_2d import (
+    OBSERVATION_EARTH,
+    OBSERVATION_SPACE,
+    OBSERVATION_TARGET,
     calculate_fov_angles,
     compute_cloud_arc_specs_at_time,
     simulate_camera_observation_line_1d,
@@ -23,6 +31,25 @@ def _controller_agent_placeholder_step(*, frame_index: int, sim_time_s: float) -
     Reaction-wheel torque is currently fixed inside the attitude update above.
     """
     del frame_index, sim_time_s
+
+
+def _fixed_ground_codes_from_observation_line(
+    observation_codes: np.ndarray,
+    rel_angles_rad: np.ndarray,
+    center_ray_code: np.int8,
+) -> np.ndarray:
+    fixed_codes = np.asarray(observation_codes, dtype=np.int8).copy()
+    if fixed_codes.ndim != 1:
+        raise ValueError("observation_codes must be a 1D array.")
+    if rel_angles_rad.shape != fixed_codes.shape:
+        raise ValueError("rel_angles_rad shape must match observation_codes shape.")
+
+    fixed_codes[fixed_codes == np.int8(OBSERVATION_SPACE)] = np.int8(OBSERVATION_EARTH)
+
+    if int(center_ray_code) == int(OBSERVATION_EARTH):
+        center_idx = int(np.argmin(np.abs(np.asarray(rel_angles_rad, dtype=float))))
+        fixed_codes[center_idx] = np.int8(FIXED_GROUND_CONE_HIT_EARTH)
+    return fixed_codes
 
 
 def run_simulation(
@@ -41,6 +68,7 @@ def run_simulation(
     observer_target_angle_rad: float,
     camera_pixel_ray_samples: int = 96,
     camera_observation_line_n_bins: int | None = None,
+    reward_config: RewardConfig | None = None,
 ) -> SimulationStateSeries:
     """
     Canonical numeric simulation entrypoint for rendering runs.
@@ -120,6 +148,7 @@ def run_simulation(
 
     body_z_angle_rad = np.empty(n, dtype=float)
     body_z_angle_rad[0] = state.theta.to(ureg.rad).magnitude
+    simulation_reward = np.empty(n, dtype=float)
 
     camera_gsd_m = np.full(n, np.nan, dtype=float)
     camera_ground_left_xy_km = np.full((n, 2), np.nan, dtype=float)
@@ -130,6 +159,7 @@ def run_simulation(
     camera_center_ray_observation_code = np.zeros(n, dtype=np.int8)
     camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
     camera_observation_line_codes = np.empty((n, n_bins), dtype=np.int8)
+    fixed_ground_line_codes = np.full((n, n_bins), OBSERVATION_LINE_NOT_COMPUTED, dtype=np.int8)
 
     n_clouds = len(SIMULATION.clouds)
     cloud_arc_radius_km = np.full((n, n_clouds), np.nan, dtype=float)
@@ -141,9 +171,20 @@ def run_simulation(
 
     dt = sim_dt_s * ureg.s
     target_angle_rad = float(observer_target_angle_rad)
+    reward_cfg = reward_config if reward_config is not None else RewardConfig()
+
+    target_xy_km = np.array(
+        [
+            r_earth_km * np.cos(target_angle_rad),
+            r_earth_km * np.sin(target_angle_rad),
+        ],
+        dtype=float,
+    )
+    prev_omega_wheel = state.omega_wheel
 
     for k in range(n):
         if k > 0:
+            prev_omega_wheel = state.omega_wheel
             tau_applied = reaction_wheel.compute_applied_torque(state=state, tau_cmd=wheel_torque_cmd)
             state = propagate_reaction_wheel_attitude_2d(
                 state=state,
@@ -194,6 +235,23 @@ def run_simulation(
             n_bins=n_bins,
         )
         camera_observation_line_codes[k, :] = line_res.observation_types
+        target_visible = bool(np.any(line_res.observation_types == np.int8(OBSERVATION_TARGET)))
+        distance_to_target_km = float(np.linalg.norm(sat_pos_xy_km - target_xy_km))
+        signals = RewardSignals(
+            distance_to_target=distance_to_target_km * ureg.km,
+            picture_taken=True,
+            target_visible=target_visible,
+            wheel_inertia=wheel_inertia,
+            omega_before=prev_omega_wheel,
+            omega_after=state.omega_wheel,
+        )
+        reward_total, _ = canonical_reward(signals=signals, cfg=reward_cfg)
+        simulation_reward[k] = float(reward_total)
+        fixed_ground_line_codes[k, :] = _fixed_ground_codes_from_observation_line(
+            observation_codes=line_res.observation_types,
+            rel_angles_rad=line_res.bin_ray_angles_rel_boresight_rad,
+            center_ray_code=camera_center_ray_observation_code[k],
+        )
 
         for i, spec in enumerate(
             compute_cloud_arc_specs_at_time(
@@ -226,6 +284,7 @@ def run_simulation(
         theta_orbit_rad=theta_orbit_rad,
         radius_km=radius_km,
         body_z_angle_rad=body_z_angle_rad,
+        simulation_reward=simulation_reward,
         camera_gsd_m=camera_gsd_m,
         camera_vertical_fov_rad=float(camera_vertical_fov_rad),
         camera_ground_left_xy_km=camera_ground_left_xy_km,
@@ -236,6 +295,7 @@ def run_simulation(
         camera_center_ray_observation_code=camera_center_ray_observation_code,
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         camera_observation_line_codes=camera_observation_line_codes,
+        fixed_ground_line_codes=fixed_ground_line_codes,
         cloud_arc_radius_km=cloud_arc_radius_km,
         cloud_arc_start_rad=cloud_arc_start_rad,
         cloud_arc_end_rad=cloud_arc_end_rad,

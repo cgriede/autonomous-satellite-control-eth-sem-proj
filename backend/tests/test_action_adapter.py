@@ -10,6 +10,8 @@ from autonomous_control.action_adapter import (
     raw_policy_to_action,
     to_gym_torque_array,
 )
+from simulation.attitude_dynamics import AttitudeState2D
+from simulation.reaction_wheel import ReactionWheel
 
 
 class ActionAdapterTest(unittest.TestCase):
@@ -35,6 +37,22 @@ class ActionAdapterTest(unittest.TestCase):
     def test_raw_dim_enforced(self):
         with self.assertRaises(ValueError):
             raw_policy_to_action(np.zeros(3, dtype=np.float64))
+
+    def test_reaction_wheel_blocks_rate_worsening_torque(self):
+        wheel = ReactionWheel(
+            wheel_inertia=1.0 * ureg.kg * ureg.m**2,
+            max_manouver_rate=0.1 * ureg.rad / ureg.s,
+        )
+        state = AttitudeState2D(
+            theta=0.0 * ureg.rad,
+            omega_sat=0.2 * ureg.rad / ureg.s,
+            omega_wheel=0.0 * ureg.rad / ureg.s,
+        )
+        tau_cmd = -0.01 * ureg.N * ureg.m
+        tau_applied = wheel.compute_applied_torque(state=state, tau_cmd=tau_cmd)
+        self.assertAlmostEqual(
+            float(tau_applied.to(ureg.N * ureg.m).magnitude), 0.0, places=9
+        )
 
 
 if __name__ == "__main__":

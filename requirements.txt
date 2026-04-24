@@ -6,3 +6,4 @@ opencv-python
 rich
 tqdm
 pyproj
+torch

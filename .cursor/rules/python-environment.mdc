@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+In this project find the correct python environment which is usually called something like:
+
+"auto-sat"
+or
+"ASC"
+if these do not work inspect the environments by:
+"conda list env"
+
+you should find an entry that matches what youd expect from the other two like:
+"autonomous-sat-control"
+
+or something similar

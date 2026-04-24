@@ -10,6 +10,7 @@
 
 ## features
 - add telemetry: environment: avg cloud speed
+ - [x] reward-over-time linear plot in simulation render (Matplotlib, x=time_s, source=SimulationStateSeries)
 
 
 

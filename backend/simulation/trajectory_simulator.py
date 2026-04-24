@@ -2,7 +2,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .observation_line_constants import DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS, OBSERVATION_LINE_NOT_COMPUTED
+from environment_definition.constants.SIMULATION import (
+    DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS,
+    FIXED_GROUND_CONE_HIT_EARTH,
+    OBSERVATION_EARTH,
+    OBSERVATION_LINE_NOT_COMPUTED,
+)
 from .state_types import SimulationMetadata, SimulationStateSeries
 
 
@@ -83,15 +88,24 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
     n_bins = int(DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS)
     camera_observation_line_codes = np.full((n, n_bins), OBSERVATION_LINE_NOT_COMPUTED, dtype=np.int8)
+    fixed_ground_line_codes = np.full((n, n_bins), OBSERVATION_LINE_NOT_COMPUTED, dtype=np.int8)
+    # Keep kinematic helper consistent with render expectations: fixed-ground view maps space->earth
+    # and marks the center cone-hit bin.
+    fixed_ground_line_codes[:, :] = np.int8(OBSERVATION_EARTH)
+    center_idx = int(n_bins // 2)
+    fixed_ground_line_codes[:, center_idx] = np.int8(FIXED_GROUND_CONE_HIT_EARTH)
     n_clouds = len(SIMULATION.clouds)
     cloud_arc_radius_km = np.full((n, n_clouds), np.nan, dtype=float)
     cloud_arc_start_rad = np.full((n, n_clouds), np.nan, dtype=float)
     cloud_arc_end_rad = np.full((n, n_clouds), np.nan, dtype=float)
+    # Kinematic helper does not evaluate slide reward; leave simulation_reward at 0.
+    simulation_reward = np.zeros(n, dtype=float)
     return SimulationStateSeries(
         t_s              = t_s,
         theta_orbit_rad  = theta_orbit_rad,
         radius_km        = radius_km,
         body_z_angle_rad = body_z_angle_rad,
+        simulation_reward=simulation_reward,
         camera_gsd_m=camera_gsd_m,
         camera_vertical_fov_rad=float("nan"),
         camera_ground_left_xy_km=camera_ground_left_xy_km,
@@ -102,6 +116,7 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         camera_center_ray_observation_code=camera_center_ray_observation_code,
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         camera_observation_line_codes=camera_observation_line_codes,
+        fixed_ground_line_codes=fixed_ground_line_codes,
         cloud_arc_radius_km=cloud_arc_radius_km,
         cloud_arc_start_rad=cloud_arc_start_rad,
         cloud_arc_end_rad=cloud_arc_end_rad,

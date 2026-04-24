@@ -2,10 +2,9 @@ import unittest
 
 import numpy as np
 
-from environment_definition.constants import EARTH_RADIUS
+from environment_definition.constants import EARTH_RADIUS, OBSERVATION_LINE_NOT_COMPUTED
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from simulation.camera_2d import (
-    OBSERVATION_LINE_NOT_COMPUTED,
     observation_codes_to_ascii_line,
     simulate_camera_observation_line_1d,
 )

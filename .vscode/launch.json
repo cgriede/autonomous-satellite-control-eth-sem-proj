@@ -61,6 +61,37 @@
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
       }
+    },
+    {
+      "name": "MPO: Train satellite agent",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/scripts/train_sat_agent.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": ["--seed", "0", "--train-episodes", "20", "--warmup-episodes", "0"],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      }
+    },
+    {
+      "name": "MPO: Eval satellite agent",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/scripts/eval_sat_agent.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "args": [
+        "--checkpoint",
+        "${workspaceFolder}/backend/autonomous_control/models/REPLACE_WITH_RUN_ID/agent.pt",
+        "--eval-episodes",
+        "5"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
+      }
     }
   ]
 }

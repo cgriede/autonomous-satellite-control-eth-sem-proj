@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from simulation.camera_2d import OBSERVATION_LINE_NOT_COMPUTED
+from environment_definition.constants import OBSERVATION_LINE_NOT_COMPUTED
 from simulation.trajectory_simulator import KinematicSimulationConfig, simulate_kinematic_trajectory
 
 

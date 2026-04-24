@@ -1,0 +1,43 @@
+"""Deterministic and random baseline policies for controller benchmarking."""
+
+from __future__ import annotations
+
+import numpy as np
+
+
+class RandomTorquePolicy:
+    """Uniform random torque policy within the environment action space."""
+
+    def __init__(self, env) -> None:
+        self._low = float(env.action_space.low[0])
+        self._high = float(env.action_space.high[0])
+
+    def reset_episode(self) -> None:
+        return None
+
+    def get_action(self, obs: np.ndarray, train: bool) -> np.ndarray:
+        del obs, train
+        return np.array([np.random.uniform(self._low, self._high)], dtype=np.float64)
+
+
+class MaxTorqueSweepPolicy:
+    """
+    Hardcoded baseline:
+    linearly sweep torque from +tau_max to -tau_max over `period_s`.
+    """
+
+    def __init__(self, env, *, period_s: float = 10.0) -> None:
+        self._tau_max = float(env.action_space.high[0])
+        dt_s = float(env.dt.to("second").magnitude)
+        self._period_steps = max(2, int(round(period_s / dt_s)))
+        self._step_idx = 0
+
+    def reset_episode(self) -> None:
+        self._step_idx = 0
+
+    def get_action(self, obs: np.ndarray, train: bool) -> np.ndarray:
+        del obs, train
+        phase = (self._step_idx % self._period_steps) / float(self._period_steps - 1)
+        torque = self._tau_max * (1.0 - 2.0 * phase)
+        self._step_idx += 1
+        return np.array([torque], dtype=np.float64)
