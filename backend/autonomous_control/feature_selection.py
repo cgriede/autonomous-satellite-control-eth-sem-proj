@@ -19,7 +19,7 @@ from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 
 if TYPE_CHECKING:
     from environment_definition.attitude_control_env import SatelliteAttitudeControlEnv
-    from simulation.state_types import SimulationStateSeries
+    from simulation.state_types import SimulationStateSeries, SimulationTimestepState
 
 
 @dataclass(frozen=True)
@@ -44,6 +44,72 @@ class AutonomousControllerAction:
 
     wheel_torque_cmd: Any  # pint Quantity, N*m
     active_observation: bool
+
+
+@dataclass(frozen=True)
+class ControllerFeatureConfig:
+    features: tuple[str, ...] = (
+        "angle_rel_nadir",
+        "omega_sat",
+        "alpha_sat",
+        "angle_to_target",
+        "omega_wheel",
+    )
+
+
+def _build_feature_value_map(
+    *,
+    current: "SimulationTimestepState",
+    previous: "SimulationTimestepState | None",
+    target_angle_rad: float,
+) -> dict[str, float]:
+    nadir_angle = current.theta_orbit_rad + np.pi
+    angle_rel_nadir = float(np.arctan2(np.sin(current.body_z_angle_rad - nadir_angle), np.cos(current.body_z_angle_rad - nadir_angle)))
+    angle_to_target = float(
+        np.arctan2(
+            np.sin(current.body_z_angle_rad - target_angle_rad),
+            np.cos(current.body_z_angle_rad - target_angle_rad),
+        )
+    )
+    if previous is not None and current.sim_time_s > previous.sim_time_s:
+        dt = current.sim_time_s - previous.sim_time_s
+        alpha_sat = float((current.omega_sat_rad_s - previous.omega_sat_rad_s) / dt)
+    else:
+        alpha_sat = 0.0
+    return {
+        "angle_rel_nadir": angle_rel_nadir,
+        "omega_sat": float(current.omega_sat_rad_s),
+        "alpha_sat": alpha_sat,
+        "angle_to_target": angle_to_target,
+        "omega_wheel": float(current.omega_wheel_rad_s),
+        "body_z_angle_rad": float(current.body_z_angle_rad),
+        "theta_orbit_rad": float(current.theta_orbit_rad),
+        "radius_km": float(current.radius_km),
+    }
+
+
+def build_controller_state_from_timestep(
+    *,
+    current: "SimulationTimestepState",
+    previous: "SimulationTimestepState | None",
+    target_angle_rad: float,
+    feature_config: ControllerFeatureConfig | None = None,
+) -> AutonomousControllerState:
+    cfg = feature_config if feature_config is not None else ControllerFeatureConfig()
+    feature_values = _build_feature_value_map(
+        current=current,
+        previous=previous,
+        target_angle_rad=target_angle_rad,
+    )
+    obs_vector = np.array([feature_values[name] for name in cfg.features], dtype=np.float32)
+    target_visible = bool(
+        np.any(np.asarray(current.camera_observation_line_codes, dtype=np.int8) == np.int8(OBSERVATION_TARGET))
+    )
+    return AutonomousControllerState(
+        obs_vector=obs_vector,
+        target_visible=target_visible,
+        distance_to_target=None,
+    )
 
 
 def build_controller_state_from_env(
@@ -120,6 +186,8 @@ def build_controller_state_from_series(
 __all__ = [
     "AutonomousControllerState",
     "AutonomousControllerAction",
+    "ControllerFeatureConfig",
+    "build_controller_state_from_timestep",
     "build_controller_state_from_env",
     "build_controller_state_from_series",
 ]

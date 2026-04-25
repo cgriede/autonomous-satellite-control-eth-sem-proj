@@ -51,8 +51,8 @@ CONTACT_HALF_ANGLE_DEG = ALPHA.to(ureg.deg).magnitude
 MARGIN_DEG = SIMULATION.contact_margin_angle.to(ureg.deg).magnitude
 START_ANGLE_DEG = -(CONTACT_HALF_ANGLE_DEG + MARGIN_DEG)
 END_ANGLE_DEG = CONTACT_HALF_ANGLE_DEG + MARGIN_DEG
-ANIMATION_INTERVAL_MS = SIMULATION.animation_interval.to(ureg.ms).magnitude
-SIM_SPEED_MULTIPLIER = float(SIMULATION.default_speed_multiplier)
+ANIMATION_INTERVAL_MS = RENDER.animation_interval.to(ureg.ms).magnitude
+SIM_SPEED_MULTIPLIER = float(RENDER.default_speed_multiplier)
 SIMULATION_SERIES: SimulationStateSeries | None = None
 N_CLOUDS = 0
 N_BINS = 0
@@ -61,6 +61,7 @@ FIG: plt.Figure | None = None
 SIM_TIME_S = 0.0
 PANELS: dict[str, dict] = {}
 CONTROLS = RenderControls(sim_speed_multiplier=SIM_SPEED_MULTIPLIER)
+CONTROL_ARTISTS: dict | None = None
 
 
 def _require_runtime() -> SimulationStateSeries:
@@ -70,7 +71,7 @@ def _require_runtime() -> SimulationStateSeries:
 
 
 def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> None:
-    global SIMULATION_SERIES, N_CLOUDS, N_BINS, STATIC_SCENE, CONTROLS, FIG, PANELS
+    global SIMULATION_SERIES, N_CLOUDS, N_BINS, STATIC_SCENE, CONTROLS, FIG, PANELS, CONTROL_ARTISTS
     SIMULATION_SERIES = simulation_series
     N_CLOUDS = int(SIMULATION_SERIES.cloud_arc_radius_km.shape[1])
     N_BINS = int(SIMULATION_SERIES.camera_observation_line_codes.shape[1])
@@ -91,6 +92,7 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
     CONTROLS = RenderControls(sim_speed_multiplier=SIM_SPEED_MULTIPLIER)
     FIG = plt.figure(figsize=RENDER.figure_size, facecolor=RENDER.space_background)
     PANELS = {}
+    CONTROL_ARTISTS = None
 
 
 def _cloud_world_xy_for_frame(sim_idx: int) -> list[dict[str, np.ndarray]]:
@@ -119,6 +121,41 @@ def simulation_index_from_time(sim_time_s: float, wrap_orbit: bool = True) -> in
     else:
         normalized = np.clip(sim_time_s / sim_total_s, 0.0, 1.0)
     return int(np.floor(normalized * (sim_series.t_s.shape[0] - 1)))
+
+
+def _set_time_from_index(sim_idx: int) -> None:
+    global SIM_TIME_S
+    sim_series = _require_runtime()
+    n = int(sim_series.t_s.shape[0])
+    clamped_idx = int(np.clip(sim_idx, 0, max(0, n - 1)))
+    SIM_TIME_S = float(sim_series.t_s[clamped_idx])
+
+
+def _current_index_from_time_nearest() -> int:
+    sim_series = _require_runtime()
+    if sim_series.t_s.size == 0:
+        return 0
+    return int(np.argmin(np.abs(np.asarray(sim_series.t_s, dtype=float) - float(SIM_TIME_S))))
+
+
+def _refresh_current_scene() -> None:
+    sim_idx = simulation_index_from_time(SIM_TIME_S, wrap_orbit=False)
+    scene = sample_scene(sim_idx)
+    update_panels(scene)
+    if FIG is not None:
+        FIG.canvas.draw_idle()
+
+
+def _step_backward_one_frame() -> None:
+    current_idx = _current_index_from_time_nearest()
+    _set_time_from_index(current_idx - 1)
+    _refresh_current_scene()
+
+
+def _step_forward_one_frame() -> None:
+    current_idx = _current_index_from_time_nearest()
+    _set_time_from_index(current_idx + 1)
+    _refresh_current_scene()
 
 
 def sample_scene(sim_idx: int) -> dict:
@@ -402,6 +439,7 @@ def render_from_series(
     render_mode: RenderMode,
     output_path: Path | None = None,
 ) -> Path | None:
+    global CONTROL_ARTISTS
     _configure_runtime_from_series(simulation_series)
     if FIG is None:
         raise RuntimeError("Figure has not been initialized.")
@@ -417,7 +455,9 @@ def render_from_series(
     )
 
     _build_panels()
-    build_controls_panel(FIG, CONTROLS)
+    CONTROLS.step_backward_cb = _step_backward_one_frame
+    CONTROLS.step_forward_cb = _step_forward_one_frame
+    CONTROL_ARTISTS = build_controls_panel(FIG, CONTROLS)
 
     if render_mode == RenderMode.EXPORT:
         return save_one_pass_video_30x(export_path=output_path)

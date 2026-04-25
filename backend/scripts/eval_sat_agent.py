@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import os
 import random
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -19,6 +17,8 @@ from autonomous_control.controller_agent import MPOAgent
 from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
 from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.training_runtime import EpisodeResult, make_attitude_control_env, run_episode
+from environment_definition.constants import RenderMode
+from render.render_main import render_from_series
 from utils.ml_training.ml_training_utils import (
     append_jsonl_record,
     append_run_markdown_event,
@@ -80,30 +80,17 @@ def _save_trace_video(states: list[np.ndarray], output_path: Path, fps: int = 20
     return output_path
 
 
-def _save_sat_sim_export_video(output_path: Path, *, controller_mode: str) -> Path:
-    if controller_mode == "mpo":
-        raise ValueError(
-            "Sat Sim render export only supports controller modes with direct simulation policies "
-            "(baseline, random). MPO render export is disabled until a real checkpoint-driven "
-            "simulation controller is wired."
-        )
-    command = [
-        sys.executable,
-        str(BACKEND_DIR / "scripts" / "simulation_runner.py"),
-        "--render-mode",
-        "export",
-        "--controller-mode",
-        controller_mode,
-        "--save-one-pass-30x",
-        "--output-path",
-        str(output_path),
-    ]
-    env = os.environ.copy()
-    current_pythonpath = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = (
-        f"{BACKEND_DIR}{os.pathsep}{current_pythonpath}" if current_pythonpath else str(BACKEND_DIR)
+def _save_sat_sim_export_video(output_path: Path, *, simulation_series) -> Path:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    out = render_from_series(
+        simulation_series=simulation_series,
+        render_mode=RenderMode.EXPORT,
+        output_path=output_path,
     )
-    subprocess.run(command, cwd=str(BACKEND_DIR), check=True, env=env)
+    if out is None:
+        raise RuntimeError("Render export did not produce an output path.")
     return output_path
 
 
@@ -184,9 +171,14 @@ def main() -> None:
 
     render_video_path: str | None = None
     if args.save_render_video:
+        if last_result is None:
+            last_result = run_episode(env, agent, mode="test", train_updates_per_step=0)
         output_path = run_dir / args.render_video_name
         render_video_path = str(
-            _save_sat_sim_export_video(output_path, controller_mode=args.controller_mode)
+            _save_sat_sim_export_video(
+                output_path,
+                simulation_series=last_result.simulation_series,
+            )
         )
         append_run_markdown_event(
             run_dir,

@@ -4,6 +4,21 @@ import numpy as np
 
 
 @dataclass(frozen=True)
+class SimulationTimestepState:
+    step_idx: int
+    sim_time_s: float
+    sat_pos_xy_km: np.ndarray
+    body_z_angle_rad: float
+    theta_orbit_rad: float
+    radius_km: float
+    omega_sat_rad_s: float
+    omega_wheel_rad_s: float
+    reward: float
+    camera_observation_line_codes: np.ndarray
+    camera_center_ray_observation_code: np.int8
+
+
+@dataclass(frozen=True)
 class SimulationMetadata : 
     orbit_period_s     : float 
     omega_rad_s        : float

@@ -4,6 +4,7 @@ import numpy as np
 
 from autonomous_control.feature_selection import (
     AutonomousControllerState,
+    build_controller_state_from_timestep,
     build_controller_state_from_env,
     build_controller_state_from_series,
 )
@@ -11,6 +12,7 @@ from environment_definition.constants.SIMULATION import OBSERVATION_TARGET
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from environment_definition.attitude_control_env import SatelliteAttitudeControlEnv
 from simulation.state_types import SimulationMetadata, SimulationStateSeries
+from simulation.state_types import SimulationTimestepState
 
 
 def _make_trivial_series(n_bins: int = 4, n_frames: int = 2) -> SimulationStateSeries:
@@ -78,6 +80,42 @@ def _make_trivial_series(n_bins: int = 4, n_frames: int = 2) -> SimulationStateS
 
 
 class FeatureSelectionTest(unittest.TestCase):
+    def test_build_from_timestep_returns_expected_shape_and_target_flag(self):
+        ts0 = SimulationTimestepState(
+            step_idx=0,
+            sim_time_s=0.0,
+            sat_pos_xy_km=np.array([7000.0, 0.0], dtype=float),
+            body_z_angle_rad=0.0,
+            theta_orbit_rad=0.0,
+            radius_km=7000.0,
+            omega_sat_rad_s=0.0,
+            omega_wheel_rad_s=0.0,
+            reward=0.0,
+            camera_observation_line_codes=np.array([0, 0, 0, 0], dtype=np.int8),
+            camera_center_ray_observation_code=np.int8(0),
+        )
+        ts1 = SimulationTimestepState(
+            step_idx=1,
+            sim_time_s=0.1,
+            sat_pos_xy_km=np.array([7000.0, 10.0], dtype=float),
+            body_z_angle_rad=0.01,
+            theta_orbit_rad=0.001,
+            radius_km=7000.0,
+            omega_sat_rad_s=0.2,
+            omega_wheel_rad_s=0.1,
+            reward=1.0,
+            camera_observation_line_codes=np.array([0, 0, OBSERVATION_TARGET, 0], dtype=np.int8),
+            camera_center_ray_observation_code=np.int8(1),
+        )
+        state = build_controller_state_from_timestep(
+            current=ts1,
+            previous=ts0,
+            target_angle_rad=0.0,
+        )
+        self.assertIsInstance(state, AutonomousControllerState)
+        self.assertEqual(state.obs_vector.shape, (5,))
+        self.assertTrue(state.target_visible)
+
     def test_build_from_env_returns_expected_shape_and_metadata(self):
         env = SatelliteAttitudeControlEnv()
         env.reset(seed=0)

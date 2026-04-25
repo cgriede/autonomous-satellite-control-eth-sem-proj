@@ -58,11 +58,9 @@ class SimulationConstants:
     theta_center: object
     sat_motion_span_scale: float
     contact_margin_angle: object
-    num_frames: int
+    simulation_timestep: object
+    controller_update_interval: object
     sat_z_offset: object
-    animation_interval: object
-    default_speed_multiplier: float
-    default_body_spin_rate: object
     field_of_view_cone: FieldOfViewCone
     cone_length: object
     z_axis_length: object
@@ -73,6 +71,8 @@ class SimulationConstants:
     camera_pixel_ray_samples: int
     # Bins along the vertical FOV for simulate_camera_observation_line_1d and SimulationStateSeries.
     camera_observation_line_n_bins: int
+    # Sensor/camera kernel backend: "python" for baseline, "accelerated" for vectorized kernels.
+    camera_kernel_backend: Literal["python", "accelerated"]
 
 
 class RenderMode(str, Enum):
@@ -92,11 +92,9 @@ SIMULATION = SimulationConstants(
     theta_center=90.0 * ureg.deg,
     sat_motion_span_scale=1.05,
     contact_margin_angle=0.05 * ureg.deg,
-    num_frames=2000, #simulation total time / dt
+    simulation_timestep=1 * ureg.s,
+    controller_update_interval=1 * ureg.s,
     sat_z_offset=0.0 * ureg.deg,
-    animation_interval=30.0 * ureg.ms,
-    default_speed_multiplier=30.0,
-    default_body_spin_rate=3.0 * ureg.deg / ureg.s,
     field_of_view_cone=FieldOfViewCone(
         # In the current 2D renderer, the sensor reduces to a 1D footprint line.
         # That in-plane opening is the sensor vertical FOV.
@@ -120,5 +118,6 @@ SIMULATION = SimulationConstants(
     export_speed_multiplier=30.0,
     camera_pixel_ray_samples=96,
     camera_observation_line_n_bins=DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS,
+    camera_kernel_backend="accelerated",
 )
 

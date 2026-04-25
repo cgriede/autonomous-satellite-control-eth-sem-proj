@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import os
 import random
-import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -18,8 +17,12 @@ if str(BACKEND_DIR) not in sys.path:
 from autonomous_control.controller_agent import MPOAgent
 from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
 from autonomous_control.mpo_config import MPOConfig
+from autonomous_control.parallel_training import ParallelMPOTrainer
 from autonomous_control.training_runtime import make_attitude_control_env, run_episode
+from environment_definition.constants import RenderMode
+from render.render_main import render_from_series
 from utils.ml_training.ml_training_utils import (
+    RunTelemetryWriter,
     append_jsonl_record,
     append_run_markdown_event,
     checkpoint_path,
@@ -83,30 +86,17 @@ def _save_trace_video(states: list[np.ndarray], output_path: Path, fps: int = 20
     return output_path
 
 
-def _save_sat_sim_export_video(output_path: Path, *, controller_mode: str) -> Path:
-    if controller_mode == "mpo":
-        raise ValueError(
-            "Sat Sim render export only supports controller modes with direct simulation policies "
-            "(baseline, random). MPO render export is disabled until a real checkpoint-driven "
-            "simulation controller is wired."
-        )
-    command = [
-        sys.executable,
-        str(BACKEND_DIR / "scripts" / "simulation_runner.py"),
-        "--render-mode",
-        "export",
-        "--controller-mode",
-        controller_mode,
-        "--save-one-pass-30x",
-        "--output-path",
-        str(output_path),
-    ]
-    env = os.environ.copy()
-    current_pythonpath = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = (
-        f"{BACKEND_DIR}{os.pathsep}{current_pythonpath}" if current_pythonpath else str(BACKEND_DIR)
+def _save_sat_sim_export_video(output_path: Path, *, simulation_series) -> Path:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    out = render_from_series(
+        simulation_series=simulation_series,
+        render_mode=RenderMode.EXPORT,
+        output_path=output_path,
     )
-    subprocess.run(command, cwd=str(BACKEND_DIR), check=True, env=env)
+    if out is None:
+        raise RuntimeError("Render export did not produce an output path.")
     return output_path
 
 
@@ -132,6 +122,18 @@ def parse_args() -> argparse.Namespace:
         choices=("mpo", "baseline", "random"),
         default="mpo",
     )
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=1,
+        help="Parallel rollout workers for MPO. Keep 1 for single-process training.",
+    )
+    parser.add_argument(
+        "--step-telemetry-interval",
+        type=int,
+        default=20,
+        help="Emit live step telemetry every N simulation steps.",
+    )
     return parser.parse_args()
 
 
@@ -151,6 +153,7 @@ def main() -> None:
         agent = RandomTorquePolicy(env)
     run_dir = create_run_dir(run_id=args.run_id)
     ckpt = checkpoint_path(run_dir, filename=args.checkpoint_name)
+    telemetry = RunTelemetryWriter(run_dir)
 
     init_run_markdown(
         run_dir,
@@ -164,27 +167,117 @@ def main() -> None:
             "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
         },
     )
+    telemetry.on_run_started(
+        metadata={
+            "seed": args.seed,
+            "train_episodes": args.train_episodes,
+            "warmup_episodes": args.warmup_episodes,
+            "controller_mode": args.controller_mode,
+            "num_workers": args.num_workers,
+        }
+    )
 
     last_result = None
-    if args.controller_mode == "mpo":
-        for ep in range(args.warmup_episodes):
-            result = run_episode(env, agent, mode="warmup", train_updates_per_step=0)
-            last_result = result
-            append_run_markdown_event(
-                run_dir,
-                heading=f"Warmup episode {ep + 1}",
-                payload={"episode_return": f"{result.episode_return:.6f}", "steps": result.steps},
+    started_at = time.perf_counter()
+    return_window: list[float] = []
+
+    def _on_episode_finished(*, phase: str, episode_idx: int, result) -> None:
+        elapsed = max(1e-9, time.perf_counter() - started_at)
+        completed = episode_idx + 1
+        eps = float(completed / elapsed)
+        return_window.append(float(result.episode_return))
+        if len(return_window) > 25:
+            return_window.pop(0)
+        rolling = float(np.mean(np.asarray(return_window, dtype=np.float64)))
+        telemetry.on_episode_finished(
+            phase=phase,
+            episode_idx=episode_idx,
+            episode_return=float(result.episode_return),
+            steps=int(result.steps),
+            episodes_per_second=eps,
+            rolling_return_mean=rolling,
+        )
+
+    def _step_callback_builder(episode_idx: int):
+        def _on_step(ts) -> None:
+            interval = max(1, int(args.step_telemetry_interval))
+            if int(ts.step_idx) % interval != 0:
+                return
+            telemetry.on_step_snapshot(
+                episode_idx=episode_idx,
+                step_idx=int(ts.step_idx),
+                sim_time_s=float(ts.sim_time_s),
+                reward=float(ts.reward),
             )
+        return _on_step
+
+    if args.controller_mode == "mpo":
+        if args.num_workers > 1:
+            with ParallelMPOTrainer(
+                agent=agent,
+                env=env,
+                num_workers=args.num_workers,
+                telemetry_writer=telemetry,
+            ) as trainer:
+                for rec in trainer.run_phase(
+                    phase="warmup",
+                    episode_count=args.warmup_episodes,
+                    train_updates_per_step=0,
+                ):
+                    append_run_markdown_event(
+                        run_dir,
+                        heading=f"Warmup episode {int(rec['episode_idx']) + 1}",
+                        payload={
+                            "episode_return": f"{float(rec['episode_return']):.6f}",
+                            "steps": int(rec["steps"]),
+                            "episodes_per_second": f"{float(rec['episodes_per_second']):.3f}",
+                        },
+                    )
+                for rec in trainer.run_phase(
+                    phase="train",
+                    episode_count=args.train_episodes,
+                    train_updates_per_step=args.updates_per_step,
+                ):
+                    append_run_markdown_event(
+                        run_dir,
+                        heading=f"Train episode {int(rec['episode_idx']) + 1}",
+                        payload={
+                            "episode_return": f"{float(rec['episode_return']):.6f}",
+                            "steps": int(rec["steps"]),
+                            "episodes_per_second": f"{float(rec['episodes_per_second']):.3f}",
+                            "rolling_return_mean": f"{float(rec['rolling_return_mean']):.6f}",
+                        },
+                    )
+        else:
+            for ep in range(args.warmup_episodes):
+                result = run_episode(
+                    env,
+                    agent,
+                    mode="warmup",
+                    train_updates_per_step=0,
+                    step_callback=_step_callback_builder(ep),
+                )
+                last_result = result
+                _on_episode_finished(phase="warmup", episode_idx=ep, result=result)
+                append_run_markdown_event(
+                    run_dir,
+                    heading=f"Warmup episode {ep + 1}",
+                    payload={"episode_return": f"{result.episode_return:.6f}", "steps": result.steps},
+                )
 
     for ep in range(args.train_episodes):
+        if args.controller_mode == "mpo" and args.num_workers > 1:
+            break
         episode_mode = "train" if args.controller_mode == "mpo" else "test"
         result = run_episode(
             env,
             agent,
             mode=episode_mode,
             train_updates_per_step=args.updates_per_step,
+            step_callback=_step_callback_builder(ep),
         )
         last_result = result
+        _on_episode_finished(phase=episode_mode, episode_idx=ep, result=result)
         append_run_markdown_event(
             run_dir,
             heading=f"Train episode {ep + 1}",
@@ -213,9 +306,14 @@ def main() -> None:
 
     render_video_path: str | None = None
     if args.save_render_video:
+        if last_result is None:
+            last_result = run_episode(env, agent, mode="test", train_updates_per_step=0)
         output_path = run_dir / args.render_video_name
         render_video_path = str(
-            _save_sat_sim_export_video(output_path, controller_mode=args.controller_mode)
+            _save_sat_sim_export_video(
+                output_path,
+                simulation_series=last_result.simulation_series,
+            )
         )
         append_run_markdown_event(
             run_dir,

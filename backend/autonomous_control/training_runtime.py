@@ -7,9 +7,22 @@ from typing import Any
 
 import numpy as np
 import torch
+from gymnasium import spaces
+from environment_definition.constants import (
+    EARTH_GRAVITATIONAL_PARAMETER,
+    EARTH_RADIUS,
+    RenderMode,
+    SIMULATION,
+    SimulationConfig,
+    UREG as ureg,
+)
+from environment_definition.constants.MISSION import OBSERVATION_TARGETS
+from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
+from simulation.stepper import SimulationStepper
+from simulation.state_types import SimulationStateSeries
+from utils.flight_geometry.line_of_sight import minimum_contact_angle
 
-from environment_definition.attitude_control_env import SatelliteAttitudeControlEnv
-
+from .feature_selection import ControllerFeatureConfig, build_controller_state_from_timestep
 from .reward import RewardConfig
 
 
@@ -61,48 +74,138 @@ class EpisodeResult:
     episode_return: float
     steps: int
     states: list[np.ndarray]
+    simulation_series: SimulationStateSeries
+    configured_controller_update_interval_s: float
+    effective_controller_update_interval_s: float
+    effective_controller_update_interval_steps: int
 
 
 def make_attitude_control_env(
     *,
     render_mode: str | None = None,
     reward_config: RewardConfig | None = None,
-) -> SatelliteAttitudeControlEnv:
-    return SatelliteAttitudeControlEnv(render_mode=render_mode, reward_config=reward_config)
+) -> Any:
+    _ = render_mode
+    _ = reward_config
+    obs_dim = len(ControllerFeatureConfig().features)
+    high = np.full((obs_dim,), np.finfo(np.float32).max, dtype=np.float32)
+    tau_max_nm = float(SATELLITE.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude)
+
+    @dataclass(frozen=True)
+    class _EnvAdapter:
+        observation_space: Any
+        action_space: Any
+        dt: Any
+        max_episode_steps: int
+
+    return _EnvAdapter(
+        observation_space=spaces.Box(-high, high, dtype=np.float32),
+        action_space=spaces.Box(
+            low=np.array([-tau_max_nm], dtype=np.float32),
+            high=np.array([tau_max_nm], dtype=np.float32),
+            shape=(1,),
+            dtype=np.float32,
+        ),
+        dt=SIMULATION.simulation_timestep,
+        max_episode_steps=10_000,
+    )
 
 
 def run_episode(
-    env: SatelliteAttitudeControlEnv,
+    env: Any,
     agent: Any,
     *,
     mode: str,
     train_updates_per_step: int = 1,
-    max_steps: int | None = None,
+    max_steps: int | None = None,  # compatibility, ignored in canonical stepper mode
+    step_callback: Any | None = None,
 ) -> EpisodeResult:
     if hasattr(agent, "reset_episode"):
         agent.reset_episode()
-    obs, _ = env.reset()
-    done = False
-    truncated = False
-    episode_return = 0.0
-    step = 0
-    states: list[np.ndarray] = [np.array(obs, dtype=np.float32)]
-    max_episode_steps = max_steps if max_steps is not None else env.max_episode_steps
+    # Compatibility shim: canonical episode length is owned by SimulationStepper.
+    _ = max_steps
 
-    while not (done or truncated) and step < max_episode_steps:
-        train_mode = mode in {"warmup", "train"}
-        action = agent.get_action(obs, train=train_mode)
-        next_obs, reward, done, truncated, _ = env.step(action)
-        episode_return += float(reward)
-        states.append(np.array(next_obs, dtype=np.float32))
+    controller_mode = "mpo"
+    class_name = type(agent).__name__.lower()
+    if "random" in class_name:
+        controller_mode = "random"
+    elif "sweep" in class_name or "baseline" in class_name:
+        controller_mode = "baseline"
+
+    theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
+    alpha = minimum_contact_angle(observer_height=0.0 * ureg.km, orbit_height=SATELLITE_ALTITUDE)
+    contact_half_angle_deg = alpha.to(ureg.deg).magnitude
+    margin_deg = SIMULATION.contact_margin_angle.to(ureg.deg).magnitude
+    start_angle_deg = -(contact_half_angle_deg + margin_deg)
+    end_angle_deg = contact_half_angle_deg + margin_deg
+    stepper = SimulationStepper(
+        simulation_config=SimulationConfig(
+            render_mode=RenderMode.HEADLESS,
+            controller_mode=controller_mode,  # type: ignore[arg-type]
+        ),
+        earth_radius=EARTH_RADIUS,
+        earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
+        satellite=SATELLITE,
+        satellite_altitude=SATELLITE_ALTITUDE,
+        theta_center_rad=float(theta_center),
+        start_angle_deg=float(start_angle_deg),
+        end_angle_deg=float(end_angle_deg),
+        sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
+        sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
+        ureg=ureg,
+        camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
+        reward_config=RewardConfig(),
+    )
+    target_angle_rad = float(OBSERVATION_TARGETS[0].angle.to(ureg.rad).magnitude)
+    current_ts = stepper.current_timestep_state()
+    current_controller_state = build_controller_state_from_timestep(
+        current=current_ts,
+        previous=None,
+        target_angle_rad=target_angle_rad,
+    )
+    obs = np.asarray(current_controller_state.obs_vector, dtype=np.float32)
+    states: list[np.ndarray] = [obs.copy()]
+    current_action_nm = 0.0
+    episode_return = 0.0
+    steps = 0
+    train_mode = mode in {"warmup", "train"}
+
+    while not stepper.done:
+        if stepper.should_update_controller():
+            action_vec = agent.get_action(obs, train=train_mode)
+            current_action_nm = float(np.asarray(action_vec, dtype=np.float64).reshape(-1)[0])
+        next_ts = stepper.step(wheel_torque_cmd_nm=current_action_nm)
+        next_controller_state = build_controller_state_from_timestep(
+            current=next_ts,
+            previous=current_ts,
+            target_angle_rad=target_angle_rad,
+        )
+        next_obs = np.asarray(next_controller_state.obs_vector, dtype=np.float32)
+        reward = float(next_ts.reward)
+        done = bool(stepper.done)
+        episode_return += reward
+        states.append(next_obs.copy())
+        if step_callback is not None:
+            step_callback(next_ts)
         if mode in {"warmup", "train"} and hasattr(agent, "store"):
-            agent.store((obs, action, float(reward), next_obs, bool(done or truncated)))
+            action_arr = np.array([current_action_nm], dtype=np.float32)
+            agent.store((obs, action_arr, reward, next_obs, done))
             if mode == "train":
                 for _ in range(train_updates_per_step):
                     if hasattr(agent, "train"):
                         agent.train()
         obs = next_obs
-        step += 1
+        current_ts = next_ts
+        steps += 1
 
-    return EpisodeResult(episode_return=episode_return, steps=step, states=states)
+    context = stepper.build_episode_context()
+    return EpisodeResult(
+        episode_return=episode_return,
+        steps=steps,
+        states=states,
+        simulation_series=context.simulation_series,
+        configured_controller_update_interval_s=context.configured_controller_update_interval_s,
+        effective_controller_update_interval_s=context.effective_controller_update_interval_s,
+        effective_controller_update_interval_steps=context.effective_controller_update_interval_steps,
+    )
 

@@ -114,6 +114,9 @@ class RenderConstants:
     export_fps                   : int
     export_dpi                   : int
     export_filename              : str
+    animation_interval           : object
+    default_speed_multiplier     : float
+    default_num_frames           : int
     # Figure layout [left, bottom, width, height] in figure fraction; gutters reduce border collision.
     figure_inset_gutter_frac   : float
     main_axes_rect             : tuple[float, float, float, float]
@@ -284,4 +287,7 @@ RENDER = RenderConstants(
     export_filename = "satellite_orbit_one_pass_30x.mp4",
     export_fps      = 20,
     export_dpi      = 120,
+    animation_interval = 30.0 * ureg.ms,
+    default_speed_multiplier = 30.0,
+    default_num_frames = 2000,
 )

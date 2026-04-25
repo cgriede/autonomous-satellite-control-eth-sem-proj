@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -69,4 +70,113 @@ def append_run_markdown_event(run_dir: Path, heading: str, payload: dict[str, An
     lines.append("")
     with path.open("a", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
+
+
+def telemetry_dir(run_dir: Path) -> Path:
+    path = run_dir / "telemetry"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def telemetry_events_path(run_dir: Path) -> Path:
+    return telemetry_dir(run_dir) / "events.jsonl"
+
+
+def telemetry_latest_path(run_dir: Path) -> Path:
+    return telemetry_dir(run_dir) / "latest.json"
+
+
+def telemetry_step_path(run_dir: Path) -> Path:
+    return telemetry_dir(run_dir) / "current_step.json"
+
+
+class RunTelemetryWriter:
+    """Thread-safe JSONL + latest snapshot writer for live polling UIs."""
+
+    def __init__(self, run_dir: Path) -> None:
+        self._run_dir = run_dir
+        self._events_path = telemetry_events_path(run_dir)
+        self._latest_path = telemetry_latest_path(run_dir)
+        self._step_path = telemetry_step_path(run_dir)
+        self._lock = threading.Lock()
+
+    def _write_event(self, payload: dict[str, Any]) -> None:
+        with self._events_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
+
+    def _write_latest(self, payload: dict[str, Any]) -> None:
+        self._latest_path.write_text(
+            json.dumps(payload, separators=(",", ":"), indent=2),
+            encoding="utf-8",
+        )
+
+    def on_run_started(self, *, metadata: dict[str, Any]) -> None:
+        record = {
+            "event": "run_started",
+            "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
+            "run_dir": str(self._run_dir),
+            **metadata,
+        }
+        with self._lock:
+            self._write_event(record)
+            self._write_latest(record)
+
+    def on_worker_status(self, *, worker_id: int, status: str, episode_idx: int | None = None) -> None:
+        record = {
+            "event": "worker_status",
+            "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
+            "worker_id": int(worker_id),
+            "status": str(status),
+            "episode_idx": None if episode_idx is None else int(episode_idx),
+        }
+        with self._lock:
+            self._write_event(record)
+
+    def on_episode_finished(
+        self,
+        *,
+        phase: str,
+        episode_idx: int,
+        episode_return: float,
+        steps: int,
+        episodes_per_second: float | None,
+        rolling_return_mean: float | None,
+    ) -> None:
+        record = {
+            "event": "episode_finished",
+            "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
+            "phase": str(phase),
+            "episode_idx": int(episode_idx),
+            "episode_return": float(episode_return),
+            "steps": int(steps),
+            "episodes_per_second": None if episodes_per_second is None else float(episodes_per_second),
+            "rolling_return_mean": None if rolling_return_mean is None else float(rolling_return_mean),
+        }
+        with self._lock:
+            self._write_event(record)
+            self._write_latest(record)
+
+    def on_step_snapshot(
+        self,
+        *,
+        episode_idx: int,
+        step_idx: int,
+        sim_time_s: float,
+        reward: float,
+        worker_id: int | None = None,
+    ) -> None:
+        record = {
+            "event": "step_snapshot",
+            "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
+            "episode_idx": int(episode_idx),
+            "step_idx": int(step_idx),
+            "sim_time_s": float(sim_time_s),
+            "reward": float(reward),
+            "worker_id": None if worker_id is None else int(worker_id),
+        }
+        with self._lock:
+            self._step_path.write_text(
+                json.dumps(record, separators=(",", ":"), indent=2),
+                encoding="utf-8",
+            )
 

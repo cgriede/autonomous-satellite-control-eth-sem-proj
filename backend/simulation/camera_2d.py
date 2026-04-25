@@ -59,6 +59,39 @@ def _ray_circle_intersection_distance(
     return min(candidates)
 
 
+def _ray_circle_intersection_distance_batch(
+    ray_origin_xy_km: np.ndarray,
+    ray_dirs_unit_xy: np.ndarray,
+    *,
+    radius_km: float,
+) -> np.ndarray:
+    """Vectorized ray-circle intersection distances; NaN where no positive hit exists."""
+    origins = np.asarray(ray_origin_xy_km, dtype=float).reshape(1, 2)
+    dirs = np.asarray(ray_dirs_unit_xy, dtype=float)
+    if dirs.ndim != 2 or dirs.shape[1] != 2:
+        raise ValueError("ray_dirs_unit_xy must have shape (N,2).")
+    b = 2.0 * np.sum(origins * dirs, axis=1)
+    c = float(np.dot(ray_origin_xy_km, ray_origin_xy_km) - radius_km**2)
+    disc = b * b - 4.0 * c
+    out = np.full((dirs.shape[0],), np.nan, dtype=float)
+    mask = disc >= 0.0
+    if not np.any(mask):
+        return out
+    sqrt_disc = np.sqrt(disc[mask])
+    t1 = (-b[mask] - sqrt_disc) / 2.0
+    t2 = (-b[mask] + sqrt_disc) / 2.0
+    t1_valid = t1 > 1e-9
+    t2_valid = t2 > 1e-9
+    best = np.full(t1.shape, np.nan, dtype=float)
+    best[t1_valid] = t1[t1_valid]
+    replace = ~t1_valid & t2_valid
+    best[replace] = t2[replace]
+    both = t1_valid & t2_valid
+    best[both] = np.minimum(t1[both], t2[both])
+    out[mask] = best
+    return out
+
+
 def _angle_in_arc(angle_rad: float, start_rad: float, end_rad: float) -> bool:
     """
     Returns whether `angle_rad` lies inside the arc [start_rad, end_rad],
@@ -123,8 +156,21 @@ def calculate_fov_angles() -> tuple[Any, Any]:
 
 def _rotate_unit_xy(dir_unit_xy: np.ndarray, angle_rad: float) -> np.ndarray:
     cos_a, sin_a = float(np.cos(angle_rad)), float(np.sin(angle_rad))
-    rot = np.array([[cos_a, -sin_a], [sin_a, cos_a]], dtype=float)
-    return rot @ dir_unit_xy
+    x = float(dir_unit_xy[0])
+    y = float(dir_unit_xy[1])
+    return np.array([cos_a * x - sin_a * y, sin_a * x + cos_a * y], dtype=float)
+
+
+def _rotate_unit_xy_batch(dir_unit_xy: np.ndarray, angles_rad: np.ndarray) -> np.ndarray:
+    dirs = np.asarray(dir_unit_xy, dtype=float).reshape(2,)
+    ang = np.asarray(angles_rad, dtype=float).reshape(-1)
+    cos_a = np.cos(ang)
+    sin_a = np.sin(ang)
+    x = float(dirs[0])
+    y = float(dirs[1])
+    out_x = cos_a * x - sin_a * y
+    out_y = sin_a * x + cos_a * y
+    return np.stack((out_x, out_y), axis=1)
 
 
 def compute_cloud_arc_specs_at_time(
@@ -265,6 +311,7 @@ def simulate_camera_strip_2d(
     sim_time_s: float,
     sim_total_s: float,
     pixel_ray_samples: int = 1000,
+    kernel_backend: str = "python",
 ) -> CameraStrip2DResult:
     """
     Simulate a single 2D camera "strip" capture.
@@ -363,42 +410,71 @@ def simulate_camera_strip_2d(
     sample_count = int(np.clip(pixel_ray_samples, 2, max(2, N_PIXELS_Y)))
     pixel_indices = np.linspace(0.0, N_PIXELS_Y - 1.0, sample_count)
 
-    blocked = 0
-    valid = 0
-    for pix_idx in pixel_indices:
-        pix_idx_i = int(round(float(pix_idx)))
-        # Sensor y coordinate for this pixel center, relative to sensor center.
-        y_m = (pix_idx_i - 0.5 * (N_PIXELS_Y - 1)) * PIXEL_SIZE.to(ureg.m).magnitude
-        angle_rel_boresight = float(np.arctan2(y_m, FOCAL_LENGTH.to(ureg.m).magnitude))
+    pix_idx_i = np.rint(pixel_indices).astype(int)
+    y_m = (pix_idx_i - 0.5 * (N_PIXELS_Y - 1)) * PIXEL_SIZE.to(ureg.m).magnitude
+    angle_rel_boresight = np.arctan2(y_m, FOCAL_LENGTH.to(ureg.m).magnitude).astype(float)
+    ray_dirs = _rotate_unit_xy_batch(boresight_dir_unit_xy, angle_rel_boresight)
 
-        ray_dir = _rotate_unit_xy(boresight_dir_unit_xy, angle_rel_boresight)
-
-        t_earth = _ray_circle_intersection_distance(
-            sat_pos_xy_km, ray_dir, radius_km=earth_radius_km
+    if str(kernel_backend).lower() == "accelerated":
+        t_earth = _ray_circle_intersection_distance_batch(
+            sat_pos_xy_km,
+            ray_dirs,
+            radius_km=earth_radius_km,
         )
-        if t_earth is None:
-            continue
-        valid += 1
-
-        # Find the nearest cloud hit on this ray (if any)
-        t_cloud_best: float | None = None
-        for cloud_spec in cloud_arc_specs:
-            t_cloud = _ray_circle_intersection_distance(
-                sat_pos_xy_km, ray_dir, radius_km=cloud_spec["radius_km"]
+        valid_mask = np.isfinite(t_earth)
+        valid = int(np.count_nonzero(valid_mask))
+        if valid == 0:
+            cloud_blocked_fraction = 0.0
+        else:
+            t_cloud_best = np.full_like(t_earth, np.nan, dtype=float)
+            for cloud_spec in cloud_arc_specs:
+                t_cloud = _ray_circle_intersection_distance_batch(
+                    sat_pos_xy_km,
+                    ray_dirs,
+                    radius_km=float(cloud_spec["radius_km"]),
+                )
+                hit_points = sat_pos_xy_km.reshape(1, 2) + t_cloud.reshape(-1, 1) * ray_dirs
+                hit_angles = np.arctan2(hit_points[:, 1], hit_points[:, 0])
+                in_arc = np.vectorize(_angle_in_arc)(
+                    hit_angles,
+                    float(cloud_spec["start_rad"]),
+                    float(cloud_spec["end_rad"]),
+                )
+                accepted = np.isfinite(t_cloud) & in_arc
+                if not np.any(accepted):
+                    continue
+                assign_mask = accepted & (~np.isfinite(t_cloud_best) | (t_cloud < t_cloud_best))
+                t_cloud_best[assign_mask] = t_cloud[assign_mask]
+            blocked = np.isfinite(t_cloud_best) & valid_mask & (t_cloud_best < t_earth)
+            cloud_blocked_fraction = float(np.count_nonzero(blocked) / max(valid, 1))
+    else:
+        blocked = 0
+        valid = 0
+        for ray_dir in ray_dirs:
+            t_earth_one = _ray_circle_intersection_distance(
+                sat_pos_xy_km,
+                ray_dir,
+                radius_km=earth_radius_km,
             )
-            if t_cloud is None:
+            if t_earth_one is None:
                 continue
-            hit_point = sat_pos_xy_km + t_cloud * ray_dir
-            hit_angle = float(np.arctan2(hit_point[1], hit_point[0]))
-            if not _angle_in_arc(hit_angle, cloud_spec["start_rad"], cloud_spec["end_rad"]):
-                continue
-            if t_cloud_best is None or t_cloud < t_cloud_best:
-                t_cloud_best = t_cloud
-
-        if t_cloud_best is not None and t_cloud_best < t_earth:
-            blocked += 1
-
-    cloud_blocked_fraction = float(blocked / max(valid, 1))
+            valid += 1
+            t_cloud_best: float | None = None
+            for cloud_spec in cloud_arc_specs:
+                t_cloud = _ray_circle_intersection_distance(
+                    sat_pos_xy_km, ray_dir, radius_km=cloud_spec["radius_km"]
+                )
+                if t_cloud is None:
+                    continue
+                hit_point = sat_pos_xy_km + t_cloud * ray_dir
+                hit_angle = float(np.arctan2(hit_point[1], hit_point[0]))
+                if not _angle_in_arc(hit_angle, cloud_spec["start_rad"], cloud_spec["end_rad"]):
+                    continue
+                if t_cloud_best is None or t_cloud < t_cloud_best:
+                    t_cloud_best = t_cloud
+            if t_cloud_best is not None and t_cloud_best < t_earth_one:
+                blocked += 1
+        cloud_blocked_fraction = float(blocked / max(valid, 1))
 
     return CameraStrip2DResult(
         gsd_m=gsd_m,
@@ -460,6 +536,7 @@ def simulate_camera_observation_line_1d(
     earth_code: int = 1,
     space_code: int = 0,
     cloud_code: int = 2,
+    kernel_backend: str = "python",
 ) -> CameraObservationLine1DResult:
     """
     Simulate a 1D camera observation line by classifying each ray bin as:
@@ -534,8 +611,8 @@ def simulate_camera_observation_line_1d(
     target_tol_rad = float(half_bin) + 1e-12
 
     # Classify each bin by first hit (cloud vs earth) and then Earth->target mapping.
-    for i, rel_angle in enumerate(bin_ray_angles_rel_boresight_rad):
-        ray_dir_unit_xy = _rotate_unit_xy(boresight_dir_unit_xy, float(rel_angle))
+    ray_dirs = _rotate_unit_xy_batch(boresight_dir_unit_xy, bin_ray_angles_rel_boresight_rad)
+    for i, ray_dir_unit_xy in enumerate(ray_dirs):
 
         hit_type, _t_hit, _hit_xy_km = _first_hit_point_ray_earth_or_clouds(
             ray_origin_xy_km=sat_pos_xy_km,
@@ -553,7 +630,11 @@ def simulate_camera_observation_line_1d(
         if hit_type == "earth":
             # Only treat as target if the ray direction points near the target direction.
             # Use signed angle difference in ray-direction space.
-            delta = abs(_signed_angle_between_unit_xy(boresight_dir_unit_xy, ray_dir_unit_xy) - target_rel_angle_rad)
+            if str(kernel_backend).lower() == "accelerated":
+                ray_rel = float(bin_ray_angles_rel_boresight_rad[i])
+                delta = abs(ray_rel - target_rel_angle_rad)
+            else:
+                delta = abs(_signed_angle_between_unit_xy(boresight_dir_unit_xy, ray_dir_unit_xy) - target_rel_angle_rad)
             # Normalize delta to [0,pi] to handle wrap-around.
             delta = min(delta, 2.0 * np.pi - delta)
             if delta <= target_tol_rad:
@@ -571,15 +652,4 @@ def simulate_camera_observation_line_1d(
     )
 
 
-def calculate_swath_height(
-    altitude: Any,
-    *,
-    off_nadir_angle: Any | None = None,
-) -> Any:
-    """
-    Convenience swath helper using the required GSD formula:
-        swath_height = N_PIXELS_Y * GSD
-    """
-    gsd = calculate_gsd(altitude, off_nadir_angle=off_nadir_angle)
-    return (N_PIXELS_Y * gsd).to(ureg.m)
 

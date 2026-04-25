@@ -4,8 +4,6 @@ import argparse
 from pathlib import Path
 import sys
 
-import numpy as np
-
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -31,7 +29,6 @@ def _configure_matplotlib_backend(*, render_mode: RenderMode) -> None:
 
 
 def _run_sat_simulation(*, simulation_config: SimulationConfig):
-    r_earth_km = EARTH_RADIUS.to(ureg.km).magnitude
     theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
     alpha = minimum_contact_angle(observer_height=0.0 * ureg.km, orbit_height=SATELLITE_ALTITUDE)
     contact_half_angle_deg = alpha.to(ureg.deg).magnitude
@@ -49,10 +46,8 @@ def _run_sat_simulation(*, simulation_config: SimulationConfig):
         start_angle_deg=float(start_angle_deg),
         end_angle_deg=float(end_angle_deg),
         sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
-        num_frames=int(SIMULATION.num_frames),
         sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
         ureg=ureg,
-        observer_target_angle_rad=float(np.arctan2(r_earth_km, 0.0)),
         camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
     )
 
