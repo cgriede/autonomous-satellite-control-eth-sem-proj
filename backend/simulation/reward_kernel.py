@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 
-from autonomous_control.reward import RewardConfig, RewardSignals, canonical_reward
+from autonomous_control.reward import RewardConfig, RewardSignals, compute_reward
 from environment_definition.constants.SIMULATION import OBSERVATION_TARGET
 
 
@@ -31,5 +31,5 @@ class RewardKernel:
             omega_before=omega_before,
             omega_after=omega_after,
         )
-        reward_total, _ = canonical_reward(signals=signals, cfg=reward_config)
+        reward_total, _ = compute_reward(signals=signals, cfg=reward_config)
         return float(reward_total)

@@ -1,6 +1,6 @@
 import gymnasium as gym
 import numpy as np
-from autonomous_control.reward import RewardConfig, RewardSignals, canonical_reward
+from autonomous_control.reward import RewardConfig, RewardSignals, compute_reward
 
 from .constants.SATELLITE import *
 from simulation import AttitudeState2D, propagate_reaction_wheel_attitude_2d
@@ -113,7 +113,7 @@ class SatelliteAttitudeControlEnv(gym.Env):
         self._omega_w = omega_w
         self.state = self._build_observation()
 
-        # Slide-based reward via canonical entrypoint. In this control env
+        # Reward via the shared combiner entrypoint. In this control env
         # there is no full orbit geometry, so distance_to_target is a slant-range
         # proxy (altitude / cos(pointing_error)) and target_visible is derived
         # from whether the pointing error falls inside the vertical FOV.
@@ -134,7 +134,7 @@ class SatelliteAttitudeControlEnv(gym.Env):
             omega_before=omega_w_before_q,
             omega_after=next_state.omega_wheel,
         )
-        reward_total, reward_components = canonical_reward(
+        reward_total, reward_components = compute_reward(
             signals=signals, cfg=self.reward_config
         )
         reward = float(reward_total)

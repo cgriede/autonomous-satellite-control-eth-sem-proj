@@ -1,18 +1,10 @@
 """
-Canonical slide-based reward with per-component flags + legacy helpers.
+Reward components and combiner used by simulation + RL env.
 
-The canonical entrypoint is :func:`canonical_reward`. Both
-``simulation/run_simulation.py`` and ``environment_definition/attitude_control_env.py``
-route through it so that ``SimulationStateSeries.simulation_reward`` and the RL
-``env.step`` scalar reward share a single definition.
-
-Reward components (toggle via :class:`RewardConfig`):
-- ``slide``              : slide v1 distance term in ``[d_op, d_th]``.
-- ``outer_gate``         : zero reward beyond ``viewing_threshold`` (slide gate).
-- ``no_picture_penalty`` : ``-100`` if no picture / target not visible / beyond ``d_th``.
-- ``energy``             : ``-k_e * E`` from wheel-momentum change.
-
-See ``docs/ml/reward_v1_implementation.md`` for PDF deltas and units.
+Public API:
+- :func:`distance_band_reward` (distance/visibility term)
+- :func:`energy_reward` (energy penalty term)
+- :func:`compute_reward` (combines enabled components from :class:`RewardConfig`)
 """
 
 from __future__ import annotations
@@ -23,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 from environment_definition.constants.AUTONOMOUS_CONTROL_REWARD import (
     CAMERA_VIEWING_DISTANCE_THRESHOLD,
     OPTIMAL_GROUND_RANGE,
-    RESOLUTION_GROUND_RANGE_THRESHOLD,
     REWARD_ENERGY_LINEAR_COEFFICIENT,
 )
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
@@ -42,9 +33,8 @@ class RewardConfig:
     ``autonomous_control.mpo_config`` and embedded in ``MPOConfig.reward``.
     """
 
-    enable_slide: bool = True
+    enable_distance_reward: bool = True
     enable_outer_gate: bool = True
-    enable_no_picture_penalty: bool = True
     enable_energy: bool = True
     k_energy: float = float(REWARD_ENERGY_LINEAR_COEFFICIENT)
 
@@ -52,7 +42,7 @@ class RewardConfig:
 @dataclass(frozen=True)
 class RewardSignals:
     """
-    Per-step signals consumed by :func:`canonical_reward`.
+    Per-step signals consumed by :func:`compute_reward`.
 
     Both sim-side and env-side callers populate this. Energy inputs are optional
     and only used when ``RewardConfig.enable_energy`` is true.
@@ -97,90 +87,75 @@ def energy_from_wheel_momentum_change(
     return e.to(ureg.joule)
 
 
-def reward_v1_slides(
+def distance_band_reward(
     *,
     distance_to_target: "Quantity",
     d_op: "Quantity",
-    d_th: "Quantity",
     viewing_threshold: "Quantity",
     picture_taken: bool,
     target_visible: bool,
+    outer_gate_enabled: bool = True,
 ) -> float:
     """
-    Slide primary-objectives reward (legacy helper, kept for unit tests).
+    Distance-based reward term.
 
-    - If distance_to_target > viewing_threshold: return 0 (outer gate).
-    - Else if no picture / target not visible / distance beyond d_th: -100.
-    - Else if distance is in [d_op, d_th]: R1 = -100 * d_eff / (d_th - d_op) with d in meters.
-    - Else (d < d_op): use d_eff = d_op in the same formula (best resolution band).
+    Piecewise behavior:
+    - If ``outer_gate_enabled`` and ``distance_to_target > viewing_threshold``: return ``0``.
+    - Else if picture is missing or target is not visible: return ``-100``.
+    - Else (inside LOS and target visible): return ``-100 + 100 * scalar`` where
+      ``scalar = (v_t - d_eff) / (v_t - d_op)``,
+      ``d_eff = min(max(d, d_op), v_t)``, and ``v_t`` is ``viewing_threshold``.
+
+    This makes the in-LOS reward equal to:
+    - ``0`` at the optimal distance ``d_op``,
+    - ``-100`` at the LOS threshold ``viewing_threshold``,
+    - and clamps to ``0`` for ``d < d_op``.
     """
     d_v = _distance_m(distance_to_target)
     v_t = _distance_m(viewing_threshold)
-    if d_v > v_t:
+    if outer_gate_enabled and d_v > v_t:
         return 0.0
+
+    d_op_m = _distance_m(d_op)
+    if v_t <= d_op_m:
+        raise ValueError("Require viewing_threshold > d_op for distance-band reward.")
 
     if not picture_taken or not target_visible:
         return -100.0
 
-    d_op_m = _distance_m(d_op)
-    d_th_m = _distance_m(d_th)
-    if d_th_m <= d_op_m:
-        raise ValueError("Require d_th > d_op for slide reward v1.")
-
-    if d_v > d_th_m:
-        return -100.0
-
-    d_eff = max(d_v, d_op_m)
-    denom = d_th_m - d_op_m
-    return -100.0 * d_eff / denom
+    d_eff = min(max(d_v, d_op_m), v_t)
+    denom = v_t - d_op_m
+    scalar = (v_t - d_eff) / denom
+    return -100.0 + 100.0 * scalar
 
 
-def reward_v1_with_energy(
+def energy_reward(
     *,
-    distance_to_target: "Quantity",
-    d_op: "Quantity",
-    d_th: "Quantity",
-    viewing_threshold: "Quantity",
-    picture_taken: bool,
-    target_visible: bool,
-    energy_joules: "Quantity | None",
-    k_e: float,
+    wheel_inertia: "Quantity",
+    omega_before: "Quantity",
+    omega_after: "Quantity",
+    k_energy: float,
 ) -> float:
-    """
-    Slide reward minus k_e * E [J] (legacy helper, kept for unit tests).
-
-    When outside the viewing gate, returns 0 and does not subtract energy.
-    """
-    if _distance_m(distance_to_target) > _distance_m(viewing_threshold):
-        return 0.0
-
-    r_slide = reward_v1_slides(
-        distance_to_target=distance_to_target,
-        d_op=d_op,
-        d_th=d_th,
-        viewing_threshold=viewing_threshold,
-        picture_taken=picture_taken,
-        target_visible=target_visible,
+    """Energy penalty term: ``-k_energy * E`` where ``E`` is in joules."""
+    e = energy_from_wheel_momentum_change(
+        wheel_inertia=wheel_inertia,
+        omega_before=omega_before,
+        omega_after=omega_after,
     )
-
-    if energy_joules is None:
-        return r_slide
-
-    e_j = float(energy_joules.to(ureg.joule).magnitude)
-    return r_slide - k_e * e_j
+    e_j = float(e.to(ureg.joule).magnitude)
+    return -k_energy * e_j
 
 
-def canonical_reward(
+def compute_reward(
     *,
     signals: RewardSignals,
     cfg: RewardConfig,
 ) -> tuple[float, dict[str, float]]:
     """
-    Single canonical reward used by both simulation and RL env.
+    Combines distance and energy terms used by simulation and RL env.
 
     Returns ``(total_reward, components_dict)``. ``components_dict`` always
-    contains ``slide``, ``no_picture_penalty`` and ``energy`` keys so callers
-    can log/decompose. Any component disabled in ``cfg`` contributes ``0.0``.
+    contains ``distance_reward`` and ``energy_reward`` keys.
 
     ``distance_to_target`` must be a pint length Quantity. Energy inputs are
     only required when ``cfg.enable_energy`` is true; otherwise they may be
@@ -188,92 +163,46 @@ def canonical_reward(
     """
     d_v = _distance_m(signals.distance_to_target)
     v_t = _distance_m(CAMERA_VIEWING_DISTANCE_THRESHOLD)
-    d_op_m = _distance_m(OPTIMAL_GROUND_RANGE)
-    d_th_m = _distance_m(RESOLUTION_GROUND_RANGE_THRESHOLD)
-    if d_th_m <= d_op_m:
-        raise ValueError("Require d_th > d_op for canonical reward.")
+    if v_t <= _distance_m(OPTIMAL_GROUND_RANGE):
+        raise ValueError("Require viewing_threshold > d_op for reward.")
 
     components: dict[str, float] = {
-        "slide": 0.0,
-        "no_picture_penalty": 0.0,
-        "energy": 0.0,
+        "distance_reward": 0.0,
+        "energy_reward": 0.0,
     }
 
-    # Outer viewing gate: beyond v_t, slide and no-picture contribute 0. Energy
-    # term is also suppressed to match the slide v1 convention.
-    if cfg.enable_outer_gate and d_v > v_t:
-        return 0.0, components
-
-    in_failure_region = (
-        (not signals.picture_taken)
-        or (not signals.target_visible)
-        or (d_v > d_th_m)
-    )
-
-    if in_failure_region:
-        if cfg.enable_no_picture_penalty:
-            components["no_picture_penalty"] = -100.0
-    else:
-        if cfg.enable_slide:
-            d_eff = max(d_v, d_op_m)
-            denom = d_th_m - d_op_m
-            components["slide"] = -100.0 * d_eff / denom
+    if cfg.enable_distance_reward:
+        components["distance_reward"] = distance_band_reward(
+            distance_to_target=signals.distance_to_target,
+            d_op=OPTIMAL_GROUND_RANGE,
+            viewing_threshold=CAMERA_VIEWING_DISTANCE_THRESHOLD,
+            picture_taken=signals.picture_taken,
+            target_visible=signals.target_visible,
+            outer_gate_enabled=cfg.enable_outer_gate,
+        )
 
     if (
         cfg.enable_energy
         and signals.wheel_inertia is not None
         and signals.omega_before is not None
         and signals.omega_after is not None
+        and (not cfg.enable_outer_gate or d_v <= v_t)
     ):
-        e = energy_from_wheel_momentum_change(
+        components["energy_reward"] = energy_reward(
             wheel_inertia=signals.wheel_inertia,
             omega_before=signals.omega_before,
             omega_after=signals.omega_after,
+            k_energy=cfg.k_energy,
         )
-        e_j = float(e.to(ureg.joule).magnitude)
-        components["energy"] = -cfg.k_energy * e_j
 
-    total = components["slide"] + components["no_picture_penalty"] + components["energy"]
+    total = components["distance_reward"] + components["energy_reward"]
     return total, components
-
-
-def reward_v1_project(
-    *,
-    distance_to_target: "Quantity",
-    picture_taken: bool,
-    target_visible: bool,
-    wheel_inertia: "Quantity",
-    omega_before: "Quantity",
-    omega_after: "Quantity",
-    cfg: RewardConfig | None = None,
-) -> float:
-    """
-    Convenience wrapper using project constants and the canonical reward.
-
-    Kept as a thin adapter around :func:`canonical_reward` so existing callers
-    (tests, docs) continue to work.
-    """
-    signals = RewardSignals(
-        distance_to_target=distance_to_target,
-        picture_taken=picture_taken,
-        target_visible=target_visible,
-        wheel_inertia=wheel_inertia,
-        omega_before=omega_before,
-        omega_after=omega_after,
-    )
-    total, _ = canonical_reward(
-        signals=signals,
-        cfg=cfg if cfg is not None else RewardConfig(),
-    )
-    return total
-
 
 __all__ = [
     "RewardConfig",
     "RewardSignals",
-    "canonical_reward",
+    "compute_reward",
+    "distance_band_reward",
+    "energy_reward",
     "energy_from_wheel_momentum_change",
-    "reward_v1_slides",
-    "reward_v1_with_energy",
-    "reward_v1_project",
 ]

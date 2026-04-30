@@ -34,7 +34,7 @@
       "env": {
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
       },
-      "args": ["--render-mode", "interactive", "--controller-mode", "random"],
+      "args": ["--render-mode", "interactive", "--controller-mode", "baseline"],
       "console": "integratedTerminal",
       "justMyCode": true
     },

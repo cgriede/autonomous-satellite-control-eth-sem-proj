@@ -100,7 +100,7 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     cloud_arc_radius_km = np.full((n, n_clouds), np.nan, dtype=float)
     cloud_arc_start_rad = np.full((n, n_clouds), np.nan, dtype=float)
     cloud_arc_end_rad = np.full((n, n_clouds), np.nan, dtype=float)
-    # Kinematic helper does not evaluate slide reward; leave simulation_reward at 0.
+    # Kinematic helper does not evaluate distance-band reward; leave simulation_reward at 0.
     simulation_reward = np.zeros(n, dtype=float)
     return SimulationStateSeries(
         t_s              = t_s,

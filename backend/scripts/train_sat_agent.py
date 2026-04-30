@@ -9,6 +9,7 @@ import sys
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -104,7 +105,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train MPO satellite attitude agent.")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--train-episodes", type=int, default=20)
-    parser.add_argument("--warmup-episodes", type=int, default=0)
+    parser.add_argument("--warmup-episodes", type=int, default=10)
     parser.add_argument("--updates-per-step", type=int, default=1)
     parser.add_argument("--run-id", type=str, default=None)
     parser.add_argument("--checkpoint-name", type=str, default="agent.pt")
@@ -249,21 +250,42 @@ def main() -> None:
                         },
                     )
         else:
-            for ep in range(args.warmup_episodes):
-                result = run_episode(
-                    env,
-                    agent,
-                    mode="warmup",
-                    train_updates_per_step=0,
-                    step_callback=_step_callback_builder(ep),
-                )
-                last_result = result
-                _on_episode_finished(phase="warmup", episode_idx=ep, result=result)
-                append_run_markdown_event(
-                    run_dir,
-                    heading=f"Warmup episode {ep + 1}",
-                    payload={"episode_return": f"{result.episode_return:.6f}", "steps": result.steps},
-                )
+            random_warmup_episodes = (args.warmup_episodes + 1) // 2
+            baseline_warmup_episodes = args.warmup_episodes // 2
+            warmup_phases = (
+                ("random", random_warmup_episodes),
+                ("baseline", baseline_warmup_episodes),
+            )
+            warmup_ep_idx = 0
+            with tqdm(
+                total=args.warmup_episodes,
+                desc="Warmup episodes",
+                unit="ep",
+                disable=(args.warmup_episodes <= 0),
+            ) as warmup_pbar:
+                for warmup_controller, warmup_count in warmup_phases:
+                    for _ in range(warmup_count):
+                        result = run_episode(
+                            env,
+                            agent,
+                            mode="warmup",
+                            train_updates_per_step=0,
+                            step_callback=_step_callback_builder(warmup_ep_idx),
+                            warmup_controller=warmup_controller,
+                            warmup_baseline_period_s=60.0,
+                        )
+                        last_result = result
+                        _on_episode_finished(phase="warmup", episode_idx=warmup_ep_idx, result=result)
+                        append_run_markdown_event(
+                            run_dir,
+                            heading=f"Warmup episode {warmup_ep_idx + 1} ({warmup_controller})",
+                            payload={
+                                "episode_return": f"{result.episode_return:.6f}",
+                                "steps": result.steps,
+                            },
+                        )
+                        warmup_ep_idx += 1
+                        warmup_pbar.update(1)
 
     for ep in range(args.train_episodes):
         if args.controller_mode == "mpo" and args.num_workers > 1:

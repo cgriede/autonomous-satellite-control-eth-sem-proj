@@ -7,17 +7,31 @@ from autonomous_control.reward import (
     RewardSignals,
     canonical_reward,
     energy_from_wheel_momentum_change,
-    reward_v1_slides,
+    reward_v1_distance_band_reward,
     reward_v1_with_energy,
 )
 
 
 class RewardV1Test(unittest.TestCase):
+    def test_optimal_distance_visible_returns_zero(self):
+        d_op = 400.0 * ureg.km
+        d_th = 1500.0 * ureg.km
+        v_t = 2500.0 * ureg.km
+        r = reward_v1_distance_band_reward(
+            distance_to_target=d_op,
+            d_op=d_op,
+            d_th=d_th,
+            viewing_threshold=v_t,
+            picture_taken=True,
+            target_visible=True,
+        )
+        self.assertEqual(r, 0.0)
+
     def test_outside_viewing_gate_zero(self):
         d_op = 400.0 * ureg.km
         d_th = 1500.0 * ureg.km
         v_t = 2500.0 * ureg.km
-        r = reward_v1_slides(
+        r = reward_v1_distance_band_reward(
             distance_to_target=3000.0 * ureg.km,
             d_op=d_op,
             d_th=d_th,
@@ -31,7 +45,7 @@ class RewardV1Test(unittest.TestCase):
         d_op = 400.0 * ureg.km
         d_th = 1500.0 * ureg.km
         v_t = 2500.0 * ureg.km
-        r = reward_v1_slides(
+        r = reward_v1_distance_band_reward(
             distance_to_target=1000.0 * ureg.km,
             d_op=d_op,
             d_th=d_th,
@@ -46,7 +60,7 @@ class RewardV1Test(unittest.TestCase):
         d_th = 1500.0 * ureg.km
         v_t = 2500.0 * ureg.km
         d_km = 900.0
-        r = reward_v1_slides(
+        r = reward_v1_distance_band_reward(
             distance_to_target=d_km * ureg.km,
             d_op=d_op,
             d_th=d_th,
@@ -54,7 +68,7 @@ class RewardV1Test(unittest.TestCase):
             picture_taken=True,
             target_visible=True,
         )
-        expected = -100.0 * d_km / (1500.0 - 400.0)
+        expected = -100.0 + 100.0 * ((1500.0 - d_km) / (1500.0 - 400.0))
         self.assertAlmostEqual(r, expected, places=6)
 
     def test_energy_subtracts_k_e_times_joules(self):
@@ -68,7 +82,7 @@ class RewardV1Test(unittest.TestCase):
         e = energy_from_wheel_momentum_change(
             wheel_inertia=i_w, omega_before=w0, omega_after=w1
         )
-        r_slide = reward_v1_slides(
+        r_distance_band_reward = reward_v1_distance_band_reward(
             distance_to_target=d_km * ureg.km,
             d_op=d_op,
             d_th=d_th,
@@ -88,7 +102,7 @@ class RewardV1Test(unittest.TestCase):
             k_e=k_e,
         )
         e_j = float(e.to(ureg.joule).magnitude)
-        self.assertAlmostEqual(r_tot, r_slide - k_e * e_j, places=9)
+        self.assertAlmostEqual(r_tot, r_distance_band_reward - k_e * e_j, places=9)
 
     def test_outside_gate_no_energy_term(self):
         d_op = 400.0 * ureg.km
@@ -147,14 +161,18 @@ class CanonicalRewardFlagsTest(unittest.TestCase):
             k_e=cfg.k_energy,
         )
         self.assertAlmostEqual(total, expected, places=6)
-        self.assertAlmostEqual(components["slide"] + components["energy"], expected, places=6)
+        self.assertAlmostEqual(
+            components["distance_band_reward"] + components["energy"],
+            expected,
+            places=6,
+        )
         self.assertEqual(components["no_picture_penalty"], 0.0)
 
-    def test_disable_slide_zeros_slide_component(self):
+    def test_disable_distance_band_reward_zeros_component(self):
         signals = self._signals_in_band()
-        cfg = RewardConfig(enable_slide=False, enable_energy=False)
+        cfg = RewardConfig(enable_distance_band_reward=False, enable_energy=False)
         total, components = canonical_reward(signals=signals, cfg=cfg)
-        self.assertEqual(components["slide"], 0.0)
+        self.assertEqual(components["distance_band_reward"], 0.0)
         self.assertEqual(components["no_picture_penalty"], 0.0)
         self.assertEqual(components["energy"], 0.0)
         self.assertEqual(total, 0.0)
@@ -164,8 +182,8 @@ class CanonicalRewardFlagsTest(unittest.TestCase):
         cfg = RewardConfig(enable_energy=False)
         total, components = canonical_reward(signals=signals, cfg=cfg)
         self.assertEqual(components["energy"], 0.0)
-        self.assertNotEqual(components["slide"], 0.0)
-        self.assertAlmostEqual(total, components["slide"], places=9)
+        self.assertNotEqual(components["distance_band_reward"], 0.0)
+        self.assertAlmostEqual(total, components["distance_band_reward"], places=9)
 
     def test_disable_no_picture_penalty_zeros_penalty(self):
         signals = RewardSignals(
@@ -195,10 +213,9 @@ class CanonicalRewardFlagsTest(unittest.TestCase):
 
         cfg_off = RewardConfig(enable_energy=False, enable_outer_gate=False)
         total_off, comp_off = canonical_reward(signals=signals, cfg=cfg_off)
-        # d > d_th triggers the failure region (no-picture branch) when the
-        # outer gate is disabled.
-        self.assertEqual(comp_off["no_picture_penalty"], -100.0)
-        self.assertEqual(total_off, -100.0)
+        # Outside the distance band, the primary objective contributes 0.
+        self.assertEqual(comp_off["no_picture_penalty"], 0.0)
+        self.assertEqual(total_off, 0.0)
 
     def test_reward_varies_with_distance_in_slide_band(self):
         cfg = RewardConfig(enable_energy=False)
@@ -211,7 +228,7 @@ class CanonicalRewardFlagsTest(unittest.TestCase):
             )
             total, _ = canonical_reward(signals=signals, cfg=cfg)
             r_values.append(total)
-        # Slide formula is monotonically decreasing inside [d_op, d_th].
+        # Distance-band formula is monotonically decreasing inside [d_op, d_th].
         for a, b in zip(r_values, r_values[1:]):
             self.assertGreater(a, b)
 

@@ -16,6 +16,10 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
 
 - Reward is computed via `canonical_reward(signals=..., cfg=RewardConfig)`.
 - Signals include target visibility, distance-to-target proxy, and wheel-dynamics terms.
+- Primary distance-band term is piecewise:
+  - `0` if outside viewing gate or outside distance band.
+  - `-100` if inside distance band but target is not visible (or no picture).
+  - `-100 + 100 * scalar` if inside distance band and visible, with `scalar=1` at `d_op` and `scalar=0` at `d_th`.
 
 **Episode end conditions:**
 

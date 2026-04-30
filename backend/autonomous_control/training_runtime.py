@@ -119,6 +119,8 @@ def run_episode(
     train_updates_per_step: int = 1,
     max_steps: int | None = None,  # compatibility, ignored in canonical stepper mode
     step_callback: Any | None = None,
+    warmup_controller: str = "random",
+    warmup_baseline_period_s: float = 60.0,
 ) -> EpisodeResult:
     if hasattr(agent, "reset_episode"):
         agent.reset_episode()
@@ -169,11 +171,24 @@ def run_episode(
     episode_return = 0.0
     steps = 0
     train_mode = mode in {"warmup", "train"}
+    warmup_policy = None
+    if mode == "warmup" and warmup_controller == "baseline":
+        from .controller_baselines import MaxTorqueSweepPolicy
+
+        warmup_policy = MaxTorqueSweepPolicy(env, period_s=float(warmup_baseline_period_s))
+        warmup_policy.reset_episode()
 
     while not stepper.done:
         if stepper.should_update_controller():
-            action_vec = agent.get_action(obs, train=train_mode)
-            current_action_nm = float(np.asarray(action_vec, dtype=np.float64).reshape(-1)[0])
+            if mode == "warmup":
+                if warmup_policy is not None:
+                    action_vec = warmup_policy.get_action(obs, train=False)
+                    current_action_nm = float(np.asarray(action_vec, dtype=np.float64).reshape(-1)[0])
+                else:
+                    current_action_nm = float(np.random.uniform(-1.0, 1.0))
+            else:
+                action_vec = agent.get_action(obs, train=train_mode)
+                current_action_nm = float(np.asarray(action_vec, dtype=np.float64).reshape(-1)[0])
         next_ts = stepper.step(wheel_torque_cmd_nm=current_action_nm)
         next_controller_state = build_controller_state_from_timestep(
             current=next_ts,

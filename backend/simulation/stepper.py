@@ -58,7 +58,7 @@ def _build_simulation_controller(*, controller_mode: str, tau_max_nm: float, dt:
     if mode == "random":
         return RandomTorquePolicy(adapter_env, rng=rng)
     if mode == "baseline":
-        return MaxTorqueSweepPolicy(adapter_env, period_s=10.0)
+        return MaxTorqueSweepPolicy(adapter_env, period_s=100.0)
     raise ValueError(f"Unsupported controller_mode: {controller_mode!r}")
 
 
