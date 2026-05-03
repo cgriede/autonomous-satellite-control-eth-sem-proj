@@ -35,6 +35,14 @@ def _make_trivial_series(n_bins: int = 4, n_frames: int = 2) -> SimulationStateS
     # Mark one bin as target in frame 1 to exercise target_visible path.
     obs_line[1, 2] = np.int8(OBSERVATION_TARGET)
     fixed_ground = np.zeros((n_frames, n_bins), dtype=np.int8)
+    sat_subpoint_lat_deg = np.zeros(n_frames, dtype=float)
+    sat_subpoint_lon_deg = np.zeros(n_frames, dtype=float)
+    sat_altitude_m = np.full(n_frames, 500000.0, dtype=float)
+    left_lat_lon = np.zeros((n_frames, 2), dtype=float)
+    right_lat_lon = np.zeros((n_frames, 2), dtype=float)
+    center_lat_lon = np.zeros((n_frames, 2), dtype=float)
+    area_intersection_ratio = np.zeros(n_frames, dtype=float)
+    area_novelty_ratio = np.zeros(n_frames, dtype=float)
 
     cloud_r = np.full((n_frames, 1), np.nan)
     cloud_s = np.full((n_frames, 1), np.nan)
@@ -61,6 +69,7 @@ def _make_trivial_series(n_bins: int = 4, n_frames: int = 2) -> SimulationStateS
         radius_km=radius,
         body_z_angle_rad=body_z,
         simulation_reward=simulation_reward,
+        wheel_torque_cmd_nm=np.zeros(n_frames, dtype=float),
         camera_gsd_m=gsd,
         camera_vertical_fov_rad=0.02,
         camera_ground_left_xy_km=left,
@@ -72,6 +81,14 @@ def _make_trivial_series(n_bins: int = 4, n_frames: int = 2) -> SimulationStateS
         camera_cloud_blocked_fraction=blocked,
         camera_observation_line_codes=obs_line,
         fixed_ground_line_codes=fixed_ground,
+        sat_subpoint_lat_deg=sat_subpoint_lat_deg,
+        sat_subpoint_lon_deg=sat_subpoint_lon_deg,
+        sat_altitude_m=sat_altitude_m,
+        camera_ground_left_lat_lon_deg=left_lat_lon,
+        camera_ground_right_lat_lon_deg=right_lat_lon,
+        camera_ground_center_lat_lon_deg=center_lat_lon,
+        target_area_intersection_ratio=area_intersection_ratio,
+        target_area_novelty_ratio=area_novelty_ratio,
         cloud_arc_radius_km=cloud_r,
         cloud_arc_start_rad=cloud_s,
         cloud_arc_end_rad=cloud_e,

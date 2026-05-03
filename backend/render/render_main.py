@@ -23,6 +23,7 @@ if __package__:
     from ._fixed_bird_view import build_1d_fixed_bird_view, update_1d_fixed_bird_view
     from ._main_view import build_main_panel, update_main_panel
     from ._reward_plot import build_reward_panel, update_reward_panel
+    from ._torque_plot import build_torque_panel, update_torque_panel
     from ._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
     from ._telemetry import build_telemetry_panel, update_telemetry_panel
 else:
@@ -31,6 +32,7 @@ else:
     from render._fixed_bird_view import build_1d_fixed_bird_view, update_1d_fixed_bird_view
     from render._main_view import build_main_panel, update_main_panel
     from render._reward_plot import build_reward_panel, update_reward_panel
+    from render._torque_plot import build_torque_panel, update_torque_panel
     from render._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
     from render._telemetry import build_telemetry_panel, update_telemetry_panel
 
@@ -41,6 +43,7 @@ SHOW_1D_SAT_VIEW = True
 SHOW_CLOSEUP = True
 SHOW_TELEMETRY = True
 SHOW_REWARD_PLOT = True
+SHOW_TORQUE_PLOT = True
 
 R_EARTH_KM = EARTH_RADIUS.to(ureg.km).magnitude
 SAT_ALTITUDE_KM = SATELLITE_ALTITUDE.to(ureg.km).magnitude
@@ -131,13 +134,6 @@ def _set_time_from_index(sim_idx: int) -> None:
     SIM_TIME_S = float(sim_series.t_s[clamped_idx])
 
 
-def _current_index_from_time_nearest() -> int:
-    sim_series = _require_runtime()
-    if sim_series.t_s.size == 0:
-        return 0
-    return int(np.argmin(np.abs(np.asarray(sim_series.t_s, dtype=float) - float(SIM_TIME_S))))
-
-
 def _refresh_current_scene() -> None:
     sim_idx = simulation_index_from_time(SIM_TIME_S, wrap_orbit=False)
     scene = sample_scene(sim_idx)
@@ -147,14 +143,17 @@ def _refresh_current_scene() -> None:
 
 
 def _step_backward_one_frame() -> None:
-    current_idx = _current_index_from_time_nearest()
-    _set_time_from_index(current_idx - 1)
+    current_idx = simulation_index_from_time(SIM_TIME_S, wrap_orbit=False)
+    new_idx = max(0, current_idx - 1)
+    _set_time_from_index(new_idx)
     _refresh_current_scene()
 
 
 def _step_forward_one_frame() -> None:
-    current_idx = _current_index_from_time_nearest()
-    _set_time_from_index(current_idx + 1)
+    n = int(_require_runtime().t_s.shape[0])
+    current_idx = simulation_index_from_time(SIM_TIME_S, wrap_orbit=False)
+    new_idx = min(n - 1, current_idx + 1)
+    _set_time_from_index(new_idx)
     _refresh_current_scene()
 
 
@@ -285,6 +284,10 @@ def init() -> list:
         a = PANELS["reward"]["artists"]
         a["line"].set_data([], [])
         a["cursor"].set_data([], [])
+    if "torque" in PANELS:
+        a = PANELS["torque"]["artists"]
+        a["line"].set_data([], [])
+        a["cursor"].set_data([], [])
 
     return []
 
@@ -307,16 +310,94 @@ def update_panels(scene: dict) -> None:
         update_telemetry_panel(PANELS["telemetry"]["artists"], scene)
     if "reward" in PANELS:
         update_reward_panel(PANELS["reward"]["artists"], scene["sim_idx"])
+    if "torque" in PANELS:
+        update_torque_panel(PANELS["torque"]["artists"], scene["sim_idx"])
 
 
 def update(_frame: int) -> list:
     global SIM_TIME_S
     if not CONTROLS.paused:
         SIM_TIME_S += (ANIMATION_INTERVAL_MS / 1000.0) * CONTROLS.sim_speed_multiplier
-    sim_idx = simulation_index_from_time(SIM_TIME_S, wrap_orbit=True)
+    # Finite episode scrubbing: clamp to [0, sim_total_s] (matches export + step buttons).
+    sim_idx = simulation_index_from_time(SIM_TIME_S, wrap_orbit=False)
     scene = sample_scene(sim_idx)
     update_panels(scene)
     return []
+
+
+def _resolve_ffmpeg_executable() -> tuple[str | None, str]:
+    """Return (executable path, source hint) for a usable ffmpeg binary."""
+    import shutil
+
+    try:
+        import imageio_ffmpeg
+
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if exe and Path(exe).exists():
+            return str(exe), "imageio_ffmpeg"
+    except Exception:
+        pass
+    path_which = shutil.which("ffmpeg")
+    if path_which:
+        return path_which, "path_which"
+    return None, "none"
+
+
+def _try_reencode_mp4_h264_for_web(path: Path) -> tuple[bool, str]:
+    """Re-encode MP4 to H.264 yuv420p for HTML5 playback in notebook/desktop browsers.
+
+    OpenCV's ``mp4v`` output is often MPEG-4 Part 2, which many browsers won't play
+    in ``<video>`` elements; this pass produces a widely supported stream when an
+    ffmpeg executable is available (bundled ``imageio-ffmpeg`` preferred).
+    """
+    import subprocess
+
+    ffmpeg_exe, via = _resolve_ffmpeg_executable()
+    if ffmpeg_exe is None:
+        return False, "no_ffmpeg_exe"
+    tmp = path.with_name(path.stem + "._h264_tmp" + path.suffix)
+    try:
+        subprocess.run(
+            [
+                ffmpeg_exe,
+                "-y",
+                "-loglevel",
+                "error",
+                "-i",
+                str(path),
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                "-an",
+                str(tmp),
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        try:
+            if tmp.exists():
+                tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return False, f"ffmpeg_failed:{via}"
+    try:
+        path.unlink()
+    except OSError:
+        try:
+            if tmp.exists():
+                tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return False, f"unlink_failed:{via}"
+    try:
+        tmp.rename(path)
+    except OSError:
+        return False, f"rename_failed:{via}"
+    return True, via
 
 
 def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
@@ -378,6 +459,7 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
             bgr = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
             writer.write(bgr)
         writer.release()
+        _try_reencode_mp4_h264_for_web(export_path)
 
     return export_path
 
@@ -419,6 +501,9 @@ def _build_panels() -> None:
             FIG, sim_series.t_s, sim_series.simulation_reward
         )
         PANELS["reward"] = {"axes": axes, "artists": artists}
+    if SHOW_TORQUE_PLOT:
+        axes, artists = build_torque_panel(FIG, sim_series.t_s, sim_series.wheel_torque_cmd_nm)
+        PANELS["torque"] = {"axes": axes, "artists": artists}
     if SHOW_MAIN_PLOT:
         axes, artists = build_main_panel(FIG, STATIC_SCENE)
         PANELS["main"] = {"axes": axes, "artists": artists}
@@ -439,7 +524,7 @@ def render_from_series(
     render_mode: RenderMode,
     output_path: Path | None = None,
 ) -> Path | None:
-    global CONTROL_ARTISTS
+    global CONTROL_ARTISTS, FIG
     _configure_runtime_from_series(simulation_series)
     if FIG is None:
         raise RuntimeError("Figure has not been initialized.")
@@ -460,7 +545,12 @@ def render_from_series(
     CONTROL_ARTISTS = build_controls_panel(FIG, CONTROLS)
 
     if render_mode == RenderMode.EXPORT:
-        return save_one_pass_video_30x(export_path=output_path)
+        try:
+            return save_one_pass_video_30x(export_path=output_path)
+        finally:
+            if FIG is not None:
+                plt.close(FIG)
+            FIG = None
     if render_mode == RenderMode.HEADLESS:
         init()
         scene = sample_scene(0)

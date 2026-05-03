@@ -16,3 +16,7 @@ RESOLUTION_GROUND_RANGE_THRESHOLD = 1500.0 * ureg.km
 
 # r_total includes -k_E * E [J]; k_E chosen so typical wheel-step energies do not dwarf ±100.
 REWARD_ENERGY_LINEAR_COEFFICIENT = 0
+
+# Positive reward scales for geodetic area-target mapping.
+REWARD_AREA_INTERSECTION_WEIGHT = 100.0
+REWARD_AREA_NOVELTY_WEIGHT = 25.0

@@ -12,9 +12,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from environment_definition.constants.AUTONOMOUS_CONTROL_REWARD import (
     CAMERA_VIEWING_DISTANCE_THRESHOLD,
     OPTIMAL_GROUND_RANGE,
+    REWARD_AREA_INTERSECTION_WEIGHT,
+    REWARD_AREA_NOVELTY_WEIGHT,
     REWARD_ENERGY_LINEAR_COEFFICIENT,
 )
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
@@ -36,7 +40,11 @@ class RewardConfig:
     enable_distance_reward: bool = True
     enable_outer_gate: bool = True
     enable_energy: bool = True
+    enable_area_intersection: bool = True
+    enable_area_novelty: bool = True
     k_energy: float = float(REWARD_ENERGY_LINEAR_COEFFICIENT)
+    k_area_intersection: float = float(REWARD_AREA_INTERSECTION_WEIGHT)
+    k_area_novelty: float = float(REWARD_AREA_NOVELTY_WEIGHT)
 
 
 @dataclass(frozen=True)
@@ -51,6 +59,8 @@ class RewardSignals:
     distance_to_target: Any  # pint Quantity (length)
     picture_taken: bool
     target_visible: bool
+    target_area_intersection_ratio: float = 0.0
+    target_area_novelty_ratio: float = 0.0
     wheel_inertia: Any | None = None  # pint Quantity (kg*m^2)
     omega_before: Any | None = None  # pint Quantity (rad/s)
     omega_after: Any | None = None  # pint Quantity (rad/s)
@@ -145,7 +155,7 @@ def energy_reward(
     e_j = float(e.to(ureg.joule).magnitude)
     return -k_energy * e_j
 
-
+from rich.pretty import pprint
 def compute_reward(
     *,
     signals: RewardSignals,
@@ -168,6 +178,8 @@ def compute_reward(
 
     components: dict[str, float] = {
         "distance_reward": 0.0,
+        "area_intersection_reward": 0.0,
+        "area_novelty_reward": 0.0,
         "energy_reward": 0.0,
     }
 
@@ -180,6 +192,14 @@ def compute_reward(
             target_visible=signals.target_visible,
             outer_gate_enabled=cfg.enable_outer_gate,
         )
+
+    if cfg.enable_area_intersection:
+        area_ratio = float(np.clip(signals.target_area_intersection_ratio, 0.0, 1.0))
+        components["area_intersection_reward"] = cfg.k_area_intersection * area_ratio
+
+    if cfg.enable_area_novelty:
+        novelty_ratio = float(np.clip(signals.target_area_novelty_ratio, 0.0, 1.0))
+        components["area_novelty_reward"] = cfg.k_area_novelty * novelty_ratio
 
     if (
         cfg.enable_energy
@@ -195,7 +215,15 @@ def compute_reward(
             k_energy=cfg.k_energy,
         )
 
-    total = components["distance_reward"] + components["energy_reward"]
+    total = (
+        components["distance_reward"]
+        + components["area_intersection_reward"]
+        + components["area_novelty_reward"]
+        + components["energy_reward"]
+    )
+    if total > 0.0000001:
+        pprint(total)
+        pprint(components)
     return total, components
 
 __all__ = [

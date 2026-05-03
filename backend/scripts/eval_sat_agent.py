@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import random
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -15,9 +14,11 @@ if str(BACKEND_DIR) not in sys.path:
 
 from autonomous_control.controller_agent import MPOAgent
 from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
+from autonomous_control.config.randomness import RandomnessConfig, apply_global_seed, derive_seed
 from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.training_runtime import EpisodeResult, make_attitude_control_env, run_episode
 from environment_definition.constants import RenderMode
+from environment_definition.mission_profiles.mission_1_random_fl import sample_satellite_altitude
 from render.render_main import render_from_series
 from utils.ml_training.ml_training_utils import (
     append_jsonl_record,
@@ -25,15 +26,6 @@ from utils.ml_training.ml_training_utils import (
     create_run_dir,
     init_run_markdown,
 )
-
-
-def _seed_everything(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
 
 def _load_checkpoint(agent: MPOAgent, ckpt_path: Path) -> None:
     payload = torch.load(str(ckpt_path), map_location=agent.device)
@@ -118,7 +110,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    _seed_everything(args.seed)
+    seed_cfg = RandomnessConfig(seed=args.seed)
+    apply_global_seed(seed_cfg)
+    sampled_altitude = sample_satellite_altitude(
+        seed=derive_seed(args.seed, "mission_altitude")
+    )
     if args.controller_mode == "mpo":
         if args.checkpoint is None:
             raise ValueError("--checkpoint is required when --controller-mode mpo.")
@@ -150,7 +146,14 @@ def main() -> None:
     returns: list[float] = []
     last_result: EpisodeResult | None = None
     for ep in range(args.eval_episodes):
-        result = run_episode(env, agent, mode="test", train_updates_per_step=0)
+        result = run_episode(
+            env,
+            agent,
+            mode="test",
+            train_updates_per_step=0,
+            satellite_altitude=sampled_altitude,
+            np_rng=np.random.default_rng(derive_seed(args.seed, "eval_episode", ep)),
+        )
         returns.append(result.episode_return)
         last_result = result
         append_run_markdown_event(
@@ -172,7 +175,14 @@ def main() -> None:
     render_video_path: str | None = None
     if args.save_render_video:
         if last_result is None:
-            last_result = run_episode(env, agent, mode="test", train_updates_per_step=0)
+            last_result = run_episode(
+                env,
+                agent,
+                mode="test",
+                train_updates_per_step=0,
+                satellite_altitude=sampled_altitude,
+                np_rng=np.random.default_rng(derive_seed(args.seed, "render_test", 0)),
+            )
         output_path = run_dir / args.render_video_name
         render_video_path = str(
             _save_sat_sim_export_video(

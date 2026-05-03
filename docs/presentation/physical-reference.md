@@ -24,6 +24,10 @@ Source: `environment_definition/constants/EARTH.py`.
 Source: `environment_definition/constants/EARTH.py`.
 
 - **`pyproj.Geod(ellps="WGS84")`** — WGS 84 ellipsoid for geodetic routines when needed.
+- **Geodetic helper API:** `utils/geodesics/geodesic_helpers.py` now provides:
+  - point distance (`geodesic_distance`) [m],
+  - forward azimuth (`geodesic_initial_bearing`) [deg],
+  - geodetic bbox containment/intersection (`GeodeticBoundingBox`, `geodetic_bbox_*`) for area-target scoring.
 
 ---
 

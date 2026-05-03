@@ -73,6 +73,8 @@ class SimulationConstants:
     camera_observation_line_n_bins: int
     # Sensor/camera kernel backend: "python" for baseline, "accelerated" for vectorized kernels.
     camera_kernel_backend: Literal["python", "accelerated"]
+    # Canonical episode step cap for gym/training rollouts.
+    max_episode_steps: int
 
 
 class RenderMode(str, Enum):
@@ -92,7 +94,7 @@ SIMULATION = SimulationConstants(
     theta_center=90.0 * ureg.deg,
     sat_motion_span_scale=1.05,
     contact_margin_angle=0.05 * ureg.deg,
-    simulation_timestep=1 * ureg.s,
+    simulation_timestep=0.4 * ureg.s,
     controller_update_interval=1 * ureg.s,
     sat_z_offset=0.0 * ureg.deg,
     field_of_view_cone=FieldOfViewCone(
@@ -119,5 +121,6 @@ SIMULATION = SimulationConstants(
     camera_pixel_ray_samples=96,
     camera_observation_line_n_bins=DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS,
     camera_kernel_backend="accelerated",
+    max_episode_steps=1000,
 )
 

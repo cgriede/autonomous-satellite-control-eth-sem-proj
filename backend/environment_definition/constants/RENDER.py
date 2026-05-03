@@ -122,6 +122,7 @@ class RenderConstants:
     main_axes_rect             : tuple[float, float, float, float]
     telemetry_axes_rect        : tuple[float, float, float, float]
     reward_axes_rect           : tuple[float, float, float, float]
+    torque_axes_rect           : tuple[float, float, float, float]
     bird_view_1d_axes_rect     : tuple[float, float, float, float]
     # 1D camera observation strip (per-bin codes from SimulationStateSeries), below bird view.
     sat_view_1d_axes_rect      : tuple[float, float, float, float]
@@ -271,7 +272,8 @@ RENDER = RenderConstants(
     # Left telemetry | right: main (top) + lower half split (left stacked strips, right enlarged closeup).
     figure_inset_gutter_frac    = 0.012,
     telemetry_axes_rect         = (0.02, 0.270, 0.19, 0.710),
-    reward_axes_rect            = (0.02, 0.078, 0.19, 0.175),
+    torque_axes_rect            = (0.02, 0.078, 0.19, 0.085),
+    reward_axes_rect            = (0.02, 0.168, 0.19, 0.085),
     main_axes_rect              = (0.222, 0.280, 0.758, 0.70),
     closeup_axes_rect           = (0.606, 0.068, 0.374, 0.192),
     fixed_bird_view_axes_rect   = (0.222, 0.125, 0.374, 0.055),

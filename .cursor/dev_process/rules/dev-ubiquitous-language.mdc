@@ -1,0 +1,27 @@
+---
+description: Enforce consistent domain terminology across implementation
+alwaysApply: true
+---
+
+# Ubiquitous language
+
+## Rule
+
+- Use consistent project domain terms in prompts, plans, code symbols, comments, tests, and documentation.
+- Do not introduce synonym drift for established core concepts.
+
+## Required behavior
+
+- Reuse existing repository terminology when names already exist.
+- If a new domain concept is introduced, define it once and reuse the same name thereafter.
+- When ambiguity exists between near-synonyms, ask which term is canonical before broad edits.
+
+## Naming constraints
+
+- Prefer names that match repository vocabulary over generic placeholders.
+- Keep type/function/class naming aligned with existing feature language.
+- In tests, express behavior with the same domain terms used in production code.
+
+## Documentation alignment
+
+- When adding or changing a key domain concept, update relevant process docs/examples so terminology remains coherent.

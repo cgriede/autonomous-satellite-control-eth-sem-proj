@@ -1,0 +1,30 @@
+---
+description: Favor vertical slices and deep module boundaries
+alwaysApply: true
+---
+
+# AI-friendly architecture
+
+## Rule
+
+- Prefer feature-oriented vertical slices over broad horizontal layer sprawl.
+- Use deep modules: small stable public APIs that hide internal complexity.
+
+## Structure guidance
+
+- Co-locate feature behavior: types, tests, domain logic, and interfaces close to usage.
+- Keep module boundaries explicit; limit cross-feature leakage.
+- Avoid god files and broad utility dumping grounds.
+- Keep files reasonably small; split by responsibility when growth harms readability.
+
+## Change strategy
+
+- Implement in end-to-end slices for one concrete behavior at a time.
+- Preserve existing architectural invariants unless explicitly changed by user direction.
+
+## Repository invariants to preserve
+
+- One episode equals one canonical simulation rollout.
+- Train/eval/render consume the same simulation outputs.
+- Simulation owns physics/camera/reward computation; render stays view-only.
+- `SimulationStateSeries` remains the episode-level artifact contract.

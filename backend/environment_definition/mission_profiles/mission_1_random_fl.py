@@ -1,10 +1,12 @@
 """
 This mission (M1) is specified as follows:
-- Satellite is launched at a random altitude between upper
- and lower bound of possible sattelite altitide
-- Satellite should maximize time where camera faces observer directly
-
+- Satellite altitude is sampled within configured bounds.
+- Satellite should maximize time where camera faces observer directly.
 """
+
+from __future__ import annotations
+
+from typing import Any
 
 import numpy as np
 
@@ -24,9 +26,24 @@ from environment_definition.constants import (
 from utils.leo_adapter.orbit_geometry import circular_orbital_speed_from_altitude
 from environment_definition.runtime_types import Mission, MissionScenario, Satellite
 
-lower_mag = SATELLITE_ALTITUDE_LOWER_BOUND.magnitude
-upper_mag = SATELLITE_ALTITUDE_UPPER_BOUND.to(SATELLITE_ALTITUDE_LOWER_BOUND.units).magnitude
-SATELLITE_ALTITUDE = np.random.uniform(lower_mag, upper_mag) * SATELLITE_ALTITUDE_LOWER_BOUND.units
+_LOWER_MAG = SATELLITE_ALTITUDE_LOWER_BOUND.magnitude
+_UPPER_MAG = SATELLITE_ALTITUDE_UPPER_BOUND.to(SATELLITE_ALTITUDE_LOWER_BOUND.units).magnitude
+
+
+def sample_satellite_altitude(
+    *,
+    seed: int | None = None,
+    rng: np.random.Generator | None = None,
+) -> Any:
+    """Runtime-seeded altitude sampler; avoids hidden import-time randomness."""
+    if rng is None:
+        rng = np.random.default_rng(seed)
+    sampled = float(rng.uniform(_LOWER_MAG, _UPPER_MAG))
+    return sampled * SATELLITE_ALTITUDE_LOWER_BOUND.units
+
+
+# Deterministic module default for compatibility with existing imports.
+SATELLITE_ALTITUDE = sample_satellite_altitude(seed=0)
 
 SATELLITE_ORBIT_SPEED = circular_orbital_speed_from_altitude(SATELLITE_ALTITUDE)
 

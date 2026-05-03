@@ -24,10 +24,11 @@ from simulation.stepper import SimulationStepper
 from utils.flight_geometry.line_of_sight import minimum_contact_angle
 from utils.ml_training.ml_training_utils import RunTelemetryWriter
 
+from .config.randomness import apply_global_seed, derive_seed
 from .controller_actor import Actor
-from .feature_selection import build_controller_state_from_timestep
 from .mpo_config import MPOConfig
 from .reward import RewardConfig
+from .training_runtime import build_state_vector_from_timestep
 
 
 @dataclass(frozen=True)
@@ -50,9 +51,9 @@ class WorkerResult:
     done: np.ndarray
 
 
-def _build_stepper() -> SimulationStepper:
+def _build_stepper(*, satellite_altitude: Any) -> SimulationStepper:
     theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
-    alpha = minimum_contact_angle(observer_height=0.0 * ureg.km, orbit_height=SATELLITE_ALTITUDE)
+    alpha = minimum_contact_angle(observer_height=0.0 * ureg.km, orbit_height=satellite_altitude)
     contact_half_angle_deg = alpha.to(ureg.deg).magnitude
     margin_deg = SIMULATION.contact_margin_angle.to(ureg.deg).magnitude
     start_angle_deg = -(contact_half_angle_deg + margin_deg)
@@ -65,7 +66,7 @@ def _build_stepper() -> SimulationStepper:
         earth_radius=EARTH_RADIUS,
         earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
         satellite=SATELLITE,
-        satellite_altitude=SATELLITE_ALTITUDE,
+        satellite_altitude=satellite_altitude,
         theta_center_rad=float(theta_center),
         start_angle_deg=float(start_angle_deg),
         end_angle_deg=float(end_angle_deg),
@@ -124,9 +125,13 @@ def _worker_loop(
     action_low: np.ndarray,
     action_high: np.ndarray,
     config: MPOConfig,
+    base_seed: int,
+    satellite_altitude: Any,
 ) -> None:
     device = torch.device("cpu")
-    target_angle_rad = float(OBSERVATION_TARGETS[0].angle.to(ureg.rad).magnitude)
+    worker_seed = derive_seed(base_seed, "parallel_worker", worker_id)
+    apply_global_seed(worker_seed)
+    worker_rng = np.random.default_rng(worker_seed)
     while True:
         task = task_queue.get()
         if task is None:
@@ -141,14 +146,11 @@ def _worker_loop(
             config=config,
             device=device,
         )
-        stepper = _build_stepper()
+        stepper = _build_stepper(satellite_altitude=satellite_altitude)
         current_ts = stepper.current_timestep_state()
-        current_controller_state = build_controller_state_from_timestep(
-            current=current_ts,
-            previous=None,
-            target_angle_rad=target_angle_rad,
+        obs = build_state_vector_from_timestep(
+            timestep=current_ts,
         )
-        obs = np.asarray(current_controller_state.obs_vector, dtype=np.float32)
         current_action_nm = 0.0
         episode_return = 0.0
         steps = 0
@@ -165,7 +167,7 @@ def _worker_loop(
         while not stepper.done:
             if stepper.should_update_controller():
                 if task.mode == "warmup":
-                    current_action_nm = float(np.random.uniform(-1.0, 1.0))
+                    current_action_nm = float(worker_rng.uniform(-1.0, 1.0))
                 else:
                     obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=device)
                     with torch.no_grad():
@@ -174,12 +176,9 @@ def _worker_loop(
                         action_scaled = torch.tanh(action_gaussian) * action_scale + action_bias
                     current_action_nm = float(action_scaled.detach().cpu().numpy().reshape(-1)[0])
             next_ts = stepper.step(wheel_torque_cmd_nm=current_action_nm)
-            next_controller_state = build_controller_state_from_timestep(
-                current=next_ts,
-                previous=current_ts,
-                target_angle_rad=target_angle_rad,
+            next_obs = build_state_vector_from_timestep(
+                timestep=next_ts,
             )
-            next_obs = np.asarray(next_controller_state.obs_vector, dtype=np.float32)
             reward = float(next_ts.reward)
             done = bool(stepper.done)
             obs_batch.append(obs.copy())
@@ -221,6 +220,8 @@ class ParallelMPOTrainer:
         env: Any,
         num_workers: int,
         telemetry_writer: RunTelemetryWriter | None = None,
+        seed: int = 0,
+        satellite_altitude: Any | None = None,
     ) -> None:
         if num_workers < 2:
             raise ValueError("num_workers must be >= 2 for parallel training.")
@@ -228,6 +229,8 @@ class ParallelMPOTrainer:
         self.env = env
         self.num_workers = int(num_workers)
         self.telemetry_writer = telemetry_writer
+        self.seed = int(seed)
+        self.satellite_altitude = satellite_altitude if satellite_altitude is not None else SATELLITE_ALTITUDE
         self._ctx = mp.get_context("spawn")
         self._task_queue: mp.Queue = self._ctx.Queue(maxsize=max(4, self.num_workers * 2))
         self._result_queue: mp.Queue = self._ctx.Queue(maxsize=max(4, self.num_workers * 2))
@@ -251,6 +254,8 @@ class ParallelMPOTrainer:
                     action_low,
                     action_high,
                     config,
+                    self.seed,
+                    self.satellite_altitude,
                 ),
                 daemon=True,
             )

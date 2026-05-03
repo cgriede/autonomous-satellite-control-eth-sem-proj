@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 
 import torch.nn as nn
 
+from environment_definition.constants.SIMULATION import SIMULATION
+
 from .reward import RewardConfig
 
 LOG_STD_MAX = 2.0
@@ -35,7 +37,7 @@ class MPOConfig:
     activation_actor: type[nn.Module] = nn.ELU
     reverse_kl: bool = False
     decoupled_kl: bool = True
-    max_steps_per_episode: int = 500
+    max_steps_per_episode: int = int(SIMULATION.max_episode_steps)
     # Per-component reward flags (routed into env and run_simulation via training
     # runtime / render call sites). See autonomous_control.reward for semantics.
     reward: RewardConfig = field(default_factory=RewardConfig)

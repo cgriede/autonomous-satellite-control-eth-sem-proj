@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -9,7 +10,12 @@ import numpy as np
 from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 
-from .feature_selection import AutonomousControllerAction
+@dataclass(frozen=True)
+class AutonomousControllerAction:
+    """Controller torque command plus observation activation switch."""
+
+    wheel_torque_cmd: Any  # pint Quantity, N*m
+    active_observation: bool
 
 POLICY_RAW_DIM = 2
 

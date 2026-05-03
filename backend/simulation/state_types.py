@@ -41,6 +41,8 @@ class SimulationStateSeries:
     radius_km            : np.ndarray #orbital radius
     body_z_angle_rad     : np.ndarray #body z angle in respect to earth
     simulation_reward    : np.ndarray # per-frame scalar reward
+    # Wheel torque command [N·m], same indexing as t_s; frame 0 before any step is 0.
+    wheel_torque_cmd_nm  : np.ndarray
 
     # Camera (2D optics) outputs: the sensor rectangle maps to a 1D
     # in-plane footprint line segment in the renderer's 2D geometry.
@@ -58,6 +60,15 @@ class SimulationStateSeries:
     camera_observation_line_codes : np.ndarray
     # Per-bin fixed-ground line codes (shape n_frames x n_bins), including cone-hit marker code.
     fixed_ground_line_codes : np.ndarray
+    # Geodetic support fields (deg for compact storage in episode arrays).
+    sat_subpoint_lat_deg : np.ndarray
+    sat_subpoint_lon_deg : np.ndarray
+    sat_altitude_m : np.ndarray
+    camera_ground_left_lat_lon_deg : np.ndarray
+    camera_ground_right_lat_lon_deg : np.ndarray
+    camera_ground_center_lat_lon_deg : np.ndarray
+    target_area_intersection_ratio : np.ndarray
+    target_area_novelty_ratio : np.ndarray
 
     # Cloud arc geometry (same convention as `camera_2d.compute_cloud_arc_specs_at_time`), shape (n_frames, n_clouds).
     # Kinematic / non-optics runs fill with NaN.
@@ -79,6 +90,8 @@ class SimulationStateSeries:
             raise ValueError("All state vectors must have the same length.")
         if self.simulation_reward.shape[0] != n:
             raise ValueError("simulation_reward must have the same length as t_s.")
+        if self.wheel_torque_cmd_nm.shape[0] != n:
+            raise ValueError("wheel_torque_cmd_nm must have the same length as t_s.")
 
         if self.camera_gsd_m.shape[0] != n:
             raise ValueError("camera_gsd_m must have the same length as t_s.")
@@ -110,6 +123,22 @@ class SimulationStateSeries:
             raise ValueError("fixed_ground_line_codes must have dtype int8.")
         if self.fixed_ground_line_codes.shape[1] != self.camera_observation_line_codes.shape[1]:
             raise ValueError("fixed_ground_line_codes bin count must match camera_observation_line_codes.")
+        if self.sat_subpoint_lat_deg.shape[0] != n:
+            raise ValueError("sat_subpoint_lat_deg must have length n.")
+        if self.sat_subpoint_lon_deg.shape[0] != n:
+            raise ValueError("sat_subpoint_lon_deg must have length n.")
+        if self.sat_altitude_m.shape[0] != n:
+            raise ValueError("sat_altitude_m must have length n.")
+        if self.camera_ground_left_lat_lon_deg.shape != (n, 2):
+            raise ValueError("camera_ground_left_lat_lon_deg must have shape (n,2).")
+        if self.camera_ground_right_lat_lon_deg.shape != (n, 2):
+            raise ValueError("camera_ground_right_lat_lon_deg must have shape (n,2).")
+        if self.camera_ground_center_lat_lon_deg.shape != (n, 2):
+            raise ValueError("camera_ground_center_lat_lon_deg must have shape (n,2).")
+        if self.target_area_intersection_ratio.shape[0] != n:
+            raise ValueError("target_area_intersection_ratio must have length n.")
+        if self.target_area_novelty_ratio.shape[0] != n:
+            raise ValueError("target_area_novelty_ratio must have length n.")
         if self.cloud_arc_radius_km.shape[0] != n:
             raise ValueError("cloud_arc_radius_km must have length n along axis 0.")
         if self.cloud_arc_radius_km.shape != self.cloud_arc_start_rad.shape:

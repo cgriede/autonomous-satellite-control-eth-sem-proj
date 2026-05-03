@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import random
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,9 +16,11 @@ if str(BACKEND_DIR) not in sys.path:
 
 from autonomous_control.controller_agent import MPOAgent
 from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
+from autonomous_control.config.randomness import RandomnessConfig, apply_global_seed, derive_seed
 from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.parallel_training import ParallelMPOTrainer
 from autonomous_control.training_runtime import make_attitude_control_env, run_episode
+from environment_definition.mission_profiles.mission_1_random_fl import sample_satellite_altitude
 from environment_definition.constants import RenderMode
 from render.render_main import render_from_series
 from utils.ml_training.ml_training_utils import (
@@ -30,15 +31,6 @@ from utils.ml_training.ml_training_utils import (
     create_run_dir,
     init_run_markdown,
 )
-
-
-def _seed_everything(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
 
 def _save_checkpoint(agent: MPOAgent, path: str) -> None:
     payload = {
@@ -140,7 +132,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    _seed_everything(args.seed)
+    seed_cfg = RandomnessConfig(seed=args.seed)
+    apply_global_seed(seed_cfg)
+    sampled_altitude = sample_satellite_altitude(
+        seed=derive_seed(args.seed, "mission_altitude")
+    )
 
     if args.controller_mode == "mpo":
         config = MPOConfig(warmup_episodes=args.warmup_episodes)
@@ -219,6 +215,8 @@ def main() -> None:
                 env=env,
                 num_workers=args.num_workers,
                 telemetry_writer=telemetry,
+                seed=args.seed,
+                satellite_altitude=sampled_altitude,
             ) as trainer:
                 for rec in trainer.run_phase(
                     phase="warmup",
@@ -273,6 +271,10 @@ def main() -> None:
                             step_callback=_step_callback_builder(warmup_ep_idx),
                             warmup_controller=warmup_controller,
                             warmup_baseline_period_s=60.0,
+                            satellite_altitude=sampled_altitude,
+                            np_rng=np.random.default_rng(
+                                derive_seed(args.seed, "warmup_episode", warmup_ep_idx)
+                            ),
                         )
                         last_result = result
                         _on_episode_finished(phase="warmup", episode_idx=warmup_ep_idx, result=result)
@@ -297,6 +299,8 @@ def main() -> None:
             mode=episode_mode,
             train_updates_per_step=args.updates_per_step,
             step_callback=_step_callback_builder(ep),
+            satellite_altitude=sampled_altitude,
+            np_rng=np.random.default_rng(derive_seed(args.seed, "train_episode", ep)),
         )
         last_result = result
         _on_episode_finished(phase=episode_mode, episode_idx=ep, result=result)
@@ -317,7 +321,14 @@ def main() -> None:
     trace_video_path: str | None = None
     if args.save_video:
         if last_result is None:
-            last_result = run_episode(env, agent, mode="test", train_updates_per_step=0)
+            last_result = run_episode(
+                env,
+                agent,
+                mode="test",
+                train_updates_per_step=0,
+                satellite_altitude=sampled_altitude,
+                np_rng=np.random.default_rng(derive_seed(args.seed, "video_test", 0)),
+            )
         video_path = run_dir / args.video_name
         trace_video_path = str(_save_trace_video(last_result.states, video_path))
         append_run_markdown_event(
@@ -329,7 +340,14 @@ def main() -> None:
     render_video_path: str | None = None
     if args.save_render_video:
         if last_result is None:
-            last_result = run_episode(env, agent, mode="test", train_updates_per_step=0)
+            last_result = run_episode(
+                env,
+                agent,
+                mode="test",
+                train_updates_per_step=0,
+                satellite_altitude=sampled_altitude,
+                np_rng=np.random.default_rng(derive_seed(args.seed, "render_test", 0)),
+            )
         output_path = run_dir / args.render_video_name
         render_video_path = str(
             _save_sat_sim_export_video(

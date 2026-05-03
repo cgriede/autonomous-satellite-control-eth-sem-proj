@@ -1,6 +1,7 @@
 import gymnasium as gym
 import numpy as np
 from autonomous_control.reward import RewardConfig, RewardSignals, compute_reward
+from environment_definition.constants.SIMULATION import SIMULATION
 
 from .constants.SATELLITE import *
 from simulation import AttitudeState2D, propagate_reaction_wheel_attitude_2d
@@ -28,7 +29,7 @@ class SatelliteAttitudeControlEnv(gym.Env):
             max_manouver_rate=STAR_TRACKER_MAX_MANEUVER_RATE,
         )
         self.dt = 0.1 * ureg.s  # Time step (s)
-        self.max_episode_steps = 500
+        self.max_episode_steps = int(SIMULATION.max_episode_steps)
 
         # Canonical reward config (flags selected from MPOConfig.reward when
         # supplied by training runtime; default = all components on).

@@ -96,18 +96,28 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     fixed_ground_line_codes[:, :] = np.int8(OBSERVATION_EARTH)
     center_idx = int(n_bins // 2)
     fixed_ground_line_codes[:, center_idx] = np.int8(FIXED_GROUND_CONE_HIT_EARTH)
+    sat_subpoint_lat_deg = np.zeros(n, dtype=float)
+    sat_subpoint_lon_deg = np.rad2deg(theta_orbit_rad).astype(float)
+    sat_altitude_m = np.full(n, float(config.sat_altitude_km * 1000.0), dtype=float)
+    camera_ground_left_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
+    camera_ground_right_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
+    camera_ground_center_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
+    target_area_intersection_ratio = np.zeros(n, dtype=float)
+    target_area_novelty_ratio = np.zeros(n, dtype=float)
     n_clouds = len(SIMULATION.clouds)
     cloud_arc_radius_km = np.full((n, n_clouds), np.nan, dtype=float)
     cloud_arc_start_rad = np.full((n, n_clouds), np.nan, dtype=float)
     cloud_arc_end_rad = np.full((n, n_clouds), np.nan, dtype=float)
     # Kinematic helper does not evaluate distance-band reward; leave simulation_reward at 0.
     simulation_reward = np.zeros(n, dtype=float)
+    wheel_torque_cmd_nm = np.full(n, float(config.body_torque_cmd_nm), dtype=float)
     return SimulationStateSeries(
         t_s              = t_s,
         theta_orbit_rad  = theta_orbit_rad,
         radius_km        = radius_km,
         body_z_angle_rad = body_z_angle_rad,
         simulation_reward=simulation_reward,
+        wheel_torque_cmd_nm=wheel_torque_cmd_nm,
         camera_gsd_m=camera_gsd_m,
         camera_vertical_fov_rad=float("nan"),
         camera_ground_left_xy_km=camera_ground_left_xy_km,
@@ -119,6 +129,14 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         camera_observation_line_codes=camera_observation_line_codes,
         fixed_ground_line_codes=fixed_ground_line_codes,
+        sat_subpoint_lat_deg=sat_subpoint_lat_deg,
+        sat_subpoint_lon_deg=sat_subpoint_lon_deg,
+        sat_altitude_m=sat_altitude_m,
+        camera_ground_left_lat_lon_deg=camera_ground_left_lat_lon_deg,
+        camera_ground_right_lat_lon_deg=camera_ground_right_lat_lon_deg,
+        camera_ground_center_lat_lon_deg=camera_ground_center_lat_lon_deg,
+        target_area_intersection_ratio=target_area_intersection_ratio,
+        target_area_novelty_ratio=target_area_novelty_ratio,
         cloud_arc_radius_km=cloud_arc_radius_km,
         cloud_arc_start_rad=cloud_arc_start_rad,
         cloud_arc_end_rad=cloud_arc_end_rad,

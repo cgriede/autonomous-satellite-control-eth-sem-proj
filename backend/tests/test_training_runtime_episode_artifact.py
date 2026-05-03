@@ -1,4 +1,5 @@
 import unittest
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -34,6 +35,19 @@ class TrainingRuntimeEpisodeArtifactTest(unittest.TestCase):
         self.assertGreater(result.effective_controller_update_interval_steps, 0)
         self.assertGreater(result.effective_controller_update_interval_s, 0.0)
         self.assertGreaterEqual(result.configured_controller_update_interval_s, 0.0)
+
+    def test_run_episode_uses_canonical_stepper_horizon_not_env_cap(self):
+        env = make_attitude_control_env()
+        capped_env = SimpleNamespace(
+            observation_space=env.observation_space,
+            action_space=env.action_space,
+            dt=env.dt,
+            max_episode_steps=1,
+        )
+        agent = _ZeroTorqueAgent()
+        result = run_episode(capped_env, agent, mode="train", train_updates_per_step=1)
+        self.assertGreater(result.steps, 1)
+        self.assertEqual(result.steps, len(result.simulation_series.t_s) - 1)
 
 
 if __name__ == "__main__":
