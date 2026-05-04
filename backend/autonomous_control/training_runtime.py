@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 import sys
 from typing import Any, cast
-from rich.pretty import pprint
 
 import numpy as np
 import torch
@@ -295,12 +294,6 @@ def run_episode(
                 timestep=next_ts,
                 feature_config=feature_config,
             )
-
-            #DEBUG INSTRUMENTATION
-            if steps % 100 == 0 or stepper.done:
-                pprint(f"Step {steps}:")
-                pprint(f"  Action (Nm): {current_action_nm:.6f}")
-                pprint(next_obs)
 
             reward = float(next_ts.reward)
             done = bool(stepper.done)
