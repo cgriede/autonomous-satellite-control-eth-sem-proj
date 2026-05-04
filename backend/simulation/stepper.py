@@ -1,19 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 from tqdm import tqdm
 
 from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
 from autonomous_control.reward import RewardConfig
-from environment_definition.constants.MISSION import (
-    OBSERVATION_TARGET_AREAS,
-    LON_GLOBAL,
-    OBSERVATION_TARGET_STRIPE_END_LAT,
-    OBSERVATION_TARGET_STRIPE_START_LAT,
-)
+from environment_definition.constants.EARTH import WGS84_ELLIPSOID
+from environment_definition.constants.MISSION import OBSERVATION_TARGET_AREAS
 from environment_definition.constants.SIMULATION import (
     OBSERVATION_LINE_NOT_COMPUTED,
     RenderMode,
@@ -32,7 +28,8 @@ from .scheduler import resolve_controller_interval_steps
 from .sensor_kernel import SensorKernel
 from .state_types import SimulationMetadata, SimulationStateSeries, SimulationTimestepState
 from utils.geodesics.geodesic_helpers import circle_stripe_footprint_overlap_ratio
-from utils.flight_geometry.line_of_sight import subsatellite_latitude_deg_polar_meridian
+from utils.geometry.mission_stripe_disk import primary_stripe_disk_phi_bounds_deg
+from utils.geometry.orbit_disk_wgs84 import disk_xy_km_to_geodetic_deg
 
 
 @dataclass(frozen=True)
@@ -188,8 +185,9 @@ class SimulationStepper:
         self._dt = self._sim_dt_s * ureg.s
         self._camera_pixel_ray_samples = int(camera_pixel_ray_samples)
         self._reward_cfg = reward_config if reward_config is not None else RewardConfig()
-        self._stripe_lat_min_deg = float(OBSERVATION_TARGET_STRIPE_START_LAT.to(self._ureg.deg).magnitude)
-        self._stripe_lat_max_deg = float(OBSERVATION_TARGET_STRIPE_END_LAT.to(self._ureg.deg).magnitude)
+        phi_lo_deg, phi_hi_deg = primary_stripe_disk_phi_bounds_deg()
+        self._stripe_phi_min_deg = float(phi_lo_deg)
+        self._stripe_phi_max_deg = float(phi_hi_deg)
         self._target_area_visited_cells: set[tuple[int, int]] = set()
         self._earth_radius_km = float(r_earth_km)
         self._satellite_altitude = satellite_altitude
@@ -358,19 +356,20 @@ class SimulationStepper:
         self._cloud_arc_radius_km[k, :] = sensor.cloud_arc_radius_km
         self._cloud_arc_start_rad[k, :] = sensor.cloud_arc_start_rad
         self._cloud_arc_end_rad[k, :] = sensor.cloud_arc_end_rad
-        sat_lat_deg = float(
-            subsatellite_latitude_deg_polar_meridian(
-                self._theta_orbit_rad[k], theta_center_rad=self._theta_center_rad
-            )
-        )
-        sat_lon_deg = float(cast(Any, LON_GLOBAL).to(self._ureg.deg).magnitude)
-        left_lon_lat = np.array([sat_lon_deg, sat_lat_deg], dtype=float)
-        right_lon_lat = np.array([sat_lon_deg, sat_lat_deg], dtype=float)
-        center_lon_lat = np.array([sat_lon_deg, sat_lat_deg], dtype=float)
+        lon_sp_deg, lat_sp_deg = disk_xy_km_to_geodetic_deg(sat_pos_xy_km, ell=WGS84_ELLIPSOID)
         if not np.all(np.isfinite(sensor.camera_ground_center_xy_km)):
-            left_lon_lat[:] = np.nan
-            right_lon_lat[:] = np.nan
-            center_lon_lat[:] = np.nan
+            left_lon_lat = np.array([np.nan, np.nan], dtype=float)
+            right_lon_lat = np.array([np.nan, np.nan], dtype=float)
+            center_lon_lat = np.array([np.nan, np.nan], dtype=float)
+        else:
+            lon_l, lat_l = disk_xy_km_to_geodetic_deg(sensor.camera_ground_left_xy_km, ell=WGS84_ELLIPSOID)
+            lon_r, lat_r = disk_xy_km_to_geodetic_deg(sensor.camera_ground_right_xy_km, ell=WGS84_ELLIPSOID)
+            lon_c, lat_c = disk_xy_km_to_geodetic_deg(sensor.camera_ground_center_xy_km, ell=WGS84_ELLIPSOID)
+            left_lon_lat = np.array([lon_l, lat_l], dtype=float)
+            right_lon_lat = np.array([lon_r, lat_r], dtype=float)
+            center_lon_lat = np.array([lon_c, lat_c], dtype=float)
+        sat_lat_deg = float(lat_sp_deg)
+        sat_lon_deg = float(lon_sp_deg)
         self._sat_subpoint_lat_deg[k] = sat_lat_deg
         self._sat_subpoint_lon_deg[k] = sat_lon_deg
         self._sat_altitude_m[k] = float(self._satellite_altitude.to(self._ureg.m).magnitude)
@@ -384,8 +383,8 @@ class SimulationStepper:
             intersection_ratio = circle_stripe_footprint_overlap_ratio(
                 footprint_left_xy_km=sensor.camera_ground_left_xy_km,
                 footprint_right_xy_km=sensor.camera_ground_right_xy_km,
-                stripe_angle_start_deg=float(self._stripe_lat_min_deg),
-                stripe_angle_end_deg=float(self._stripe_lat_max_deg),
+                stripe_angle_start_deg=float(self._stripe_phi_min_deg),
+                stripe_angle_end_deg=float(self._stripe_phi_max_deg),
             )
         else:
             intersection_ratio = 0.0

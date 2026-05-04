@@ -16,10 +16,10 @@ Mission and simulation settings that define randomness, geometry, and runtime be
 - **Primary target (polar stripe):** fixed meridian longitude `LON_GLOBAL` = `0°`; latitude band `[OBSERVATION_TARGET_STRIPE_START_LAT, OBSERVATION_TARGET_STRIPE_END_LAT]` (see `environment_definition/constants/MISSION.py`).
 - **Episode orbit θ-extent (canonical rollouts):** `los_theta_offsets_deg(...)` in `environment_definition/constants/MISSION.py` — symmetric ±(`minimum_contact_angle` + `SIMULATION.contact_margin_angle`). Used by `simulation_runner`, training workers, and matches renderer LOS framing (`render_main`).
 - **Stripe-derived θ bounds (diagnostic):** `mission_target_latitude_bounds_deg` / `mission_target_window_deg` expand the polar stripe by contact angle + margin in latitude, then map λ→θ offset; **north saturation at 90° N makes this asymmetric**, so it must not drive episode length alone.
-- **Subsatellite latitude in stepper:** polar meridian model λ = 90° − |θ − θ_center| (wrapped), see `subsatellite_latitude_deg_polar_meridian` (`utils/flight_geometry/line_of_sight.py`).
-- **Renderer:** main orbit view uses orbit-plane disk XY consistent with `camera_2d` / `SimulationStateSeries` footprint km fields.
+- **Subsatellite latitude / longitude:** authoritative values come from **`ecef2geodetic`** applied to satellite positions mapped disk→ECEF (`utils/geometry/orbit_disk_wgs84.py`). The legacy polar meridian closure remains as an approximate diagnostic only (`subsatellite_latitude_deg_polar_meridian`).
+- **Renderer:** main orbit view uses orbit-plane disk XY consistent with `camera_2d` / `SimulationStateSeries` footprint km fields; observer LOS anchor derives from stripe midpoint LLA projected onto the mean rendering sphere (`stripe_mid_observer_disk_xy_km_on_sphere`).
 - **Derived:** circular orbit speed from sampled altitude via `circular_orbital_speed_from_altitude` (`utils/leo_adapter/orbit_geometry.py`).
-- **Narrative goal (code comment):** maximize time with camera facing observer; Switzerland map center used in viz (`SIMULATION.switzerland_map`).
+- **Deferred terrain occlusion:** DEM-backed backends / optional HORAYZON–Embree paths are explicitly deferred (`backend/simulation/deferred_horayzon.py`).
 
 ---
 
@@ -31,7 +31,7 @@ Source: `environment_definition/constants/SIMULATION.py`.
 - **Geometry / motion:** `theta_center` = 90°, `sat_motion_span_scale` = 1.05, `contact_margin_angle` = 0.05°, `sat_z_offset` = 0°.
 - **Default body spin:** `default_body_spin_rate` = 3°/s.
 - **FOV cone:** length 20 000 km; opening from pinhole vertical FOV (`pinhole_full_fov_rad` with `SENSOR_HEIGHT`, `FOCAL_LENGTH`); `z_axis_length` = 180 km.
-- **Cloud strip (degrees along orbit):** height 15 km, `start_location` 89.99° → `end_location` 90.2° (first cloud tuple).
+- **Cloud strip (latitude bounds on ``LON_GLOBAL`` projected to disk polar angles):** height 15 km, first cloud latitude sweep ≈ **89.99° → 90.2°** geodetic (`SIMULATION.clouds` tuple).
 - **Camera stats:** `camera_pixel_ray_samples` = 96, `camera_observation_line_n_bins` = 100.
 - **Episode cap:** `max_episode_steps` = 1000 (canonical rollout cap shared by gym and MPO runtime).
 

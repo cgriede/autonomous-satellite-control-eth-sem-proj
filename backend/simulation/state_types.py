@@ -64,9 +64,8 @@ class SimulationStateSeries:
     sat_subpoint_lat_deg : np.ndarray
     sat_subpoint_lon_deg : np.ndarray
     sat_altitude_m : np.ndarray
-    # Columns are ``(lon_deg, lat_deg)`` — pyproj / ``Geod`` argument order. When the center
-    # footprint intersects Earth (finite ``camera_ground_center_xy_km``), rows duplicate the
-    # subsatellite point; distinct footprint corners are not recovered from chord XY in this 2D model.
+    # Columns are ``(lon_deg, lat_deg)``. Footprint corners use geodetic hits from WGS84 ellipsoid LOS;
+    # subsatellite columns track ``ecef2geodetic`` of satellite disk positions (see ``orbit_disk_wgs84``).
     camera_ground_left_lon_lat_deg: np.ndarray
     camera_ground_right_lon_lat_deg: np.ndarray
     camera_ground_center_lon_lat_deg: np.ndarray

@@ -130,9 +130,9 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         zorder=RENDER.zorder_earth_outline
     ))
 
-    # Reward-aligned observation target band on Earth rim (stripe λ → θ offsets via MISSION).
-    th0 = theta_center + np.deg2rad(tgt_a_deg)
-    th1 = theta_center + np.deg2rad(tgt_b_deg)
+    # Reward-aligned observation target band on Earth rim (single φ derivation vs MISSION stripe LLA).
+    th0 = np.deg2rad(tgt_a_deg)
+    th1 = np.deg2rad(tgt_b_deg)
     n_arc = max(16, int(min(256, 4 * abs(float(tgt_b_deg - tgt_a_deg)) + 8)))
     theta_tgt = np.linspace(th0, th1, n_arc, dtype=float)
     tx = R_earth * np.cos(theta_tgt)

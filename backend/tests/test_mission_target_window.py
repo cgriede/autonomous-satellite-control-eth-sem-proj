@@ -56,13 +56,14 @@ class MissionTargetWindowTest(unittest.TestCase):
         self.assertAlmostEqual(lo, -(half_deg + margin), places=6)
         self.assertAlmostEqual(hi, half_deg + margin, places=6)
 
-    def test_primary_stripe_theta_offsets_match_lat_minus_ninety(self):
-        area = OBSERVATION_TARGET_AREAS[0]
+    def test_primary_stripe_theta_offsets_track_phi_minus_theta_center(self):
+        from utils.geometry.mission_stripe_disk import primary_stripe_disk_phi_bounds_deg
+
+        phi_lo, phi_hi = primary_stripe_disk_phi_bounds_deg()
+        tc_deg = float(SIMULATION.theta_center.to(ureg.deg).magnitude)
         lo, hi = primary_target_stripe_theta_offsets_deg()
-        lat_s = float(area.lat_min.to(ureg.deg).magnitude)
-        lat_n = float(area.lat_max.to(ureg.deg).magnitude)
-        self.assertAlmostEqual(lo, lat_s - 90.0, places=9)
-        self.assertAlmostEqual(hi, lat_n - 90.0, places=9)
+        self.assertAlmostEqual(lo, phi_lo - tc_deg, places=9)
+        self.assertAlmostEqual(hi, phi_hi - tc_deg, places=9)
         self.assertLess(lo, hi)
 
 

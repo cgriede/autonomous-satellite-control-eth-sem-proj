@@ -40,16 +40,19 @@ def primary_observation_target_area() -> ObservationTargetArea:
 
 def primary_target_stripe_theta_offsets_deg() -> tuple[float, float]:
     """
-    Orbit-plane θ offsets (degrees) for ``theta_center = π/2`` from the **primary stripe latitudes
-    only** (same band ``RewardKernel`` uses via ``OBSERVATION_TARGET_AREAS``). No contact-angle
-    expansion — that window is for episode LOS / diagnostics, not the narrow reward target outline.
+    Legacy shim: θ offsets relative to ``SIMULATION.theta_center`` for polar-aligned narratives.
+
+    Authoritative stripe polar angles on the orbit disk are ``primary_stripe_disk_phi_bounds_deg``
+    (:mod:`utils.geometry.mission_stripe_disk`). When ``theta_center`` is fixed at ``90°``, this
+    matches ``φ − θ_center`` from WGS84-projected stripe endpoints on ``LON_GLOBAL``.
     """
-    area = primary_observation_target_area()
-    lat_south = float(area.lat_min.to(ureg.deg).magnitude)
-    lat_north = float(area.lat_max.to(ureg.deg).magnitude)
-    lo = lat_south - 90.0
-    hi = lat_north - 90.0
-    return lo, hi
+    from environment_definition.constants.SIMULATION import SIMULATION
+
+    from utils.geometry.mission_stripe_disk import primary_stripe_disk_phi_bounds_deg
+
+    phi_lo, phi_hi = primary_stripe_disk_phi_bounds_deg()
+    tc_deg = float(SIMULATION.theta_center.to(ureg.deg).magnitude)
+    return phi_lo - tc_deg, phi_hi - tc_deg
 
 
 def mission_target_latitude_bounds_deg(

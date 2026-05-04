@@ -1,6 +1,7 @@
 import numpy as np
 
-from environment_definition.constants import EARTH_RADIUS, UREG as ureg
+from environment_definition.constants.EARTH import EARTH_RADIUS
+from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from utils.leo_adapter import (
     minimum_contact_angle_from_heights,
     satellite_horizon_geometry,

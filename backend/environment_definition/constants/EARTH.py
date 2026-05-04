@@ -1,12 +1,11 @@
+from pymap3d.ellipsoid import Ellipsoid
+
 from .UNIT_REGISTRY import UREG as ureg
-from pyproj import Geod
 
 # Baseline orbit/planet constants currently used in visualizations.
-AVERAGE_EARTH_RADIUS = 6371.0088* ureg.km
+AVERAGE_EARTH_RADIUS = 6371.0088 * ureg.km
 EARTH_RADIUS = AVERAGE_EARTH_RADIUS
-EARTH_GRAVITATIONAL_PARAMETER = 398600.4418* ureg.km**3/ureg.s**2
+EARTH_GRAVITATIONAL_PARAMETER = 398600.4418 * ureg.km**3 / ureg.s**2
 
-
-
-# ellipsoid definition relevant for coordinate conversions
-geod = Geod(ellps="WGS84")
+# WGS84 reference ellipsoid (meters) for Vincenty geodesics, ENU/LLA, and ``lookAtSpheroid``.
+WGS84_ELLIPSOID = Ellipsoid.from_name("wgs84")

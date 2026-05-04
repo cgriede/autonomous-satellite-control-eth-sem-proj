@@ -13,9 +13,13 @@ from environment_definition.constants import (
     SIMULATION,
     UREG as ureg,
 )
-from environment_definition.constants.MISSION import los_theta_offsets_deg, primary_target_stripe_theta_offsets_deg
+from environment_definition.constants.MISSION import los_theta_offsets_deg
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.state_types import SimulationStateSeries
+from utils.geometry.mission_stripe_disk import (
+    primary_stripe_disk_phi_bounds_deg,
+    stripe_mid_observer_disk_xy_km_on_sphere,
+)
 
 if __package__:
     from ._closeup_view import build_closeup_panel, update_closeup_panel
@@ -88,7 +92,8 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
     traj_off_deg_hi = float(np.rad2deg(np.max(theta_rel)))
     frame_lo_deg = min(START_ANGLE_DEG, END_ANGLE_DEG, traj_off_deg_lo, traj_off_deg_hi)
     frame_hi_deg = max(START_ANGLE_DEG, END_ANGLE_DEG, traj_off_deg_lo, traj_off_deg_hi)
-    tgt_lo_deg, tgt_hi_deg = primary_target_stripe_theta_offsets_deg()
+    tgt_lo_deg, tgt_hi_deg = primary_stripe_disk_phi_bounds_deg()
+    obs_xy = stripe_mid_observer_disk_xy_km_on_sphere(earth_radius_km=R_EARTH_KM)
     STATIC_SCENE = {
         "R_earth": R_EARTH_KM,
         "R_orbit": R_ORBIT_KM,
@@ -97,9 +102,9 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
         "end_angle_deg": frame_hi_deg,
         "target_region_start_angle_deg": float(tgt_lo_deg),
         "target_region_end_angle_deg": float(tgt_hi_deg),
-        "observer_x": 0.0,
-        "observer_y": R_EARTH_KM,
-        "observer_pos": np.array([0.0, R_EARTH_KM], dtype=float),
+        "observer_x": float(obs_xy[0]),
+        "observer_y": float(obs_xy[1]),
+        "observer_pos": np.asarray(obs_xy, dtype=float),
         "cloud_models": [None] * N_CLOUDS,
         "n_clouds": N_CLOUDS,
         "n_bins": N_BINS,
