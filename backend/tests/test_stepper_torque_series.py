@@ -10,7 +10,7 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
-from environment_definition.constants.MISSION import mission_target_window_deg
+from environment_definition.constants.MISSION import los_theta_offsets_deg
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.stepper import SimulationStepper
 
@@ -18,7 +18,7 @@ from simulation.stepper import SimulationStepper
 class SimulationStepperTorqueSeriesTest(unittest.TestCase):
     def test_wheel_torque_cmd_nm_indexed_per_step(self) -> None:
         theta_center = float(SIMULATION.theta_center.to(ureg.rad).magnitude)
-        start_angle_deg, end_angle_deg = mission_target_window_deg(
+        start_angle_deg, end_angle_deg = los_theta_offsets_deg(
             orbit_height=SATELLITE_ALTITUDE,
             margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
         )

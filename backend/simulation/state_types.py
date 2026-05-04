@@ -64,9 +64,12 @@ class SimulationStateSeries:
     sat_subpoint_lat_deg : np.ndarray
     sat_subpoint_lon_deg : np.ndarray
     sat_altitude_m : np.ndarray
-    camera_ground_left_lat_lon_deg : np.ndarray
-    camera_ground_right_lat_lon_deg : np.ndarray
-    camera_ground_center_lat_lon_deg : np.ndarray
+    # Columns are ``(lon_deg, lat_deg)`` — pyproj / ``Geod`` argument order. When the center
+    # footprint intersects Earth (finite ``camera_ground_center_xy_km``), rows duplicate the
+    # subsatellite point; distinct footprint corners are not recovered from chord XY in this 2D model.
+    camera_ground_left_lon_lat_deg: np.ndarray
+    camera_ground_right_lon_lat_deg: np.ndarray
+    camera_ground_center_lon_lat_deg: np.ndarray
     target_area_intersection_ratio : np.ndarray
     target_area_novelty_ratio : np.ndarray
 
@@ -129,12 +132,12 @@ class SimulationStateSeries:
             raise ValueError("sat_subpoint_lon_deg must have length n.")
         if self.sat_altitude_m.shape[0] != n:
             raise ValueError("sat_altitude_m must have length n.")
-        if self.camera_ground_left_lat_lon_deg.shape != (n, 2):
-            raise ValueError("camera_ground_left_lat_lon_deg must have shape (n,2).")
-        if self.camera_ground_right_lat_lon_deg.shape != (n, 2):
-            raise ValueError("camera_ground_right_lat_lon_deg must have shape (n,2).")
-        if self.camera_ground_center_lat_lon_deg.shape != (n, 2):
-            raise ValueError("camera_ground_center_lat_lon_deg must have shape (n,2).")
+        if self.camera_ground_left_lon_lat_deg.shape != (n, 2):
+            raise ValueError("camera_ground_left_lon_lat_deg must have shape (n,2).")
+        if self.camera_ground_right_lon_lat_deg.shape != (n, 2):
+            raise ValueError("camera_ground_right_lon_lat_deg must have shape (n,2).")
+        if self.camera_ground_center_lon_lat_deg.shape != (n, 2):
+            raise ValueError("camera_ground_center_lon_lat_deg must have shape (n,2).")
         if self.target_area_intersection_ratio.shape[0] != n:
             raise ValueError("target_area_intersection_ratio must have length n.")
         if self.target_area_novelty_ratio.shape[0] != n:

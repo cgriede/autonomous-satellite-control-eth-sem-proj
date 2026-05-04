@@ -1,4 +1,3 @@
-
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon, FancyArrowPatch
@@ -23,13 +22,16 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     theta_center = scene["theta_center"]
     start_angle_deg = scene["start_angle_deg"]
     end_angle_deg = scene["end_angle_deg"]
-    target_arc_xy = scene["target_arc_xy"]
+    observer_x = scene["observer_x"]
+    observer_y = scene["observer_y"]
     cloud_models = scene["cloud_models"]
+    tgt_a_deg = float(scene["target_region_start_angle_deg"])
+    tgt_b_deg = float(scene["target_region_end_angle_deg"])
 
-    # framing
+    # framing (orbit-plane cross-section; matches simulation ``camera_2d`` disk XY)
     theta_window = np.linspace(
-        theta_center + np.deg2rad(start_angle_deg) - 0.5 * np.pi,
-        theta_center + np.deg2rad(end_angle_deg) - 0.5 * np.pi,
+        theta_center + np.deg2rad(start_angle_deg),
+        theta_center + np.deg2rad(end_angle_deg),
         721,
     )
     x_render = R_orbit * np.cos(theta_window)
@@ -83,17 +85,9 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     ax.text(legend_x0, legend_y0 + legend_len_y + 0.005, "y", transform=ax.transAxes,
             color=RENDER.info_text_color, fontsize=8, ha="left", va="bottom",
             zorder=RENDER.zorder_info)
-    ax.text(
-        legend_x0 + legend_len_x * 0.45,
-        legend_y0 - 0.038,
-        "Azimuthal (N-pole) proj — x:right (lon=0→+x), y:into plane (lon=90°→+y)",
-        transform=ax.transAxes,
-        color=RENDER.info_text_color,
-        fontsize=7,
-        ha="left",
-        va="top",
-        zorder=RENDER.zorder_info,
-    )
+    ax.text(legend_x0 + legend_len_x * 0.45, legend_y0 - 0.038, "XY plane (z=0)",
+            transform=ax.transAxes, color=RENDER.info_text_color, fontsize=7,
+            ha="left", va="top", zorder=RENDER.zorder_info)
 
     # static stars
     star_rng = np.random.default_rng(RENDER.star_rng_seed)
@@ -136,28 +130,25 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         zorder=RENDER.zorder_earth_outline
     ))
 
-    # static target stripe on the Earth disk.
-    artists["target_arc"], = ax.plot(
-        target_arc_xy[0],
-        target_arc_xy[1],
-        color="red",
-        linewidth=max(1.0, float(RENDER.observer_marker_edge_width)),
+    # Reward-aligned observation target band on Earth rim (stripe λ → θ offsets via MISSION).
+    th0 = theta_center + np.deg2rad(tgt_a_deg)
+    th1 = theta_center + np.deg2rad(tgt_b_deg)
+    n_arc = max(16, int(min(256, 4 * abs(float(tgt_b_deg - tgt_a_deg)) + 8)))
+    theta_tgt = np.linspace(th0, th1, n_arc, dtype=float)
+    tx = R_earth * np.cos(theta_tgt)
+    ty = R_earth * np.sin(theta_tgt)
+    ax.plot(
+        tx,
+        ty,
+        color=RENDER.observer_color,
+        linewidth=max(1.8, float(RENDER.observer_marker_edge_width)),
+        solid_capstyle="round",
         zorder=RENDER.zorder_observer,
     )
 
-    # highlight target center for visibility
-    tgt_cx = float(np.mean(target_arc_xy[0])) if len(target_arc_xy[0]) > 0 else 0.0
-    tgt_cy = float(np.mean(target_arc_xy[1])) if len(target_arc_xy[1]) > 0 else 0.0
-    artists["target_center"], = ax.plot([tgt_cx], [tgt_cy], marker="o", markersize=6, color="red", zorder=RENDER.zorder_observer + 1)
-
     # --- dynamic artists (returned) ---
-    artists["sat"], = ax.plot([], [], RENDER.sat_marker_style, markersize=RENDER.sat_marker_size, label="Satellite")
-    artists["sat"].set_color("purple")
-    try:
-        artists["sat"].set_markeredgecolor("purple")
-        artists["sat"].set_markerfacecolor("purple")
-    except Exception:
-        pass
+    artists["sat"], = ax.plot([], [], RENDER.sat_marker_style,
+                            markersize=RENDER.sat_marker_size, label="Satellite")
 
     artists["obs_to_sat"], = ax.plot([], [], linestyle="--", color=RENDER.los_color,
                                     linewidth=RENDER.los_linewidth, alpha=RENDER.los_alpha,
@@ -165,7 +156,6 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
 
     artists["trail"], = ax.plot([], [], RENDER.trail_style,
                                 linewidth=RENDER.trail_linewidth, alpha=RENDER.trail_alpha)
-    artists["trail"].set_color("purple")
 
     # Cone params are static render config derived from optics constants.
     _vertical_fov_rad = pinhole_full_fov_rad(sensor_dim=SENSOR_HEIGHT, focal_length=FOCAL_LENGTH)

@@ -13,7 +13,11 @@ Mission and simulation settings that define randomness, geometry, and runtime be
 
 - **Altitude sampling:** uniform between `SATELLITE_ALTITUDE_LOWER_BOUND` and `SATELLITE_ALTITUDE_UPPER_BOUND` (see `environment_definition/constants/MISSION.py`).
 - **Current bounds:** 510 km–570 km (module load time samples once per process).
-- **Primary target (polar stripe):** the mission target is fixed to longitude `0` and spans latitude `90.0°` down to `89.65°N` (about 40 km of arc length). The renderer draws this as a curved red arc on the Earth disk. Simulation start/end are derived from the target edges plus the line-of-sight margin using the shared helper in `environment_definition/constants/MISSION.py`.
+- **Primary target (polar stripe):** fixed meridian longitude `LON_GLOBAL` = `0°`; latitude band `[OBSERVATION_TARGET_STRIPE_START_LAT, OBSERVATION_TARGET_STRIPE_END_LAT]` (see `environment_definition/constants/MISSION.py`).
+- **Episode orbit θ-extent (canonical rollouts):** `los_theta_offsets_deg(...)` in `environment_definition/constants/MISSION.py` — symmetric ±(`minimum_contact_angle` + `SIMULATION.contact_margin_angle`). Used by `simulation_runner`, training workers, and matches renderer LOS framing (`render_main`).
+- **Stripe-derived θ bounds (diagnostic):** `mission_target_latitude_bounds_deg` / `mission_target_window_deg` expand the polar stripe by contact angle + margin in latitude, then map λ→θ offset; **north saturation at 90° N makes this asymmetric**, so it must not drive episode length alone.
+- **Subsatellite latitude in stepper:** polar meridian model λ = 90° − |θ − θ_center| (wrapped), see `subsatellite_latitude_deg_polar_meridian` (`utils/flight_geometry/line_of_sight.py`).
+- **Renderer:** main orbit view uses orbit-plane disk XY consistent with `camera_2d` / `SimulationStateSeries` footprint km fields.
 - **Derived:** circular orbit speed from sampled altitude via `circular_orbital_speed_from_altitude` (`utils/leo_adapter/orbit_geometry.py`).
 - **Narrative goal (code comment):** maximize time with camera facing observer; Switzerland map center used in viz (`SIMULATION.switzerland_map`).
 

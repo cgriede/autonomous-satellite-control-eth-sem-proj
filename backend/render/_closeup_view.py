@@ -14,7 +14,6 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
 
     observer_x = scene["observer_x"]
     observer_y = scene["observer_y"]
-    target_line_length_km = float(scene["target_line_length_km"])
     cloud_models = scene["cloud_models"]
 
     ax.set_facecolor(RENDER.space_background)
@@ -35,13 +34,6 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         linewidth=RENDER.closeup_ground_line_linewidth,
         zorder=RENDER.zorder_closeup_ground,
     )
-    artists["target_line"], = ax.plot(
-        [0.0, target_line_length_km],
-        [0.0, 0.0],
-        color="red",
-        linewidth=2.0,
-        zorder=RENDER.zorder_closeup_ground + 1,
-    )
 
     # store projector so update code can reuse it
     def project_xy_to_closeup(x_world_km: float, y_world_km: float):
@@ -58,6 +50,30 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         0.02, 0.02, "YZ plane (x=0)",
         transform=ax.transAxes, color=RENDER.info_text_color,
         fontsize=7, va="bottom", ha="left",
+    )
+
+    # Target band on Earth rim, projected into observer-local close-up coords (same as cone base).
+    R_earth = float(scene["R_earth"])
+    theta_center = float(scene["theta_center"])
+    tgt_a = float(scene["target_region_start_angle_deg"])
+    tgt_b = float(scene["target_region_end_angle_deg"])
+    th_arc = np.linspace(
+        theta_center + np.deg2rad(tgt_a),
+        theta_center + np.deg2rad(tgt_b),
+        max(12, int(min(96, 4 * abs(tgt_b - tgt_a) + 8))),
+        dtype=float,
+    )
+    xe = R_earth * np.cos(th_arc)
+    ye = R_earth * np.sin(th_arc)
+    hl = xe - observer_x
+    vl = ye - observer_y
+    ax.plot(
+        hl,
+        vl,
+        color=RENDER.observer_color,
+        linewidth=max(1.8, float(RENDER.observer_marker_edge_width)),
+        solid_capstyle="round",
+        zorder=RENDER.zorder_closeup_observer,
     )
 
     # dynamic: cone + hit marker + LOS

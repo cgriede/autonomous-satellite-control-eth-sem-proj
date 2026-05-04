@@ -19,7 +19,7 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
-from environment_definition.constants.MISSION import mission_target_window_deg
+from environment_definition.constants.MISSION import los_theta_offsets_deg
 from environment_definition.constants.SIMULATION import (
     OBSERVATION_CLOUD,
     OBSERVATION_EARTH,
@@ -221,7 +221,7 @@ def run_episode(
 
     theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
     run_satellite_altitude = satellite_altitude if satellite_altitude is not None else SATELLITE_ALTITUDE
-    start_angle_deg, end_angle_deg = mission_target_window_deg(
+    start_angle_deg, end_angle_deg = los_theta_offsets_deg(
         orbit_height=run_satellite_altitude,
         margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
     )

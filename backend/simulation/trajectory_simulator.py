@@ -9,6 +9,7 @@ from environment_definition.constants.SIMULATION import (
     OBSERVATION_LINE_NOT_COMPUTED,
 )
 from environment_definition.constants.MISSION import LON_GLOBAL
+from utils.flight_geometry.line_of_sight import subsatellite_latitude_deg_polar_meridian
 from .state_types import SimulationMetadata, SimulationStateSeries
 
 
@@ -98,11 +99,13 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     center_idx = int(n_bins // 2)
     fixed_ground_line_codes[:, center_idx] = np.int8(FIXED_GROUND_CONE_HIT_EARTH)
     sat_subpoint_lon_deg = np.full(n, float(LON_GLOBAL), dtype=float)
-    sat_subpoint_lat_deg = np.rad2deg(theta_orbit_rad).astype(float)
+    sat_subpoint_lat_deg = subsatellite_latitude_deg_polar_meridian(
+        theta_orbit_rad, theta_center_rad=float(config.theta_center_rad)
+    )
     sat_altitude_m = np.full(n, float(config.sat_altitude_km * 1000.0), dtype=float)
-    camera_ground_left_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
-    camera_ground_right_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
-    camera_ground_center_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
+    camera_ground_left_lon_lat_deg = np.full((n, 2), np.nan, dtype=float)
+    camera_ground_right_lon_lat_deg = np.full((n, 2), np.nan, dtype=float)
+    camera_ground_center_lon_lat_deg = np.full((n, 2), np.nan, dtype=float)
     target_area_intersection_ratio = np.zeros(n, dtype=float)
     target_area_novelty_ratio = np.zeros(n, dtype=float)
     n_clouds = len(SIMULATION.clouds)
@@ -133,9 +136,9 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         sat_subpoint_lat_deg=sat_subpoint_lat_deg,
         sat_subpoint_lon_deg=sat_subpoint_lon_deg,
         sat_altitude_m=sat_altitude_m,
-        camera_ground_left_lat_lon_deg=camera_ground_left_lat_lon_deg,
-        camera_ground_right_lat_lon_deg=camera_ground_right_lat_lon_deg,
-        camera_ground_center_lat_lon_deg=camera_ground_center_lat_lon_deg,
+        camera_ground_left_lon_lat_deg=camera_ground_left_lon_lat_deg,
+        camera_ground_right_lon_lat_deg=camera_ground_right_lon_lat_deg,
+        camera_ground_center_lon_lat_deg=camera_ground_center_lon_lat_deg,
         target_area_intersection_ratio=target_area_intersection_ratio,
         target_area_novelty_ratio=target_area_novelty_ratio,
         cloud_arc_radius_km=cloud_arc_radius_km,

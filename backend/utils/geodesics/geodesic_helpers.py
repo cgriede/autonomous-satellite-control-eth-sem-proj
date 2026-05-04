@@ -250,11 +250,40 @@ def lonlat_to_z0_plane_angle_deg(lon: "Quantity", lat: "Quantity") -> float:
 
 
 def xy_km_to_plane_angle_deg(xy_km: np.ndarray) -> float:
-    """Same convention as ``SimulationStepper._xy_to_equatorial_lat_lon_deg`` longitude-from-xy."""
+    """_plane xy plane polar angle ``deg(arctan2(y,x))`` (legacy circle-stripe helper)."""
     p = np.asarray(xy_km, dtype=float).reshape(2)
     if not np.all(np.isfinite(p)):
         return float("nan")
     return float(np.rad2deg(np.arctan2(float(p[1]), float(p[0]))))
+
+
+def polar_azimuthal_plane_xy_km_to_lon_lat_deg(
+    xy_km: np.ndarray,
+    *,
+    radius_km: float,
+) -> np.ndarray:
+    """
+    Inverse of the renderer's north-polar azimuthal map at fixed spherical radius.
+
+    Matches ``render_main._latlonz_to_render_xy``: radial = (π/2 − lat)·radius,
+    azimuth = lon. Returns ``array([lon_deg, lat_deg])`` (pyproj / Geod order).
+
+    Use only for renderer polar-map XY. Earth-disk intersection ``(x, y)`` from ``camera_2d``
+    lives in a different plane model; map those with footprint helpers tied to that geometry,
+    not this inverse.
+    """
+    p = np.asarray(xy_km, dtype=float).reshape(2)
+    if not np.all(np.isfinite(p)):
+        return np.array([np.nan, np.nan], dtype=float)
+    x, y = float(p[0]), float(p[1])
+    rr = float(radius_km)
+    if rr <= 0.0:
+        return np.array([np.nan, np.nan], dtype=float)
+    lon_deg = float(np.rad2deg(np.arctan2(y, x)))
+    r_xy = float(np.hypot(x, y))
+    lat_rad = 0.5 * np.pi - r_xy / rr
+    lat_deg = float(np.rad2deg(lat_rad))
+    return np.array([lon_deg, lat_deg], dtype=float)
 
 
 def minor_arc_length_deg(phi0_deg: float, phi1_deg: float) -> float:

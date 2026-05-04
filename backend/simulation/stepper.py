@@ -31,10 +31,8 @@ from .reward_kernel import RewardKernel
 from .scheduler import resolve_controller_interval_steps
 from .sensor_kernel import SensorKernel
 from .state_types import SimulationMetadata, SimulationStateSeries, SimulationTimestepState
-from utils.geodesics.geodesic_helpers import (
-    circle_stripe_footprint_overlap_ratio,
-    xy_km_to_plane_angle_deg,
-)
+from utils.geodesics.geodesic_helpers import circle_stripe_footprint_overlap_ratio
+from utils.flight_geometry.line_of_sight import subsatellite_latitude_deg_polar_meridian
 
 
 @dataclass(frozen=True)
@@ -95,6 +93,7 @@ class SimulationStepper:
         if len(OBSERVATION_TARGET_AREAS) == 0:
             raise ValueError("MISSION.OBSERVATION_TARGET_AREAS must contain at least one target area.")
         self._sim_config = simulation_config
+        self._theta_center_rad = float(theta_center_rad)
         self._render_mode = str(
             simulation_config.render_mode.value
             if isinstance(simulation_config.render_mode, RenderMode)
@@ -173,9 +172,9 @@ class SimulationStepper:
         self._sat_subpoint_lat_deg = np.full(n, np.nan, dtype=float)
         self._sat_subpoint_lon_deg = np.full(n, np.nan, dtype=float)
         self._sat_altitude_m = np.full(n, np.nan, dtype=float)
-        self._camera_ground_left_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
-        self._camera_ground_right_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
-        self._camera_ground_center_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
+        self._camera_ground_left_lon_lat_deg = np.full((n, 2), np.nan, dtype=float)
+        self._camera_ground_right_lon_lat_deg = np.full((n, 2), np.nan, dtype=float)
+        self._camera_ground_center_lon_lat_deg = np.full((n, 2), np.nan, dtype=float)
         self._target_area_intersection_ratio = np.zeros(n, dtype=float)
         self._target_area_novelty_ratio = np.zeros(n, dtype=float)
 
@@ -189,8 +188,8 @@ class SimulationStepper:
         self._dt = self._sim_dt_s * ureg.s
         self._camera_pixel_ray_samples = int(camera_pixel_ray_samples)
         self._reward_cfg = reward_config if reward_config is not None else RewardConfig()
-        self._stripe_angle_start_deg = float(OBSERVATION_TARGET_STRIPE_START_LAT)
-        self._stripe_angle_end_deg = float(OBSERVATION_TARGET_STRIPE_END_LAT)
+        self._stripe_lat_min_deg = float(OBSERVATION_TARGET_STRIPE_START_LAT.to(self._ureg.deg).magnitude)
+        self._stripe_lat_max_deg = float(OBSERVATION_TARGET_STRIPE_END_LAT.to(self._ureg.deg).magnitude)
         self._target_area_visited_cells: set[tuple[int, int]] = set()
         self._earth_radius_km = float(r_earth_km)
         self._satellite_altitude = satellite_altitude
@@ -301,9 +300,9 @@ class SimulationStepper:
             sat_subpoint_lat_deg=self._sat_subpoint_lat_deg,
             sat_subpoint_lon_deg=self._sat_subpoint_lon_deg,
             sat_altitude_m=self._sat_altitude_m,
-            camera_ground_left_lat_lon_deg=self._camera_ground_left_lat_lon_deg,
-            camera_ground_right_lat_lon_deg=self._camera_ground_right_lat_lon_deg,
-            camera_ground_center_lat_lon_deg=self._camera_ground_center_lat_lon_deg,
+            camera_ground_left_lon_lat_deg=self._camera_ground_left_lon_lat_deg,
+            camera_ground_right_lon_lat_deg=self._camera_ground_right_lon_lat_deg,
+            camera_ground_center_lon_lat_deg=self._camera_ground_center_lon_lat_deg,
             target_area_intersection_ratio=self._target_area_intersection_ratio,
             target_area_novelty_ratio=self._target_area_novelty_ratio,
             cloud_arc_radius_km=self._cloud_arc_radius_km,
@@ -322,6 +321,7 @@ class SimulationStepper:
         )
 
     def _satellite_xy_km(self, k: int) -> np.ndarray:
+        """Orbit position in the satellite XY plane used by ``camera_2d`` (Earth disk centered at origin)."""
         return np.array(
             [
                 self._radius_km[k] * np.cos(self._theta_orbit_rad[k]),
@@ -329,15 +329,6 @@ class SimulationStepper:
             ],
             dtype=float,
         )
-
-    @staticmethod
-    def _xy_to_equatorial_lat_lon_deg(point_xy_km: np.ndarray) -> np.ndarray:
-        p = np.asarray(point_xy_km, dtype=float).reshape(2,)
-        if not np.all(np.isfinite(p)):
-            return np.array([np.nan, np.nan], dtype=float)
-        lat_deg = float(np.rad2deg(np.arctan2(p[1], p[0])))
-        lon_deg = float(cast(Any, LON_GLOBAL).magnitude)
-        return np.array([lat_deg, lon_deg], dtype=float)
 
     def _populate_camera_and_reward(self, *, k: int, prev_omega_wheel: Any) -> None:
         sat_pos_xy_km = self._satellite_xy_km(k)
@@ -367,30 +358,42 @@ class SimulationStepper:
         self._cloud_arc_radius_km[k, :] = sensor.cloud_arc_radius_km
         self._cloud_arc_start_rad[k, :] = sensor.cloud_arc_start_rad
         self._cloud_arc_end_rad[k, :] = sensor.cloud_arc_end_rad
-        sat_lat_lon = self._xy_to_equatorial_lat_lon_deg(sat_pos_xy_km)
-        left_lat_lon = self._xy_to_equatorial_lat_lon_deg(sensor.camera_ground_left_xy_km)
-        right_lat_lon = self._xy_to_equatorial_lat_lon_deg(sensor.camera_ground_right_xy_km)
-        center_lat_lon = self._xy_to_equatorial_lat_lon_deg(sensor.camera_ground_center_xy_km)
-        self._sat_subpoint_lat_deg[k] = float(sat_lat_lon[0])
-        self._sat_subpoint_lon_deg[k] = float(sat_lat_lon[1])
+        sat_lat_deg = float(
+            subsatellite_latitude_deg_polar_meridian(
+                self._theta_orbit_rad[k], theta_center_rad=self._theta_center_rad
+            )
+        )
+        sat_lon_deg = float(cast(Any, LON_GLOBAL).to(self._ureg.deg).magnitude)
+        left_lon_lat = np.array([sat_lon_deg, sat_lat_deg], dtype=float)
+        right_lon_lat = np.array([sat_lon_deg, sat_lat_deg], dtype=float)
+        center_lon_lat = np.array([sat_lon_deg, sat_lat_deg], dtype=float)
+        if not np.all(np.isfinite(sensor.camera_ground_center_xy_km)):
+            left_lon_lat[:] = np.nan
+            right_lon_lat[:] = np.nan
+            center_lon_lat[:] = np.nan
+        self._sat_subpoint_lat_deg[k] = sat_lat_deg
+        self._sat_subpoint_lon_deg[k] = sat_lon_deg
         self._sat_altitude_m[k] = float(self._satellite_altitude.to(self._ureg.m).magnitude)
-        self._camera_ground_left_lat_lon_deg[k, :] = left_lat_lon
-        self._camera_ground_right_lat_lon_deg[k, :] = right_lat_lon
-        self._camera_ground_center_lat_lon_deg[k, :] = center_lat_lon
-        if np.all(np.isfinite(left_lat_lon)) and np.all(np.isfinite(right_lat_lon)):
+        self._camera_ground_left_lon_lat_deg[k, :] = left_lon_lat
+        self._camera_ground_right_lon_lat_deg[k, :] = right_lon_lat
+        self._camera_ground_center_lon_lat_deg[k, :] = center_lon_lat
+        footprint_lr_xy_ok = np.all(np.isfinite(sensor.camera_ground_left_xy_km)) and np.all(
+            np.isfinite(sensor.camera_ground_right_xy_km)
+        )
+        if footprint_lr_xy_ok:
             intersection_ratio = circle_stripe_footprint_overlap_ratio(
                 footprint_left_xy_km=sensor.camera_ground_left_xy_km,
                 footprint_right_xy_km=sensor.camera_ground_right_xy_km,
-                stripe_angle_start_deg=float(self._stripe_angle_start_deg),
-                stripe_angle_end_deg=float(self._stripe_angle_end_deg),
+                stripe_angle_start_deg=float(self._stripe_lat_min_deg),
+                stripe_angle_end_deg=float(self._stripe_lat_max_deg),
             )
         else:
             intersection_ratio = 0.0
         self._target_area_intersection_ratio[k] = float(intersection_ratio)
         if intersection_ratio > 0.0:
-            center_lat_deg = xy_km_to_plane_angle_deg(sensor.camera_ground_center_xy_km)
+            center_lat_deg = float(center_lon_lat[1])
             if np.isfinite(center_lat_deg):
-                cell_lat = int(np.floor(float(center_lat_deg) * 10.0))
+                cell_lat = int(np.floor(center_lat_deg * 10.0))
             else:
                 cell_lat = 0
             cell = (cell_lat, 0)
@@ -404,8 +407,8 @@ class SimulationStepper:
         self._target_area_novelty_ratio[k] = novelty_ratio
         self._simulation_reward[k] = RewardKernel.evaluate(
             sat_pos_xy_km=sat_pos_xy_km,
-            sat_subpoint_lat_deg=float(sat_lat_lon[0]),
-            sat_subpoint_lon_deg=float(sat_lat_lon[1]),
+            sat_subpoint_lat_deg=float(sat_lat_deg),
+            sat_subpoint_lon_deg=float(sat_lon_deg),
             target_area_intersection_ratio=float(intersection_ratio),
             target_area_novelty_ratio=float(novelty_ratio),
             camera_observation_line_codes=sensor.camera_observation_line_codes,

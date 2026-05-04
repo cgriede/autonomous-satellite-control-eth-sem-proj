@@ -38,6 +38,14 @@ Source: `environment_definition/constants/EARTH.py`.
 
 ---
 
+# Geographic coordinates
+
+- **Canonical triple `(lon, lat, z)`:** longitude first, latitude second (matches **`pyproj.Geod.inv`** / **`Geod.fwd`** argument order). **`z`** is treated as **altitude above mean sea level** for mission-facing descriptions; episode arrays still store `sat_altitude_m` above the ellipsoid from mission altitude sampling—see `environment_definition/constants/MISSION.py` and `simulation/state_types.py`.
+- **Surface distance:** `utils/geodesics/geodesic_helpers.geodesic_distance(lon1, lat1, lon2, lat2)` uses the project **`geod`** (`environment_definition/constants/EARTH.py`).
+- **Camera footprint telemetry (`lon_deg`, `lat_deg`):** stored in `camera_ground_*_lon_lat_deg` (`SimulationStateSeries`) as **`(LON_GLOBAL, subsatellite latitude)`** when the nadir footprint intersects Earth (`camera_ground_center_xy_km` finite). The 2D orbit-disk model does not recover distinct geodetic corners from footprint chord `(x, y)` alone; use footprint XY fields for geometry on the disk.
+
+---
+
 # Traceability
 
 | Quantity | Primary code |

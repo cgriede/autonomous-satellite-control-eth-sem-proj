@@ -14,6 +14,7 @@ from utils.geodesics.geodesic_helpers import (
     GeodeticBoundingBox,
     lonlat_to_z0_plane_angle_deg,
     minor_arc_midpoint_deg,
+    polar_azimuthal_plane_xy_km_to_lon_lat_deg,
     sigma_deg_to_meters_north,
 )
 
@@ -231,6 +232,19 @@ class GeodesicHelpersTest(unittest.TestCase):
             n_samples=12,
         )
         self.assertLessEqual(ratio, 0.05)
+
+    def test_polar_azimuthal_roundtrip_lon_lat(self):
+        r_km = 6371.0
+        lat_deg = 89.0
+        lon_deg = 0.0
+        lat_r = np.deg2rad(lat_deg)
+        lon_r = np.deg2rad(lon_deg)
+        radial_km = (0.5 * np.pi - lat_r) * r_km
+        x = radial_km * np.cos(lon_r)
+        y = radial_km * np.sin(lon_r)
+        ll = polar_azimuthal_plane_xy_km_to_lon_lat_deg(np.array([x, y]), radius_km=r_km)
+        self.assertAlmostEqual(float(ll[0]), lon_deg, places=4)
+        self.assertAlmostEqual(float(ll[1]), lat_deg, places=4)
 
 
 if __name__ == "__main__":
