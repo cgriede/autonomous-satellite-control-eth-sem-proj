@@ -22,6 +22,7 @@ This repository separates **numeric simulation** from **rendering/visualization*
 - **Rendering** (`backend/render/*`)
   - View-only: consumes simulation outputs and draws/exports visuals.
   - Must not run numeric propagation/integration itself.
+  - Mission geometry comes from `backend/environment_definition/constants/MISSION.py`; the polar target stripe is rendered as a red arc on Earth, not a point marker.
   - If additional data is needed for visuals, extend the simulation output and/or the simulation entrypoint.
 
 ## Core invariants

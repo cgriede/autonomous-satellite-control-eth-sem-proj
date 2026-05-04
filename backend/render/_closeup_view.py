@@ -14,6 +14,7 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
 
     observer_x = scene["observer_x"]
     observer_y = scene["observer_y"]
+    target_line_length_km = float(scene["target_line_length_km"])
     cloud_models = scene["cloud_models"]
 
     ax.set_facecolor(RENDER.space_background)
@@ -34,6 +35,13 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         linewidth=RENDER.closeup_ground_line_linewidth,
         zorder=RENDER.zorder_closeup_ground,
     )
+    artists["target_line"], = ax.plot(
+        [0.0, target_line_length_km],
+        [0.0, 0.0],
+        color="red",
+        linewidth=2.0,
+        zorder=RENDER.zorder_closeup_ground + 1,
+    )
 
     # store projector so update code can reuse it
     def project_xy_to_closeup(x_world_km: float, y_world_km: float):
@@ -50,15 +58,6 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         0.02, 0.02, "YZ plane (x=0)",
         transform=ax.transAxes, color=RENDER.info_text_color,
         fontsize=7, va="bottom", ha="left",
-    )
-
-    # static observer at origin in closeup coords
-    ax.plot(
-        [0.0], [0.0],
-        marker="x", color=RENDER.observer_color,
-        markersize=RENDER.observer_marker_size * RENDER.observer_marker_render_scale,
-        markeredgewidth=RENDER.observer_marker_edge_width,
-        zorder=RENDER.zorder_closeup_observer,
     )
 
     # dynamic: cone + hit marker + LOS

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from tqdm import tqdm
@@ -10,11 +10,9 @@ from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, Random
 from autonomous_control.reward import RewardConfig
 from environment_definition.constants.MISSION import (
     OBSERVATION_TARGET_AREAS,
-    OBSERVATION_TARGETS,
+    LON_GLOBAL,
     OBSERVATION_TARGET_STRIPE_END_LAT,
-    OBSERVATION_TARGET_STRIPE_END_LON,
     OBSERVATION_TARGET_STRIPE_START_LAT,
-    OBSERVATION_TARGET_STRIPE_START_LON,
 )
 from environment_definition.constants.SIMULATION import (
     OBSERVATION_LINE_NOT_COMPUTED,
@@ -35,7 +33,6 @@ from .sensor_kernel import SensorKernel
 from .state_types import SimulationMetadata, SimulationStateSeries, SimulationTimestepState
 from utils.geodesics.geodesic_helpers import (
     circle_stripe_footprint_overlap_ratio,
-    lonlat_to_z0_plane_angle_deg,
     xy_km_to_plane_angle_deg,
 )
 
@@ -155,7 +152,7 @@ class SimulationStepper:
             omega_wheel=0.0 * ureg.rad / ureg.s,
         )
         self._body_z_angle_rad = np.empty(n, dtype=float)
-        self._body_z_angle_rad[0] = self._state.theta.to(ureg.rad).magnitude
+        self._body_z_angle_rad[0] = float(self._state.theta.to(ureg.rad).magnitude)
         self._simulation_reward = np.empty(n, dtype=float)
         self._simulation_reward[0] = 0.0
         self._wheel_torque_cmd_nm = np.zeros(n, dtype=float)
@@ -192,15 +189,8 @@ class SimulationStepper:
         self._dt = self._sim_dt_s * ureg.s
         self._camera_pixel_ray_samples = int(camera_pixel_ray_samples)
         self._reward_cfg = reward_config if reward_config is not None else RewardConfig()
-        self._target_angle_rad = float(OBSERVATION_TARGETS[0].angle.to(ureg.rad).magnitude)
-        self._stripe_angle_start_deg = lonlat_to_z0_plane_angle_deg(
-            OBSERVATION_TARGET_STRIPE_START_LON,
-            OBSERVATION_TARGET_STRIPE_START_LAT,
-        )
-        self._stripe_angle_end_deg = lonlat_to_z0_plane_angle_deg(
-            OBSERVATION_TARGET_STRIPE_END_LON,
-            OBSERVATION_TARGET_STRIPE_END_LAT,
-        )
+        self._stripe_angle_start_deg = float(OBSERVATION_TARGET_STRIPE_START_LAT)
+        self._stripe_angle_end_deg = float(OBSERVATION_TARGET_STRIPE_END_LAT)
         self._target_area_visited_cells: set[tuple[int, int]] = set()
         self._earth_radius_km = float(r_earth_km)
         self._satellite_altitude = satellite_altitude
@@ -283,7 +273,7 @@ class SimulationStepper:
         )
         self._index = next_idx
         self._wheel_torque_cmd_nm[self._index] = self._last_torque_nm
-        self._body_z_angle_rad[self._index] = self._state.theta.to(self._ureg.rad).magnitude
+        self._body_z_angle_rad[self._index] = float(self._state.theta.to(self._ureg.rad).magnitude)
         self._populate_camera_and_reward(k=self._index, prev_omega_wheel=prev_omega_wheel)
         if self._index >= (self._t_s.shape[0] - 1):
             self._done = True
@@ -345,8 +335,8 @@ class SimulationStepper:
         p = np.asarray(point_xy_km, dtype=float).reshape(2,)
         if not np.all(np.isfinite(p)):
             return np.array([np.nan, np.nan], dtype=float)
-        lon_deg = float(np.rad2deg(np.arctan2(p[1], p[0])))
-        lat_deg = 0.0
+        lat_deg = float(np.rad2deg(np.arctan2(p[1], p[0])))
+        lon_deg = float(cast(Any, LON_GLOBAL).magnitude)
         return np.array([lat_deg, lon_deg], dtype=float)
 
     def _populate_camera_and_reward(self, *, k: int, prev_omega_wheel: Any) -> None:
@@ -360,7 +350,6 @@ class SimulationStepper:
             earth_radius_km=self._earth_radius_km,
             sim_time_s=float(self._t_s[k]),
             sim_total_s=self._sim_total_s,
-            target_angle_rad=self._target_angle_rad,
             n_bins=int(self._camera_observation_line_codes.shape[1]),
             n_clouds=int(self._cloud_arc_radius_km.shape[1]),
             camera_pixel_ray_samples=self._camera_pixel_ray_samples,
@@ -399,12 +388,12 @@ class SimulationStepper:
             intersection_ratio = 0.0
         self._target_area_intersection_ratio[k] = float(intersection_ratio)
         if intersection_ratio > 0.0:
-            center_angle_deg = xy_km_to_plane_angle_deg(sensor.camera_ground_center_xy_km)
-            if np.isfinite(center_angle_deg):
-                cell_lon = int(np.floor(float(center_angle_deg) * 10.0))
+            center_lat_deg = xy_km_to_plane_angle_deg(sensor.camera_ground_center_xy_km)
+            if np.isfinite(center_lat_deg):
+                cell_lat = int(np.floor(float(center_lat_deg) * 10.0))
             else:
-                cell_lon = 0
-            cell = (0, cell_lon)
+                cell_lat = 0
+            cell = (cell_lat, 0)
             if cell in self._target_area_visited_cells:
                 novelty_ratio = 0.0
             else:

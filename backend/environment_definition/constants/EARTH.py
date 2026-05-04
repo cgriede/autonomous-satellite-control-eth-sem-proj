@@ -6,5 +6,7 @@ AVERAGE_EARTH_RADIUS = 6371.0088* ureg.km
 EARTH_RADIUS = AVERAGE_EARTH_RADIUS
 EARTH_GRAVITATIONAL_PARAMETER = 398600.4418* ureg.km**3/ureg.s**2
 
+
+
 # ellipsoid definition relevant for coordinate conversions
 geod = Geod(ellps="WGS84")

@@ -25,7 +25,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--iters", type=int, default=200)
     parser.add_argument("--n-bins", type=int, default=SIMULATION.camera_observation_line_n_bins)
     parser.add_argument("--ray-samples", type=int, default=SIMULATION.camera_pixel_ray_samples)
-    parser.add_argument("--target-angle-rad", type=float, default=float(np.deg2rad(90.0)))
     return parser.parse_args()
 
 
@@ -48,7 +47,7 @@ def _bench_strip(*, backend: str, iters: int, ray_samples: int) -> float:
     return time.perf_counter() - started
 
 
-def _bench_line(*, backend: str, iters: int, n_bins: int, target_angle_rad: float) -> float:
+def _bench_line(*, backend: str, iters: int, n_bins: int) -> float:
     sat_xy = np.array([6800.0, 200.0], dtype=float)
     bore = np.array([-1.0, 0.0], dtype=float)
     earth_r = float(EARTH_RADIUS.to(ureg.km).magnitude)
@@ -66,7 +65,6 @@ def _bench_line(*, backend: str, iters: int, n_bins: int, target_angle_rad: floa
             earth_radius_km=earth_r,
             sim_time_s=float(i),
             sim_total_s=float(iters),
-            target_angle_rad=float(target_angle_rad),
             n_bins=int(n_bins),
             cloud_arc_specs=cloud_specs,
             kernel_backend=backend,
@@ -82,7 +80,6 @@ def main() -> None:
             backend=backend,
             iters=args.iters,
             n_bins=args.n_bins,
-            target_angle_rad=args.target_angle_rad,
         )
         print(
             f"[{backend}] strip={strip_t:.4f}s line={line_t:.4f}s total={strip_t + line_t:.4f}s"

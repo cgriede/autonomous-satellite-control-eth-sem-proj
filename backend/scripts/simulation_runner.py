@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 import sys
+# Keep normal runs quiet; the debug wrapper can still raise this to DEBUG.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(name)s - %(message)s'
+)
+
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -16,9 +23,9 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
+from environment_definition.constants.MISSION import mission_target_window_deg
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.run_simulation import run_simulation
-from utils.flight_geometry.line_of_sight import minimum_contact_angle
 
 
 def _configure_matplotlib_backend(*, render_mode: RenderMode) -> None:
@@ -30,11 +37,10 @@ def _configure_matplotlib_backend(*, render_mode: RenderMode) -> None:
 
 def _run_sat_simulation(*, simulation_config: SimulationConfig):
     theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
-    alpha = minimum_contact_angle(observer_height=0.0 * ureg.km, orbit_height=SATELLITE_ALTITUDE)
-    contact_half_angle_deg = alpha.to(ureg.deg).magnitude
-    margin_deg = SIMULATION.contact_margin_angle.to(ureg.deg).magnitude
-    start_angle_deg = -(contact_half_angle_deg + margin_deg)
-    end_angle_deg = contact_half_angle_deg + margin_deg
+    start_angle_deg, end_angle_deg = mission_target_window_deg(
+        orbit_height=SATELLITE_ALTITUDE,
+        margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
+    )
 
     return run_simulation(
         simulation_config=simulation_config,

@@ -1,4 +1,0 @@
-stage,episode,total_reward,average_reward,steps
-train,1,0.0,0.0,753
-train,2,0.0,0.0,753
-train,3,0.0,0.0,753

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import sys
-from typing import Any
+from typing import Any, cast
+from rich.pretty import pprint
 
 import numpy as np
 import torch
@@ -18,6 +19,7 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
+from environment_definition.constants.MISSION import mission_target_window_deg
 from environment_definition.constants.SIMULATION import (
     OBSERVATION_CLOUD,
     OBSERVATION_EARTH,
@@ -29,7 +31,6 @@ from environment_definition.mission_profiles.mission_1_random_fl import SATELLIT
 from simulation.stepper import SimulationStepper
 from simulation.state_types import SimulationTimestepState
 from simulation.state_types import SimulationStateSeries
-from utils.flight_geometry.line_of_sight import minimum_contact_angle
 
 from .feature_selection import ControllerFeatureConfig, select_controller_inputs_from_timestep
 from .reward import RewardConfig
@@ -50,15 +51,18 @@ def controller_observation_dim(
     cfg = feature_config if feature_config is not None else ControllerFeatureConfig()
     obs_dim = 0
     n_bins = int(SIMULATION.camera_observation_line_n_bins)
+
     for key in cfg.selected_keys:
         if key == "camera_observation_line_codes":
-            obs_dim += n_bins * len(_OBSERVATION_CODE_ORDER)
+            # one value per line, NOT one-hot
+            obs_dim += n_bins
         elif key == "camera_ground_center_xy_km":
             raise ValueError(
                 "camera_ground_center_xy_km is not available on SimulationTimestepState."
             )
         else:
             obs_dim += 1
+
     return obs_dim
 
 
@@ -71,20 +75,6 @@ def _in_notebook() -> bool:
     if shell is None:
         return False
     return shell.__class__.__name__ == "ZMQInteractiveShell"
-
-
-def _encode_line_codes_one_hot(line_codes: Any) -> np.ndarray:
-    codes = np.asarray(line_codes, dtype=np.int8).reshape(-1)
-    n_bins = int(SIMULATION.camera_observation_line_n_bins)
-    if codes.shape[0] != n_bins:
-        raise ValueError(
-            f"Expected {n_bins} camera observation bins, got {codes.shape[0]}."
-        )
-    one_hot = np.zeros((n_bins, len(_OBSERVATION_CODE_ORDER)), dtype=np.float32)
-    for code_idx, code_val in enumerate(_OBSERVATION_CODE_ORDER):
-        one_hot[:, code_idx] = (codes == code_val).astype(np.float32)
-    return one_hot.reshape(-1)
-
 
 def build_state_vector_from_timestep(
     *,
@@ -99,8 +89,10 @@ def build_state_vector_from_timestep(
     flat_features: list[float] = []
     for key, value in selected.items():
         if key == "camera_observation_line_codes":
-            flat_features.extend(_encode_line_codes_one_hot(value).tolist())
+            arr: np.ndarray = np.asarray(value, dtype=np.float32).reshape(-1)
+            flat_features.extend(arr.tolist())
             continue
+
         if isinstance(value, (bool, int, float, np.generic)):
             flat_features.append(float(value))
             continue
@@ -178,7 +170,7 @@ def make_attitude_control_env(
     _ = reward_config
     obs_dim = controller_observation_dim()
     high = np.full((obs_dim,), np.finfo(np.float32).max, dtype=np.float32)
-    tau_max_nm = float(SATELLITE.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude)
+    tau_max_nm = float(cast(Any, SATELLITE.reaction_wheel_max_torque).to(ureg.N * ureg.m).magnitude)
 
     @dataclass(frozen=True)
     class _EnvAdapter:
@@ -229,11 +221,10 @@ def run_episode(
 
     theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
     run_satellite_altitude = satellite_altitude if satellite_altitude is not None else SATELLITE_ALTITUDE
-    alpha = minimum_contact_angle(observer_height=0.0 * ureg.km, orbit_height=run_satellite_altitude)
-    contact_half_angle_deg = alpha.to(ureg.deg).magnitude
-    margin_deg = SIMULATION.contact_margin_angle.to(ureg.deg).magnitude
-    start_angle_deg = -(contact_half_angle_deg + margin_deg)
-    end_angle_deg = contact_half_angle_deg + margin_deg
+    start_angle_deg, end_angle_deg = mission_target_window_deg(
+        orbit_height=run_satellite_altitude,
+        margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
+    )
     stepper = SimulationStepper(
         simulation_config=SimulationConfig(
             render_mode=RenderMode.HEADLESS,
@@ -275,22 +266,27 @@ def run_episode(
     )
     if verbose_print == 0:
         progress_bar.write(f"[run_episode] start mode={mode} max_steps={episode_total_steps}")
-    warmup_policy = None
+    warmup_policy: Any | None = None
     if mode == "warmup" and warmup_controller == "baseline":
         from .controller_baselines import MaxTorqueSweepPolicy
 
         warmup_policy = MaxTorqueSweepPolicy(env, period_s=float(warmup_baseline_period_s))
         warmup_policy.reset_episode()
+    elif mode == "warmup" and warmup_controller == "random":
+        from .controller_baselines import RandomTorquePolicy
 
+        warmup_policy = RandomTorquePolicy(env, rng=episode_rng)
+        warmup_policy.reset_episode()
+        
     try:
         while not stepper.done and steps < int(episode_total_steps):
             if stepper.should_update_controller():
                 if mode == "warmup":
-                    if warmup_policy is not None:
-                        action_vec = warmup_policy.get_action(obs, train=False)
-                        current_action_nm = float(np.asarray(action_vec, dtype=np.float64).reshape(-1)[0])
-                    else:
-                        current_action_nm = float(episode_rng.uniform(-1.0, 1.0))
+                    if warmup_policy is None:
+                        raise RuntimeError("warmup_policy must be configured in warmup mode.")
+                    action_vec = warmup_policy.get_action(obs, train=False)
+                    current_action_nm = float(np.asarray(action_vec, dtype=np.float64).reshape(-1)[0])
+
                 else:
                     action_vec = agent.get_action(obs, train=train_mode)
                     current_action_nm = float(np.asarray(action_vec, dtype=np.float64).reshape(-1)[0])
@@ -299,6 +295,13 @@ def run_episode(
                 timestep=next_ts,
                 feature_config=feature_config,
             )
+
+            #DEBUG INSTRUMENTATION
+            if steps % 100 == 0 or stepper.done:
+                pprint(f"Step {steps}:")
+                pprint(f"  Action (Nm): {current_action_nm:.6f}")
+                pprint(next_obs)
+
             reward = float(next_ts.reward)
             done = bool(stepper.done)
             episode_return += reward

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -27,14 +27,14 @@ from .SATELLITE import FOCAL_LENGTH, SENSOR_HEIGHT
 
 @dataclass(frozen=True)
 class Cloud:
-    height: object
-    start_location: object
-    end_location: object
+    height: Any
+    start_location: Any
+    end_location: Any
 
 @dataclass(frozen=True)
 class Location:
-    location: object
-    parent_body: object
+    location: Any
+    parent_body: Any
 
 
 @dataclass(frozen=True)
@@ -43,8 +43,8 @@ class BodyLocation(Location):
 
 @dataclass(frozen=True)
 class FieldOfViewCone:
-    opening_angle: object
-    body_location: object = None
+    opening_angle: Any
+    body_location: Any = None
 
 
 @dataclass(frozen=True)
@@ -55,16 +55,16 @@ class SwitzerlandMap:
 
 @dataclass(frozen=True)
 class SimulationConstants:
-    theta_center: object
+    theta_center: Any
     sat_motion_span_scale: float
-    contact_margin_angle: object
-    simulation_timestep: object
-    controller_update_interval: object
-    sat_z_offset: object
-    field_of_view_cone: FieldOfViewCone
-    cone_length: object
-    z_axis_length: object
-    switzerland_map: SwitzerlandMap
+    contact_margin_angle: Any
+    simulation_timestep: Any
+    controller_update_interval: Any
+    sat_z_offset: Any
+    field_of_view_cone: Any
+    cone_length: Any
+    z_axis_length: Any
+    switzerland_map: Any
     clouds: tuple[Cloud, ...]
     export_speed_multiplier: float
     # Rays sampled along the sensor column for camera strip cloud-blocked stats (see simulation.camera_2d).

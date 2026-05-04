@@ -61,7 +61,6 @@ class SensorKernel:
         earth_radius_km: float,
         sim_time_s: float,
         sim_total_s: float,
-        target_angle_rad: float,
         n_bins: int,
         n_clouds: int,
         camera_pixel_ray_samples: int,
@@ -92,7 +91,6 @@ class SensorKernel:
             earth_radius_km=earth_radius_km,
             sim_time_s=sim_time_s,
             sim_total_s=sim_total_s,
-            target_angle_rad=target_angle_rad,
             n_bins=n_bins,
             cloud_arc_specs=cloud_specs,
             kernel_backend=SIMULATION.camera_kernel_backend,
@@ -112,6 +110,9 @@ class SensorKernel:
             cloud_arc_end_rad[i] = float(spec["end_rad"])
 
         return SensorTimestepResult(
+            #state we feed into controller
+            camera_observation_line_codes=np.asarray(line_res.observation_types, dtype=np.int8),
+            #metadata we include in timestep state but don't feed into controller
             camera_gsd_m=float(cam.gsd_m),
             camera_ground_left_xy_km=np.asarray(cam.ground_left_xy_km, dtype=float),
             camera_ground_right_xy_km=np.asarray(cam.ground_right_xy_km, dtype=float),
@@ -120,7 +121,6 @@ class SensorKernel:
             camera_center_first_hit_is_cloud=bool(cam.center_first_hit_is_cloud),
             camera_center_ray_observation_code=np.int8(cam.center_ray_observation_code),
             camera_cloud_blocked_fraction=float(cam.cloud_blocked_fraction),
-            camera_observation_line_codes=np.asarray(line_res.observation_types, dtype=np.int8),
             fixed_ground_line_codes=fixed_codes,
             cloud_arc_radius_km=cloud_arc_radius_km,
             cloud_arc_start_rad=cloud_arc_start_rad,

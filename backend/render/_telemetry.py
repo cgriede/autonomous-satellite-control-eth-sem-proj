@@ -52,6 +52,7 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
                     f"  z angle rel nadir: {scene['z_angle_rel_nadir_deg']:+.1f} deg",
                     f"  LOS rel nadir: {scene['los_rel_nadir_deg']:+.1f} deg",
                     f"  Render window: {scene['render_window_text']}",
+                        f"  Render coords: azimuthal N-pole (x,right lon=0; y,into plane lon=90)",
                 ]
             ),
             "\n".join(

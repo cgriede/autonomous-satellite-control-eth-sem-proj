@@ -1,0 +1,2 @@
+stage,episode,total_reward,average_reward,steps,video
+warmup,1,nan,nan,1883,/home/cedric/code/auto-sat-control/backend/autonomous_control/models/nb-mpo-2026-05-04_13-06-12/warmup_01.mp4

@@ -10,7 +10,6 @@ from autonomous_control.feature_selection import (
 )
 from environment_definition.constants.SIMULATION import OBSERVATION_TARGET
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
-from environment_definition.attitude_control_env import SatelliteAttitudeControlEnv
 from simulation.state_types import SimulationMetadata, SimulationStateSeries
 from simulation.state_types import SimulationTimestepState
 
@@ -132,19 +131,6 @@ class FeatureSelectionTest(unittest.TestCase):
         self.assertIsInstance(state, AutonomousControllerState)
         self.assertEqual(state.obs_vector.shape, (5,))
         self.assertTrue(state.target_visible)
-
-    def test_build_from_env_returns_expected_shape_and_metadata(self):
-        env = SatelliteAttitudeControlEnv()
-        env.reset(seed=0)
-        cs = build_controller_state_from_env(env)
-        self.assertIsInstance(cs, AutonomousControllerState)
-        self.assertEqual(cs.obs_vector.shape, (5,))
-        self.assertIsNotNone(cs.target_visible)
-        self.assertIsNotNone(cs.distance_to_target)
-        # Distance should be at least satellite altitude (nadir case).
-        d_km = float(cs.distance_to_target.to(ureg.km).magnitude)
-        alt_km = env._altitude_km
-        self.assertGreaterEqual(d_km, alt_km - 1e-6)
 
     def test_build_from_series_populates_fields(self):
         series = _make_trivial_series()

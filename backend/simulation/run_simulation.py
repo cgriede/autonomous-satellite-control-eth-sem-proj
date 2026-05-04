@@ -23,13 +23,11 @@ def run_simulation(
     num_frames: int | None = None,
     sat_z_offset_deg: float,
     ureg: Any,
-    observer_target_angle_rad: float | None = None,
     camera_pixel_ray_samples: int = 96,
     camera_observation_line_n_bins: int | None = None,
     reward_config: RewardConfig | None = None,
 ) -> SimulationStateSeries:
     _ = num_frames  # compatibility: simulation now derives frame count from time-based config
-    _ = observer_target_angle_rad  # compatibility: mission targets now come from MISSION constants
     sim_config = simulation_config if simulation_config is not None else SimulationConfig()
     return run_baseline_rollout(
         simulation_config=sim_config,

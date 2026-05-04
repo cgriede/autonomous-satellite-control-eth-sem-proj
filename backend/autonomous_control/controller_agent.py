@@ -46,6 +46,7 @@ class MPOAgent:
     def __init__(self, env: Any, config: MPOConfig | None = None) -> None:
         self.config = config if config is not None else MPOConfig()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {self.device}")
 
         self.obs_size = int(np.prod(env.observation_space.shape))
         self.action_size = int(np.prod(env.action_space.shape))

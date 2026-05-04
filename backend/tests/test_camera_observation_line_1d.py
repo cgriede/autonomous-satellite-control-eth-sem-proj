@@ -1,8 +1,10 @@
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
 from environment_definition.constants import EARTH_RADIUS, OBSERVATION_LINE_NOT_COMPUTED
+from environment_definition.constants.MISSION import ObservationTargetArea
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from simulation.camera_2d import (
     observation_codes_to_ascii_line,
@@ -19,9 +21,6 @@ class CameraObservationLine1DTest(unittest.TestCase):
         sat_pos_xy_km = np.array([earth_radius_km + alt_km, 0.0], dtype=float)
         boresight_dir_unit_xy = np.array([1.0, 0.0], dtype=float)  # outward (+x)
 
-        # Target angle doesn't matter here; rays won't hit Earth anyway.
-        target_angle_rad = np.pi / 2.0
-
         result = simulate_camera_observation_line_1d(
             sat_pos_xy_km=sat_pos_xy_km,
             boresight_dir_unit_xy=boresight_dir_unit_xy,
@@ -29,7 +28,6 @@ class CameraObservationLine1DTest(unittest.TestCase):
             earth_radius_km=earth_radius_km,
             sim_time_s=0.0,
             sim_total_s=1.0,
-            target_angle_rad=target_angle_rad,
             n_bins=100,
             cloud_arc_specs=[],
             target_code=3,
@@ -50,42 +48,74 @@ class CameraObservationLine1DTest(unittest.TestCase):
         sat_pos_xy_km = np.array([earth_radius_km + alt_km, 0.0], dtype=float)
         boresight_dir_unit_xy = np.array([-1.0, 0.0], dtype=float)  # toward origin (nadir)
 
-        # Target point on Earth at theta=pi => (-R, 0).
-        target_angle_rad = np.pi
-
-        result = simulate_camera_observation_line_1d(
-            sat_pos_xy_km=sat_pos_xy_km,
-            boresight_dir_unit_xy=boresight_dir_unit_xy,
-            altitude=altitude,
-            earth_radius_km=earth_radius_km,
-            sim_time_s=0.0,
-            sim_total_s=1.0,
-            target_angle_rad=target_angle_rad,
-            n_bins=100,
-            cloud_arc_specs=[],
-            target_code=3,
-            earth_code=1,
-            space_code=0,
-            cloud_code=2,
-        )
+        with patch(
+            "simulation.camera_2d.OBSERVATION_TARGET_AREAS",
+            (
+                ObservationTargetArea(
+                    lat_min=-1.0 * ureg.deg,
+                    lat_max=1.0 * ureg.deg,
+                    label="test_band",
+                ),
+            ),
+        ):
+            result = simulate_camera_observation_line_1d(
+                sat_pos_xy_km=sat_pos_xy_km,
+                boresight_dir_unit_xy=boresight_dir_unit_xy,
+                altitude=altitude,
+                earth_radius_km=earth_radius_km,
+                sim_time_s=0.0,
+                sim_total_s=1.0,
+                n_bins=100,
+                cloud_arc_specs=[],
+                target_code=3,
+                earth_code=1,
+                space_code=0,
+                cloud_code=2,
+            )
 
         obs = result.observation_types
 
-        # With empty clouds and nadir-looking boresight, rays should hit Earth for all bins.
         self.assertFalse(np.any(obs == 0), "Expected no space bins when boresight hits Earth.")
         self.assertFalse(np.any(obs == 2), "Expected no cloud bins when cloud_arc_specs is empty.")
-
-        # For even 100-bin sampling with half-bin tolerance, target should cover the two bins
-        # immediately around boresight-relative angle 0.
-        self.assertEqual(int(obs[49]), 3)
-        self.assertEqual(int(obs[50]), 3)
-
-        # Bins one step away should fall outside tolerance and map to Earth.
-        self.assertEqual(int(obs[48]), 1)
-        self.assertEqual(int(obs[51]), 1)
-
-        # Sanity: only {earth, target} codes appear.
+        self.assertTrue(np.any(obs == 3), "Expected at least one target bin inside the latitude band.")
         self.assertTrue(set(int(x) for x in obs.tolist()).issubset({1, 3}))
+
+    def test_boresight_to_earth_center_outside_target_band_is_earth(self):
+        earth_radius_km = EARTH_RADIUS.to(ureg.km).magnitude
+        altitude = 500 * ureg.km
+        alt_km = altitude.to(ureg.km).magnitude
+
+        sat_pos_xy_km = np.array([earth_radius_km + alt_km, 0.0], dtype=float)
+        boresight_dir_unit_xy = np.array([-1.0, 0.0], dtype=float)
+
+        with patch(
+            "simulation.camera_2d.OBSERVATION_TARGET_AREAS",
+            (
+                ObservationTargetArea(
+                    lat_min=10.0 * ureg.deg,
+                    lat_max=20.0 * ureg.deg,
+                    label="test_band",
+                ),
+            ),
+        ):
+            result = simulate_camera_observation_line_1d(
+                sat_pos_xy_km=sat_pos_xy_km,
+                boresight_dir_unit_xy=boresight_dir_unit_xy,
+                altitude=altitude,
+                earth_radius_km=earth_radius_km,
+                sim_time_s=0.0,
+                sim_total_s=1.0,
+                n_bins=100,
+                cloud_arc_specs=[],
+                target_code=3,
+                earth_code=1,
+                space_code=0,
+                cloud_code=2,
+            )
+
+        obs = result.observation_types
+        self.assertFalse(np.any(obs == 3), "Expected no target bins outside the latitude band.")
+        self.assertTrue(np.all(obs == 1), "Expected all Earth hits to remain Earth outside the band.")
 
     def test_observation_codes_to_ascii_line(self):
         arr = np.array([0, 1, 2, 3, OBSERVATION_LINE_NOT_COMPUTED], dtype=np.int8)

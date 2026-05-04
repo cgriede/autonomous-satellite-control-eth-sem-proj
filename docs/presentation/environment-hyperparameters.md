@@ -13,7 +13,7 @@ Mission and simulation settings that define randomness, geometry, and runtime be
 
 - **Altitude sampling:** uniform between `SATELLITE_ALTITUDE_LOWER_BOUND` and `SATELLITE_ALTITUDE_UPPER_BOUND` (see `environment_definition/constants/MISSION.py`).
 - **Current bounds:** 510 km–570 km (module load time samples once per process).
-- **Primary target (2D z=0 stripe):** arc on the equatorial-plane disk from `OBSERVATION_TARGET_STRIPE_START_{LAT,LON}` to `OBSERVATION_TARGET_STRIPE_END_{LAT,LON}`, reference plane `OBSERVATION_TARGET_STRIPE_PLANE_Z_M`. Reward uses in-plane minor-arc overlap (`circle_stripe_footprint_overlap_ratio`, `utils/geodesics/geodesic_helpers.py`); `OBSERVATION_TARGET_AREAS[0]` stays a thin equatorial bbox aligned to that stripe.
+- **Primary target (polar stripe):** the mission target is fixed to longitude `0` and spans latitude `90.0°` down to `89.65°N` (about 40 km of arc length). The renderer draws this as a curved red arc on the Earth disk. Simulation start/end are derived from the target edges plus the line-of-sight margin using the shared helper in `environment_definition/constants/MISSION.py`.
 - **Derived:** circular orbit speed from sampled altitude via `circular_orbital_speed_from_altitude` (`utils/leo_adapter/orbit_geometry.py`).
 - **Narrative goal (code comment):** maximize time with camera facing observer; Switzerland map center used in viz (`SIMULATION.switzerland_map`).
 

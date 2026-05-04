@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
+import logging
 
 import numpy as np
 
@@ -13,6 +14,7 @@ from environment_definition.constants import (
     OBSERVATION_SPACE,
     OBSERVATION_TARGET,
 )
+from environment_definition.constants.MISSION import OBSERVATION_TARGET_AREAS
 
 from environment_definition.constants.RENDER import RENDER
 from environment_definition.constants.SIMULATION import SIMULATION
@@ -26,6 +28,10 @@ from environment_definition.constants.SATELLITE import (
 )
 from simulation.camera_optics import nadir_ground_sample_distance, pinhole_full_fov_rad
 from utils.units.require_compatible_unit import require_compatible_units
+
+
+logger = logging.getLogger(__name__)
+
 
 
 def _ray_circle_intersection_distance(
@@ -379,7 +385,7 @@ def simulate_camera_strip_2d(
             ground_right_xy_km=nan2.copy(),
             center_first_hit_xy_km=None,
             center_first_hit_is_cloud=False,
-            center_ray_observation_code=OBSERVATION_SPACE,
+            center_ray_observation_code=int(OBSERVATION_SPACE),
             cloud_blocked_fraction=float("nan"),
             swath_height_flat_km=swath_height_flat_km,
         )
@@ -411,8 +417,10 @@ def simulate_camera_strip_2d(
     pixel_indices = np.linspace(0.0, N_PIXELS_Y - 1.0, sample_count)
 
     pix_idx_i = np.rint(pixel_indices).astype(int)
-    y_m = (pix_idx_i - 0.5 * (N_PIXELS_Y - 1)) * PIXEL_SIZE.to(ureg.m).magnitude
-    angle_rel_boresight = np.arctan2(y_m, FOCAL_LENGTH.to(ureg.m).magnitude).astype(float)
+    pixel_size_m = float(cast(Any, PIXEL_SIZE).to(ureg.m).magnitude)
+    focal_length_m = float(cast(Any, FOCAL_LENGTH).to(ureg.m).magnitude)
+    y_m = (pix_idx_i - 0.5 * (N_PIXELS_Y - 1)) * pixel_size_m
+    angle_rel_boresight = np.arctan2(y_m, focal_length_m).astype(float)
     ray_dirs = _rotate_unit_xy_batch(boresight_dir_unit_xy, angle_rel_boresight)
 
     if str(kernel_backend).lower() == "accelerated":
@@ -426,7 +434,7 @@ def simulate_camera_strip_2d(
         if valid == 0:
             cloud_blocked_fraction = 0.0
         else:
-            t_cloud_best = np.full_like(t_earth, np.nan, dtype=float)
+            t_cloud_best_arr = np.full_like(t_earth, np.nan, dtype=float)
             for cloud_spec in cloud_arc_specs:
                 t_cloud = _ray_circle_intersection_distance_batch(
                     sat_pos_xy_km,
@@ -443,9 +451,9 @@ def simulate_camera_strip_2d(
                 accepted = np.isfinite(t_cloud) & in_arc
                 if not np.any(accepted):
                     continue
-                assign_mask = accepted & (~np.isfinite(t_cloud_best) | (t_cloud < t_cloud_best))
-                t_cloud_best[assign_mask] = t_cloud[assign_mask]
-            blocked = np.isfinite(t_cloud_best) & valid_mask & (t_cloud_best < t_earth)
+                assign_mask = accepted & (~np.isfinite(t_cloud_best_arr) | (t_cloud < t_cloud_best_arr))
+                t_cloud_best_arr[assign_mask] = t_cloud[assign_mask]
+            blocked = np.isfinite(t_cloud_best_arr) & valid_mask & (t_cloud_best_arr < t_earth)
             cloud_blocked_fraction = float(np.count_nonzero(blocked) / max(valid, 1))
     else:
         blocked = 0
@@ -484,7 +492,7 @@ def simulate_camera_strip_2d(
         ground_right_xy_km=ground_right_xy_km,
         center_first_hit_xy_km=center_first_hit_xy_km,
         center_first_hit_is_cloud=center_first_hit_is_cloud,
-        center_ray_observation_code=center_ray_observation_code,
+        center_ray_observation_code=int(center_ray_observation_code),
         cloud_blocked_fraction=cloud_blocked_fraction,
         swath_height_flat_km=swath_height_flat_km,
     )
@@ -507,20 +515,6 @@ class CameraObservationLine1DResult:
     # Relative ray angles (signed) in radians, measured from the boresight direction.
     bin_ray_angles_rel_boresight_rad: np.ndarray
 
-
-def _signed_angle_between_unit_xy(a_unit_xy: np.ndarray, b_unit_xy: np.ndarray) -> float:
-    """
-    Signed angle from `a` to `b` for 2D unit vectors.
-    Range: [-pi, +pi] (via atan2 of cross/dot).
-    """
-
-    ax, ay = float(a_unit_xy[0]), float(a_unit_xy[1])
-    bx, by = float(b_unit_xy[0]), float(b_unit_xy[1])
-    cross = ax * by - ay * bx
-    dot = ax * bx + ay * by
-    return float(np.arctan2(cross, dot))
-
-
 def simulate_camera_observation_line_1d(
     *,
     sat_pos_xy_km: np.ndarray,
@@ -529,7 +523,6 @@ def simulate_camera_observation_line_1d(
     earth_radius_km: float,
     sim_time_s: float,
     sim_total_s: float,
-    target_angle_rad: float,
     n_bins: int = 100,
     cloud_arc_specs: list[dict[str, float]] | None = None,
     target_code: int = 3,
@@ -542,9 +535,8 @@ def simulate_camera_observation_line_1d(
     Simulate a 1D camera observation line by classifying each ray bin as:
     `space`, `earth`, `cloud`, or `target`.
 
-    The "target" is a single Earth point given by `target_angle_rad`
-    using the global XY polar convention:
-      target_xy = [R*cos(theta), R*sin(theta)].
+        The "target" is any Earth hit whose latitude falls inside one of
+        `OBSERVATION_TARGET_AREAS`.
     """
 
     if n_bins <= 0:
@@ -591,24 +583,23 @@ def simulate_camera_observation_line_1d(
     )
 
     # Target direction unit vector from the satellite to the target Earth point.
-    target_xy_km = np.array(
-        [
-            float(earth_radius_km * np.cos(float(target_angle_rad))),
-            float(earth_radius_km * np.sin(float(target_angle_rad))),
-        ],
-        dtype=float,
-    )
-    target_vec = target_xy_km - sat_pos_xy_km
-    target_norm = float(np.linalg.norm(target_vec))
-    if target_norm <= 0.0:
-        raise ValueError("target point must not coincide with satellite position.")
-    target_dir_unit_xy = target_vec / target_norm
+    target_area_lat_ranges = [
+        (
+            float(area.lat_min.to(ureg.deg).magnitude),
+            float(area.lat_max.to(ureg.deg).magnitude),
+        )
+        for area in OBSERVATION_TARGET_AREAS
+    ]
+    
+    #logger.debug(f"[CAMERA] Target area lat ranges: {target_area_lat_ranges}")
 
-    target_rel_angle_rad = _signed_angle_between_unit_xy(boresight_dir_unit_xy, target_dir_unit_xy)
+    def _hit_point_is_target_lat(hit_point_xy_km: np.ndarray) -> bool:
+        hit_lat_deg = float(np.rad2deg(np.arctan2(float(hit_point_xy_km[1]), float(hit_point_xy_km[0]))))
+        is_target = any(low <= hit_lat_deg <= high for low, high in target_area_lat_ranges)
+        #logger.debug(f"[CAMERA] Hit point XY={hit_point_xy_km}, lat_deg={hit_lat_deg:.4f}, is_target={is_target}")
+        return is_target
 
     observation_types = np.full(n_bins, int(space_code), dtype=np.int8)
-    # Small numerical slack to make the "half-bin" boundary stable.
-    target_tol_rad = float(half_bin) + 1e-12
 
     # Classify each bin by first hit (cloud vs earth) and then Earth->target mapping.
     ray_dirs = _rotate_unit_xy_batch(boresight_dir_unit_xy, bin_ray_angles_rel_boresight_rad)
@@ -628,16 +619,7 @@ def simulate_camera_observation_line_1d(
             observation_types[i] = int(cloud_code)
             continue
         if hit_type == "earth":
-            # Only treat as target if the ray direction points near the target direction.
-            # Use signed angle difference in ray-direction space.
-            if str(kernel_backend).lower() == "accelerated":
-                ray_rel = float(bin_ray_angles_rel_boresight_rad[i])
-                delta = abs(ray_rel - target_rel_angle_rad)
-            else:
-                delta = abs(_signed_angle_between_unit_xy(boresight_dir_unit_xy, ray_dir_unit_xy) - target_rel_angle_rad)
-            # Normalize delta to [0,pi] to handle wrap-around.
-            delta = min(delta, 2.0 * np.pi - delta)
-            if delta <= target_tol_rad:
+            if _hit_xy_km is not None and _hit_point_is_target_lat(_hit_xy_km):
                 observation_types[i] = int(target_code)
             else:
                 observation_types[i] = int(earth_code)
