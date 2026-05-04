@@ -140,3 +140,8 @@
 
 - summary_json: `D:\code\sem-proj-asc\backend\autonomous_control\models\nb-mpo-2026-05-04_20-50-53\summary_metrics.json`
 
+### Manual notebook gate
+
+- responses: `{"warmup": "", "training": "", "test": "", "summary": ""}`
+- failed_items: `["warmup", "training", "test", "summary"]`
+
