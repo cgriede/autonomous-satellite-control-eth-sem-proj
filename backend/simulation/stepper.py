@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
-from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
+from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy, ZeroTorquePolicy
 from autonomous_control.reward import RewardConfig
 from environment_definition.constants.EARTH import WGS84_ELLIPSOID
 from environment_definition.constants.MISSION import OBSERVATION_TARGET_AREAS
@@ -15,10 +15,12 @@ from environment_definition.constants.SIMULATION import (
     RenderMode,
     SIMULATION,
     SimulationConfig,
+    _BASELINE_CONTROLLER_MODES,
 )
 
 from .attitude_dynamics import AttitudeState2D
 from .camera_2d import (
+    boresight_dir_for_mount,
     calculate_fov_angles,
 )
 from .dynamics_kernel import DynamicsKernel
@@ -47,6 +49,9 @@ class _ControllerAdapterEnv:
 
 
 def _build_simulation_controller(*, controller_mode: str, tau_max_nm: float, dt: Any, rng: np.random.Generator):
+    mode = str(controller_mode).lower()
+    if mode == "coast":
+        return ZeroTorquePolicy()
     from gymnasium import spaces
 
     adapter_env = _ControllerAdapterEnv(
@@ -58,7 +63,6 @@ def _build_simulation_controller(*, controller_mode: str, tau_max_nm: float, dt:
         ),
         dt=dt,
     )
-    mode = str(controller_mode).lower()
     if mode == "random":
         return RandomTorquePolicy(adapter_env, rng=rng)
     if mode == "baseline":
@@ -84,6 +88,10 @@ class SimulationStepper:
         camera_pixel_ray_samples: int = 96,
         camera_observation_line_n_bins: int | None = None,
         reward_config: RewardConfig | None = None,
+        clouds: tuple | None = None,
+        cameras: tuple = (),
+        camera_kernel_backend: str | None = None,
+        secondary_camera_observation_line_n_bins: int = 0,
     ) -> None:
         if sat_motion_span_scale <= 0.0:
             raise ValueError("sat_motion_span_scale must be > 0.")
@@ -98,6 +106,14 @@ class SimulationStepper:
         )
         self._controller_mode = str(simulation_config.controller_mode).lower()
         self._ureg = ureg
+
+        # Resolved setup objects (§1.2, §C)
+        self._clouds = clouds if clouds is not None else SIMULATION.clouds
+        self._cameras = cameras
+        self._camera_kernel_backend = camera_kernel_backend if camera_kernel_backend is not None else SIMULATION.camera_kernel_backend
+        # Secondary camera guard (§J): only activate secondary if len(cameras) >= 2
+        self._has_secondary = len(self._cameras) >= 2
+        self._n_bins_secondary = int(secondary_camera_observation_line_n_bins) if self._has_secondary else 0
 
         r_earth_km = earth_radius.to(ureg.km).magnitude
         sat_altitude_km = satellite_altitude.to(ureg.km).magnitude
@@ -175,10 +191,27 @@ class SimulationStepper:
         self._target_area_intersection_ratio = np.zeros(n, dtype=float)
         self._target_area_novelty_ratio = np.zeros(n, dtype=float)
 
-        n_clouds = len(SIMULATION.clouds)
+        # Cloud arc prealloc: use resolved clouds length (§C)
+        n_clouds = len(self._clouds)
         self._cloud_arc_radius_km = np.full((n, n_clouds), np.nan, dtype=float)
         self._cloud_arc_start_rad = np.full((n, n_clouds), np.nan, dtype=float)
         self._cloud_arc_end_rad = np.full((n, n_clouds), np.nan, dtype=float)
+
+        # Secondary camera prealloc (§B/§J): allocate only when has_secondary.
+        # When has_secondary=False, shape (n, 0) is used (valid sentinel per §J).
+        if self._has_secondary and self._n_bins_secondary > 0:
+            self._secondary_camera_observation_line_codes = np.empty((n, self._n_bins_secondary), dtype=np.int8)
+        else:
+            self._secondary_camera_observation_line_codes = np.empty((n, 0), dtype=np.int8)
+        self._secondary_camera_cloud_blocked_fraction = np.zeros(n, dtype=float)
+
+        # Secondary camera optics (derived from mount spec)
+        self._secondary_vertical_fov_rad: float | None = None
+        if self._has_secondary:
+            scnd_mount = self._cameras[1]
+            self._secondary_vertical_fov_rad = float(
+                scnd_mount.camera.fov(axis="y").to(ureg.rad).magnitude
+            )
 
         _, _vf = calculate_fov_angles()
         self._camera_vertical_fov_rad = float(_vf.to(ureg.rad).magnitude)
@@ -231,6 +264,9 @@ class SimulationStepper:
 
     def current_timestep_state(self) -> SimulationTimestepState:
         sat_xy = self._satellite_xy_km(self._index)
+        secondary_codes = np.asarray(
+            self._secondary_camera_observation_line_codes[self._index], dtype=np.int8
+        )
         return SimulationTimestepState(
             step_idx=self._index,
             sim_time_s=float(self._t_s[self._index]),
@@ -247,6 +283,7 @@ class SimulationStepper:
             camera_center_ray_observation_code=np.int8(
                 self._camera_center_ray_observation_code[self._index]
             ),
+            secondary_camera_observation_line_codes=secondary_codes,
         )
 
     def step(self, *, wheel_torque_cmd_nm: float) -> SimulationTimestepState:
@@ -306,6 +343,8 @@ class SimulationStepper:
             cloud_arc_radius_km=self._cloud_arc_radius_km,
             cloud_arc_start_rad=self._cloud_arc_start_rad,
             cloud_arc_end_rad=self._cloud_arc_end_rad,
+            secondary_camera_observation_line_codes=self._secondary_camera_observation_line_codes,
+            secondary_camera_cloud_blocked_fraction=self._secondary_camera_cloud_blocked_fraction,
             metadata=self._metadata,
         )
 
@@ -332,6 +371,14 @@ class SimulationStepper:
         sat_pos_xy_km = self._satellite_xy_km(k)
         z_ang = float(self._body_z_angle_rad[k])
         boresight_dir_unit_xy = np.array([np.cos(z_ang), np.sin(z_ang)], dtype=float)
+
+        # Compute secondary boresight from mount tilt (§A)
+        secondary_boresight: np.ndarray | None = None
+        if self._has_secondary:
+            scnd_mount = self._cameras[1]
+            tilt_rad = float(scnd_mount.tilt_off_nadir.to(self._ureg.rad).magnitude)
+            secondary_boresight = boresight_dir_for_mount(z_ang, tilt_rad)
+
         sensor = SensorKernel.evaluate(
             sat_pos_xy_km=sat_pos_xy_km,
             boresight_dir_unit_xy=boresight_dir_unit_xy,
@@ -342,6 +389,11 @@ class SimulationStepper:
             n_bins=int(self._camera_observation_line_codes.shape[1]),
             n_clouds=int(self._cloud_arc_radius_km.shape[1]),
             camera_pixel_ray_samples=self._camera_pixel_ray_samples,
+            clouds=self._clouds,
+            camera_kernel_backend=self._camera_kernel_backend,
+            n_bins_secondary=self._n_bins_secondary,
+            secondary_boresight_dir_unit_xy=secondary_boresight,
+            secondary_vertical_fov_rad=self._secondary_vertical_fov_rad,
         )
         self._camera_gsd_m[k] = sensor.camera_gsd_m
         self._camera_ground_left_xy_km[k, :] = sensor.camera_ground_left_xy_km
@@ -356,6 +408,11 @@ class SimulationStepper:
         self._cloud_arc_radius_km[k, :] = sensor.cloud_arc_radius_km
         self._cloud_arc_start_rad[k, :] = sensor.cloud_arc_start_rad
         self._cloud_arc_end_rad[k, :] = sensor.cloud_arc_end_rad
+
+        if self._has_secondary and self._n_bins_secondary > 0:
+            self._secondary_camera_observation_line_codes[k, :] = sensor.secondary_camera_observation_line_codes
+            self._secondary_camera_cloud_blocked_fraction[k] = sensor.secondary_camera_cloud_blocked_fraction
+
         lon_sp_deg, lat_sp_deg = disk_xy_km_to_geodetic_deg(sat_pos_xy_km, ell=WGS84_ELLIPSOID)
         if not np.all(np.isfinite(sensor.camera_ground_center_xy_km)):
             left_lon_lat = np.array([np.nan, np.nan], dtype=float)
@@ -404,6 +461,8 @@ class SimulationStepper:
         else:
             novelty_ratio = 0.0
         self._target_area_novelty_ratio[k] = novelty_ratio
+        # Use first resolved target_area for reward (§I)
+        _target_area = OBSERVATION_TARGET_AREAS[0]
         self._simulation_reward[k] = RewardKernel.evaluate(
             sat_pos_xy_km=sat_pos_xy_km,
             sat_subpoint_lat_deg=float(sat_lat_deg),
@@ -411,52 +470,41 @@ class SimulationStepper:
             target_area_intersection_ratio=float(intersection_ratio),
             target_area_novelty_ratio=float(novelty_ratio),
             camera_observation_line_codes=sensor.camera_observation_line_codes,
+            camera_cloud_blocked_fraction=float(sensor.camera_cloud_blocked_fraction)
+            if np.isfinite(sensor.camera_cloud_blocked_fraction)
+            else 0.0,
+            secondary_camera_cloud_blocked_fraction=float(sensor.secondary_camera_cloud_blocked_fraction),
             wheel_inertia=self._wheel_inertia,
             omega_before=prev_omega_wheel,
             omega_after=self._state.omega_wheel,
             reward_config=self._reward_cfg,
             ureg=self._ureg,
+            target_area=_target_area,
         )
 
 
-def run_baseline_rollout(
+def run_baseline_rollout_from_stepper(
+    stepper: SimulationStepper,
     *,
     simulation_config: SimulationConfig,
-    earth_radius: Any,
-    earth_gravitational_parameter: Any,
-    satellite: Any,
-    satellite_altitude: Any,
-    theta_center_rad: float,
-    start_angle_deg: float,
-    end_angle_deg: float,
-    sat_motion_span_scale: float,
-    sat_z_offset_deg: float,
-    ureg: Any,
-    camera_pixel_ray_samples: int = 96,
-    camera_observation_line_n_bins: int | None = None,
-    reward_config: RewardConfig | None = None,
+    tau_max_nm: float,
     show_progress: bool = True,
 ) -> SimulationStateSeries:
-    if simulation_config.controller_mode not in {"baseline", "random"}:
-        raise ValueError("run_baseline_rollout supports baseline/random controller_mode only.")
-    stepper = SimulationStepper(
-        simulation_config=simulation_config,
-        earth_radius=earth_radius,
-        earth_gravitational_parameter=earth_gravitational_parameter,
-        satellite=satellite,
-        satellite_altitude=satellite_altitude,
-        theta_center_rad=theta_center_rad,
-        start_angle_deg=start_angle_deg,
-        end_angle_deg=end_angle_deg,
-        sat_motion_span_scale=sat_motion_span_scale,
-        sat_z_offset_deg=sat_z_offset_deg,
-        ureg=ureg,
-        camera_pixel_ray_samples=camera_pixel_ray_samples,
-        camera_observation_line_n_bins=camera_observation_line_n_bins,
-        reward_config=reward_config,
-    )
+    """Run the baseline/random/coast controller loop on an already-constructed stepper.
 
-    tau_max_nm = float(satellite.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude)
+    Extracted from run_baseline_rollout so that callers can construct the stepper
+    via build_stepper(resolved, ...) and then call this loop independently.
+
+    Args:
+        stepper: A freshly-constructed SimulationStepper.
+        simulation_config: Must have controller_mode in _BASELINE_CONTROLLER_MODES.
+        tau_max_nm: Reaction wheel max torque in N·m (from resolved.satellite or constants).
+        show_progress: Whether to render a tqdm progress bar.
+    """
+    if simulation_config.controller_mode not in _BASELINE_CONTROLLER_MODES:
+        raise ValueError(
+            f"run_baseline_rollout_from_stepper supports {_BASELINE_CONTROLLER_MODES} controller_mode only."
+        )
     controller = _build_simulation_controller(
         controller_mode=str(simulation_config.controller_mode),
         tau_max_nm=tau_max_nm,
@@ -480,3 +528,48 @@ def run_baseline_rollout(
             if pbar.n < total_steps:
                 pbar.update(1)
     return stepper.finalize_series()
+
+
+def run_baseline_rollout(
+    *,
+    simulation_config: SimulationConfig,
+    earth_radius: Any,
+    earth_gravitational_parameter: Any,
+    satellite: Any,
+    satellite_altitude: Any,
+    theta_center_rad: float,
+    start_angle_deg: float,
+    end_angle_deg: float,
+    sat_motion_span_scale: float,
+    sat_z_offset_deg: float,
+    ureg: Any,
+    camera_pixel_ray_samples: int = 96,
+    camera_observation_line_n_bins: int | None = None,
+    reward_config: RewardConfig | None = None,
+    show_progress: bool = True,
+) -> SimulationStateSeries:
+    if simulation_config.controller_mode not in _BASELINE_CONTROLLER_MODES:
+        raise ValueError(f"run_baseline_rollout supports {_BASELINE_CONTROLLER_MODES} controller_mode only.")
+    stepper = SimulationStepper(
+        simulation_config=simulation_config,
+        earth_radius=earth_radius,
+        earth_gravitational_parameter=earth_gravitational_parameter,
+        satellite=satellite,
+        satellite_altitude=satellite_altitude,
+        theta_center_rad=theta_center_rad,
+        start_angle_deg=start_angle_deg,
+        end_angle_deg=end_angle_deg,
+        sat_motion_span_scale=sat_motion_span_scale,
+        sat_z_offset_deg=sat_z_offset_deg,
+        ureg=ureg,
+        camera_pixel_ray_samples=camera_pixel_ray_samples,
+        camera_observation_line_n_bins=camera_observation_line_n_bins,
+        reward_config=reward_config,
+    )
+    tau_max_nm = float(satellite.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude)
+    return run_baseline_rollout_from_stepper(
+        stepper,
+        simulation_config=simulation_config,
+        tau_max_nm=tau_max_nm,
+        show_progress=show_progress,
+    )

@@ -35,8 +35,11 @@ class ControllerFeatureConfig:
     )
     # `state_vector` is built from selected state attributes.
     # `vision_observation` refers to camera-derived arrays/scalars included here.
+    # `secondary_camera_observation_line_codes` has shape (n_bins_secondary,) or (0,) when
+    # no secondary camera; controller_observation_dim must account for +200 bins when dual-camera.
     vision_keys: tuple[str, ...] = (
         "camera_observation_line_codes",
+        "secondary_camera_observation_line_codes",
     )
 
     @property

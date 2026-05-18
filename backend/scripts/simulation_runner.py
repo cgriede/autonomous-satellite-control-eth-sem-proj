@@ -16,15 +16,10 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from environment_definition.constants import (
-    EARTH_GRAVITATIONAL_PARAMETER,
-    EARTH_RADIUS,
     RenderMode,
-    SIMULATION,
     SimulationConfig,
-    UREG as ureg,
 )
-from environment_definition.constants.MISSION import mission_target_window_deg
-from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
+from environment_definition.mission_profiles.s01_multiple_targets_fwd_fish import build_setup
 from simulation.run_simulation import run_simulation
 
 
@@ -36,26 +31,8 @@ def _configure_matplotlib_backend(*, render_mode: RenderMode) -> None:
 
 
 def _run_sat_simulation(*, simulation_config: SimulationConfig):
-    theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
-    start_angle_deg, end_angle_deg = mission_target_window_deg(
-        orbit_height=SATELLITE_ALTITUDE,
-        margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
-    )
-
-    return run_simulation(
-        simulation_config=simulation_config,
-        earth_radius=EARTH_RADIUS,
-        earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
-        satellite=SATELLITE,
-        satellite_altitude=SATELLITE_ALTITUDE,
-        theta_center_rad=float(theta_center),
-        start_angle_deg=float(start_angle_deg),
-        end_angle_deg=float(end_angle_deg),
-        sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
-        sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
-        ureg=ureg,
-        camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
-    )
+    setup = build_setup(seed=0, include_cameras=False)
+    return run_simulation(setup=setup, simulation_config=simulation_config)
 
 
 def parse_args() -> argparse.Namespace:

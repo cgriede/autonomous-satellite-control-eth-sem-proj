@@ -1,4 +1,4 @@
-"""Deterministic and random baseline policies for controller benchmarking."""
+"""Deterministic, random, and zero-torque baseline policies for controller benchmarking."""
 
 from __future__ import annotations
 
@@ -19,6 +19,17 @@ class RandomTorquePolicy:
     def get_action(self, obs: np.ndarray, train: bool) -> np.ndarray:
         del obs, train
         return np.array([self._rng.uniform(self._low, self._high)], dtype=np.float64)
+
+
+class ZeroTorquePolicy:
+    """Always outputs zero torque (coast — no reaction wheel actuation)."""
+
+    def reset_episode(self) -> None:
+        return None
+
+    def get_action(self, obs: np.ndarray, train: bool) -> np.ndarray:
+        del obs, train
+        return np.array([0.0], dtype=np.float64)
 
 
 class MaxTorqueSweepPolicy:

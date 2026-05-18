@@ -30,7 +30,7 @@ from environment_definition.constants import (
     UREG as ureg,
 )
 from environment_definition.constants.MISSION import los_theta_offsets_deg
-from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
+from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.camera_2d import observation_codes_to_ascii_line
 from simulation.run_simulation import run_simulation
 

@@ -202,18 +202,45 @@ def _rotate_unit_xy_batch(dir_unit_xy: np.ndarray, angles_rad: np.ndarray) -> np
     return np.stack((out_x, out_y), axis=1)
 
 
+def boresight_dir_for_mount(body_z_angle_rad: float, tilt_off_nadir_rad: float) -> np.ndarray:
+    """Compute boresight unit vector for a tilted camera mount in the orbit disk.
+
+    Positive ``tilt_off_nadir_rad`` tilts the boresight in the prograde (forward
+    along-track) direction. In the 2D orbit disk, prograde is obtained by rotating
+    the nadir boresight clockwise (i.e. by –tilt_off_nadir_rad in standard CCW convention).
+
+    Sign convention (locked): positive tilt = ahead of subsatellite ground track.
+    TDD: ``test_secondary_boresight_distinct_from_primary`` verifies that the
+    secondary ground center is displaced in the prograde direction.
+
+    Args:
+        body_z_angle_rad: Body-z angle in radians (defines nadir boresight direction).
+        tilt_off_nadir_rad: Signed tilt angle in radians. Positive = prograde/forward.
+
+    Returns:
+        2D unit vector in the orbit disk.
+    """
+    nadir_boresight = np.array([np.cos(body_z_angle_rad), np.sin(body_z_angle_rad)], dtype=float)
+    return _rotate_unit_xy(nadir_boresight, -tilt_off_nadir_rad)
+
+
 def compute_cloud_arc_specs_at_time(
     *,
     sim_time_s: float,
     sim_total_s: float,
     earth_radius_km: float,
+    clouds: tuple | None = None,
 ) -> list[dict[str, float]]:
     """
-    Build cloud arc specs (radius + start/end angles in rad) for each `SIMULATION.clouds` entry.
+    Build cloud arc specs (radius + start/end angles in rad) for each cloud entry.
 
-    Used by `run_simulation` (per frame) and by camera raytracing. Angular placement follows
-    `SIMULATION.clouds`; span grows over simulated time.
+    Used by `run_simulation` (per frame) and by camera raytracing. Angular placement
+    follows the provided ``clouds`` tuple; span grows over simulated time.
+
+    Args:
+        clouds: Cloud definitions to use. Defaults to ``SIMULATION.clouds`` when ``None``.
     """
+    _clouds = clouds if clouds is not None else SIMULATION.clouds
     growth_phase = sim_time_s / max(sim_total_s, 1e-9)
     cloud_growth = 1.0 + (RENDER.cloud_growth_max_span_scale - 1.0) * float(
         np.clip(growth_phase, 0.0, 1.0)
@@ -221,7 +248,7 @@ def compute_cloud_arc_specs_at_time(
 
     lon_deg = float(LON_GLOBAL.to(ureg.deg).magnitude)
     specs: list[dict[str, float]] = []
-    for cloud in SIMULATION.clouds:
+    for cloud in _clouds:
         radius_km = earth_radius_km + float(cloud.height.to(ureg.km).magnitude)
         lat_start_deg = float(cloud.start_location.to(ureg.deg).magnitude)
         lat_end_deg = float(cloud.end_location.to(ureg.deg).magnitude)
@@ -346,6 +373,8 @@ def simulate_camera_strip_2d(
     sim_total_s: float,
     pixel_ray_samples: int = 1000,
     kernel_backend: str = "python",
+    cloud_arc_specs: list[dict[str, float]] | None = None,
+    vertical_fov_rad: float | None = None,
 ) -> CameraStrip2DResult:
     """
     Simulate a single 2D camera "strip" capture.
@@ -374,19 +403,21 @@ def simulate_camera_strip_2d(
         raise ValueError("boresight_dir_unit_xy must be non-zero.")
     boresight_dir_unit_xy = boresight_dir_unit_xy / dir_norm
 
-    horizontal_fov, vertical_fov = calculate_fov_angles()
-    vertical_fov_rad = float(vertical_fov.to(ureg.rad).magnitude)
+    if vertical_fov_rad is None:
+        _hfov, _vfov = calculate_fov_angles()
+        vertical_fov_rad = float(_vfov.to(ureg.rad).magnitude)
     half_vertical_fov = 0.5 * vertical_fov_rad
 
     gsd_m = float(calculate_gsd(altitude).to(ureg.m).magnitude)
     swath_height_flat_km = (N_PIXELS_Y * gsd_m) / 1000.0
 
-    # Clouds for this time step
-    cloud_arc_specs = compute_cloud_arc_specs_at_time(
-        sim_time_s=sim_time_s,
-        sim_total_s=sim_total_s,
-        earth_radius_km=earth_radius_km,
-    )
+    # Clouds for this time step (reuse pre-computed specs when provided)
+    if cloud_arc_specs is None:
+        cloud_arc_specs = compute_cloud_arc_specs_at_time(
+            sim_time_s=sim_time_s,
+            sim_total_s=sim_total_s,
+            earth_radius_km=earth_radius_km,
+        )
 
     # Ground intersections (Earth only) for footprint endpoints
     left_dir = _rotate_unit_xy(boresight_dir_unit_xy, -half_vertical_fov)
@@ -547,6 +578,7 @@ def simulate_camera_observation_line_1d(
     space_code: int = 0,
     cloud_code: int = 2,
     kernel_backend: str = "python",
+    vertical_fov_rad: float | None = None,
 ) -> CameraObservationLine1DResult:
     """
     Simulate a 1D camera observation line by classifying each ray bin as:
@@ -585,8 +617,9 @@ def simulate_camera_observation_line_1d(
         )
 
     # We reuse the vertical sensor FOV for the 1D strip.
-    _hfov, vertical_fov = calculate_fov_angles()
-    vertical_fov_rad = float(vertical_fov.to(ureg.rad).magnitude)
+    if vertical_fov_rad is None:
+        _hfov, _vfov = calculate_fov_angles()
+        vertical_fov_rad = float(_vfov.to(ureg.rad).magnitude)
     half_vertical_fov_rad = 0.5 * vertical_fov_rad
 
     # Ray bins: choose bin-center angles so tolerance = half-bin

@@ -16,6 +16,16 @@ class SimulationTimestepState:
     reward: float
     camera_observation_line_codes: np.ndarray
     camera_center_ray_observation_code: np.int8
+    # Secondary camera (§B/§E): shape (n_bins_secondary,) or (0,) when no secondary camera.
+    secondary_camera_observation_line_codes: np.ndarray = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.secondary_camera_observation_line_codes is None:
+            object.__setattr__(
+                self,
+                "secondary_camera_observation_line_codes",
+                np.empty(0, dtype=np.int8),
+            )
 
 
 @dataclass(frozen=True)
@@ -80,8 +90,25 @@ class SimulationStateSeries:
 
     metadata             : SimulationMetadata
 
+    # Secondary camera fields (§B): placed after metadata with None defaults for backward compat.
+    # n_bins_secondary == 0 (shape (n, 0)) signals "no secondary camera".
+    # Bin dimensions may differ from primary (heterogeneous per-camera bin counts).
+    # When None, __post_init__ fills with empty arrays of shape (n, 0) / (n,).
+    secondary_camera_observation_line_codes: np.ndarray = None  # type: ignore[assignment]
+    # Per-frame cloud-blocked fraction for the secondary strip (0.0 when no secondary).
+    secondary_camera_cloud_blocked_fraction: np.ndarray = None  # type: ignore[assignment]
+
     def __post_init__(self) -> None:
         n = self.t_s.shape[0]
+        # Materialize optional secondary fields (None → empty sentinel arrays).
+        if self.secondary_camera_observation_line_codes is None:
+            object.__setattr__(
+                self, "secondary_camera_observation_line_codes", np.empty((n, 0), dtype=np.int8)
+            )
+        if self.secondary_camera_cloud_blocked_fraction is None:
+            object.__setattr__(
+                self, "secondary_camera_cloud_blocked_fraction", np.zeros(n, dtype=float)
+            )
         if n == 0:
             raise ValueError("SimulationStateSeries cannot be empty.")
         if (
@@ -147,3 +174,13 @@ class SimulationStateSeries:
             raise ValueError("cloud_arc_start_rad shape must match cloud_arc_radius_km.")
         if self.cloud_arc_radius_km.shape != self.cloud_arc_end_rad.shape:
             raise ValueError("cloud_arc_end_rad shape must match cloud_arc_radius_km.")
+        # Secondary camera validation (§B/§J): skip bin-count equality check vs primary;
+        # n_bins_secondary == 0 is valid and means "no secondary camera".
+        if len(self.secondary_camera_observation_line_codes.shape) != 2:
+            raise ValueError("secondary_camera_observation_line_codes must be 2D (n_frames, n_bins_secondary).")
+        if self.secondary_camera_observation_line_codes.shape[0] != n:
+            raise ValueError("secondary_camera_observation_line_codes must have length n along axis 0.")
+        if self.secondary_camera_observation_line_codes.dtype != np.int8:
+            raise ValueError("secondary_camera_observation_line_codes must have dtype int8.")
+        if self.secondary_camera_cloud_blocked_fraction.shape[0] != n:
+            raise ValueError("secondary_camera_cloud_blocked_fraction must have length n.")

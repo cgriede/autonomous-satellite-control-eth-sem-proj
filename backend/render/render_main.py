@@ -14,7 +14,7 @@ from environment_definition.constants import (
     UREG as ureg,
 )
 from environment_definition.constants.MISSION import los_theta_offsets_deg
-from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
+from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.state_types import SimulationStateSeries
 from utils.geometry.mission_stripe_disk import (
     primary_stripe_disk_phi_bounds_deg,
@@ -374,6 +374,27 @@ def _resolve_ffmpeg_executable() -> tuple[str | None, str]:
     return None, "none"
 
 
+# #region agent log
+def _agent_debug_log_render(*, location: str, message: str, data: dict, hypothesis_id: str) -> None:
+    import json
+    import time
+
+    entry = {
+        "sessionId": "c8a7bc",
+        "timestamp": int(time.time() * 1000),
+        "location": location,
+        "message": message,
+        "data": data,
+        "hypothesisId": hypothesis_id,
+    }
+    log_path = Path(__file__).resolve().parents[2] / "debug-c8a7bc.log"
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry) + "\n")
+
+
+# #endregion
+
+
 def _try_reencode_mp4_h264_for_web(path: Path) -> tuple[bool, str]:
     """Re-encode MP4 to H.264 yuv420p for HTML5 playback in notebook/desktop browsers.
 
@@ -451,7 +472,23 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
         update_panels(scene)
         return []
 
-    if mpl_animation.writers.is_available("ffmpeg"):
+    mpl_ffmpeg_available = bool(mpl_animation.writers.is_available("ffmpeg"))
+    # #region agent log
+    ffmpeg_exe, ffmpeg_via = _resolve_ffmpeg_executable()
+    _agent_debug_log_render(
+        location="render_main.py:save_one_pass_video_30x",
+        message="export_writer_select",
+        data={
+            "mpl_ffmpeg_available": mpl_ffmpeg_available,
+            "ffmpeg_exe_resolved": ffmpeg_exe is not None,
+            "ffmpeg_via": ffmpeg_via,
+            "export_path": str(export_path),
+        },
+        hypothesis_id="H1,H2",
+    )
+    # #endregion
+
+    if mpl_ffmpeg_available:
         export_ani = FuncAnimation(
             FIG,
             export_update,
@@ -467,6 +504,7 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
             fps=export_fps,
             dpi=RENDER.export_dpi,
         )
+        reencode_ok, reencode_detail = False, "skipped_mpl_ffmpeg_path"
     else:
         from matplotlib.backends.backend_agg import FigureCanvasAgg
         import cv2  # type: ignore[reportMissingImports]
@@ -490,7 +528,21 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
             bgr = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
             writer.write(bgr)
         writer.release()
-        _try_reencode_mp4_h264_for_web(export_path)
+        reencode_ok, reencode_detail = _try_reencode_mp4_h264_for_web(export_path)
+
+    # #region agent log
+    _agent_debug_log_render(
+        location="render_main.py:save_one_pass_video_30x",
+        message="export_complete",
+        data={
+            "writer": "mpl_ffmpeg" if mpl_ffmpeg_available else "opencv_mp4v",
+            "reencode_ok": reencode_ok,
+            "reencode_detail": reencode_detail,
+            "size_bytes": int(export_path.stat().st_size) if export_path.exists() else -1,
+        },
+        hypothesis_id="H1,H2,H5",
+    )
+    # #endregion
 
     return export_path
 

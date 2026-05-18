@@ -18,7 +18,6 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
-from environment_definition.constants.MISSION import los_theta_offsets_deg
 from environment_definition.constants.SIMULATION import (
     OBSERVATION_CLOUD,
     OBSERVATION_EARTH,
@@ -26,8 +25,7 @@ from environment_definition.constants.SIMULATION import (
     OBSERVATION_SPACE,
     OBSERVATION_TARGET,
 )
-from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
-from simulation.stepper import SimulationStepper
+from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.state_types import SimulationTimestepState
 from simulation.state_types import SimulationStateSeries
 
@@ -45,8 +43,20 @@ _OBSERVATION_CODE_ORDER: tuple[np.int8, ...] = (
 
 def controller_observation_dim(
     feature_config: ControllerFeatureConfig | None = None,
+    secondary_camera_observation_line_n_bins: int = 0,
 ) -> int:
-    """Fixed-size MPO state vector width for selected timestep keys."""
+    # #region agent log
+    import json, time, pathlib
+    _log_path = pathlib.Path("debug-c2d20e.log")
+    _log_path.open("a").write(json.dumps({"sessionId": "c2d20e", "hypothesisId": "H-A", "location": "training_runtime.py:controller_observation_dim", "message": "called", "data": {"secondary_camera_observation_line_n_bins": secondary_camera_observation_line_n_bins}, "timestamp": int(time.time() * 1000)}) + "\n")
+    # #endregion
+    """Fixed-size MPO state vector width for selected timestep keys.
+
+    Args:
+        secondary_camera_observation_line_n_bins: Bin count for the secondary camera
+            observation line. Pass 200 for dual-camera s01 setups; 0 for single-camera
+            (the secondary codes array will be empty and contribute 0 dimensions).
+    """
     cfg = feature_config if feature_config is not None else ControllerFeatureConfig()
     obs_dim = 0
     n_bins = int(SIMULATION.camera_observation_line_n_bins)
@@ -55,6 +65,8 @@ def controller_observation_dim(
         if key == "camera_observation_line_codes":
             # one value per line, NOT one-hot
             obs_dim += n_bins
+        elif key == "secondary_camera_observation_line_codes":
+            obs_dim += int(secondary_camera_observation_line_n_bins)
         elif key == "camera_ground_center_xy_km":
             raise ValueError(
                 "camera_ground_center_xy_km is not available on SimulationTimestepState."
@@ -87,7 +99,7 @@ def build_state_vector_from_timestep(
     )
     flat_features: list[float] = []
     for key, value in selected.items():
-        if key == "camera_observation_line_codes":
+        if key in ("camera_observation_line_codes", "secondary_camera_observation_line_codes"):
             arr: np.ndarray = np.asarray(value, dtype=np.float32).reshape(-1)
             flat_features.extend(arr.tolist())
             continue
@@ -103,7 +115,13 @@ def build_state_vector_from_timestep(
         raise TypeError(
             f"Unsupported controller feature type for key '{key}': {type(value).__name__}"
         )
-    return np.asarray(flat_features, dtype=np.float32)
+    result_arr = np.asarray(flat_features, dtype=np.float32)
+    # #region agent log
+    import json, time, pathlib
+    _log_path = pathlib.Path("debug-c2d20e.log")
+    _log_path.open("a").write(json.dumps({"sessionId": "c2d20e", "hypothesisId": "H-A", "location": "training_runtime.py:build_state_vector_from_timestep", "message": "obs produced", "data": {"obs_size": int(result_arr.shape[0])}, "timestamp": int(time.time() * 1000)}) + "\n")
+    # #endregion
+    return result_arr
 
 
 class ReplayBuffer:
@@ -129,6 +147,11 @@ class ReplayBuffer:
         reward: float,
         done: bool,
     ) -> None:
+        # #region agent log
+        import json, time, pathlib
+        _log_path = pathlib.Path("debug-c2d20e.log")
+        _log_path.open("a").write(json.dumps({"sessionId": "c2d20e", "hypothesisId": "H-A", "location": "training_runtime.py:ReplayBuffer.store", "message": "buffer store attempt", "data": {"buffer_obs_size": self.obs.shape[1], "incoming_obs_size": int(obs.shape[0])}, "timestamp": int(time.time() * 1000)}) + "\n")
+        # #endregion
         self.obs[self.ptr] = obs
         self.next_obs[self.ptr] = next_obs
         self.actions[self.ptr] = action
@@ -164,10 +187,13 @@ def make_attitude_control_env(
     *,
     render_mode: str | None = None,
     reward_config: RewardConfig | None = None,
+    secondary_camera_observation_line_n_bins: int = 0,
 ) -> Any:
     _ = render_mode
     _ = reward_config
-    obs_dim = controller_observation_dim()
+    obs_dim = controller_observation_dim(
+        secondary_camera_observation_line_n_bins=secondary_camera_observation_line_n_bins
+    )
     high = np.full((obs_dim,), np.finfo(np.float32).max, dtype=np.float32)
     tau_max_nm = float(cast(Any, SATELLITE.reaction_wheel_max_torque).to(ureg.N * ureg.m).magnitude)
 
@@ -205,136 +231,37 @@ def run_episode(
     satellite_altitude: Any | None = None,
     np_rng: np.random.Generator | None = None,
     verbose_print: int = 0,
+    setup=None,  # SimulationSetupConfig | None
 ) -> EpisodeResult:
-    if hasattr(agent, "reset_episode"):
-        agent.reset_episode()
+    """Backward-compatible wrapper — delegates to EpisodeRunner.run_serial.
+
+    When `setup` is provided it is used directly. Otherwise a default s01 setup is
+    constructed from `satellite_altitude` (or the s00 module-level constant).
+    """
+    from simulation.setup_types import OrbitConfig, SimulationSetupConfig
+    from .episode_runner import EpisodeRunner
+
     # Compatibility shim: canonical episode length is owned by SimulationStepper.
     _ = max_steps
 
-    controller_mode = "mpo"
-    class_name = type(agent).__name__.lower()
-    if "random" in class_name:
-        controller_mode = "random"
-    elif "sweep" in class_name or "baseline" in class_name:
-        controller_mode = "baseline"
-
-    theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
-    run_satellite_altitude = satellite_altitude if satellite_altitude is not None else SATELLITE_ALTITUDE
-    start_angle_deg, end_angle_deg = los_theta_offsets_deg(
-        orbit_height=run_satellite_altitude,
-        margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
-    )
-    stepper = SimulationStepper(
-        simulation_config=SimulationConfig(
-            render_mode=RenderMode.HEADLESS,
-            controller_mode=controller_mode,  # type: ignore[arg-type]
-        ),
-        earth_radius=EARTH_RADIUS,
-        earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
-        satellite=SATELLITE,
-        satellite_altitude=run_satellite_altitude,
-        theta_center_rad=float(theta_center),
-        start_angle_deg=float(start_angle_deg),
-        end_angle_deg=float(end_angle_deg),
-        sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
-        sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
-        ureg=ureg,
-        camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
-        reward_config=RewardConfig(),
-    )
-    episode_rng = np_rng if np_rng is not None else np.random.default_rng()
-    current_ts = stepper.current_timestep_state()
-    obs = build_state_vector_from_timestep(
-        timestep=current_ts,
-        feature_config=feature_config,
-    )
-    states: list[np.ndarray] = [obs.copy()]
-    current_action_nm = 0.0
-    episode_return = 0.0
-    steps = 0
-    train_mode = mode in {"warmup", "train"}
-    episode_total_steps = stepper.total_steps
-    progress_bar = tqdm(
-        total=int(episode_total_steps) if episode_total_steps is not None else None,
-        desc=f"{mode} episode",
-        unit="step",
-        leave=False,
-        dynamic_ncols=True,
-        file=sys.stdout,
-        disable=verbose_print != 0,
-    )
-    if verbose_print == 0:
-        progress_bar.write(f"[run_episode] start mode={mode} max_steps={episode_total_steps}")
-    warmup_policy: Any | None = None
-    if mode == "warmup" and warmup_controller == "baseline":
-        from .controller_baselines import MaxTorqueSweepPolicy
-
-        warmup_policy = MaxTorqueSweepPolicy(env, period_s=float(warmup_baseline_period_s))
-        warmup_policy.reset_episode()
-    elif mode == "warmup" and warmup_controller == "random":
-        from .controller_baselines import RandomTorquePolicy
-
-        warmup_policy = RandomTorquePolicy(env, rng=episode_rng)
-        warmup_policy.reset_episode()
-        
-    try:
-        while not stepper.done and steps < int(episode_total_steps):
-            if stepper.should_update_controller():
-                if mode == "warmup":
-                    if warmup_policy is None:
-                        raise RuntimeError("warmup_policy must be configured in warmup mode.")
-                    action_vec = warmup_policy.get_action(obs, train=False)
-                    current_action_nm = float(np.asarray(action_vec, dtype=np.float64).reshape(-1)[0])
-
-                else:
-                    action_vec = agent.get_action(obs, train=train_mode)
-                    current_action_nm = float(np.asarray(action_vec, dtype=np.float64).reshape(-1)[0])
-            next_ts = stepper.step(wheel_torque_cmd_nm=current_action_nm)
-            next_obs = build_state_vector_from_timestep(
-                timestep=next_ts,
-                feature_config=feature_config,
-            )
-
-            reward = float(next_ts.reward)
-            done = bool(stepper.done)
-            episode_return += reward
-            states.append(next_obs.copy())
-            if step_callback is not None:
-                step_callback(next_ts)
-            if mode in {"warmup", "train"} and hasattr(agent, "store"):
-                action_arr = np.array([current_action_nm], dtype=np.float32)
-                agent.store((obs, action_arr, reward, next_obs, done))
-                if mode == "train":
-                    for _ in range(train_updates_per_step):
-                        if hasattr(agent, "train"):
-                            agent.train()
-            obs = next_obs
-            current_ts = next_ts
-            steps += 1
-            progress_bar.update(1)
-            if verbose_print == 0 and ((steps % 10) == 0 or done):
-                progress_bar.set_postfix(steps=steps, reward=f"{reward:.5f}", refresh=False)
-    finally:
-        progress_bar.close()
-    if verbose_print == 0:
-        avg_reward = episode_return / max(1, steps)
-        end_msg = (
-            f"[run_episode] end mode={mode} steps={steps} "
-            f"total_reward={episode_return:.6f} avg_reward={avg_reward:.6f}"
+    if setup is not None:
+        effective_setup = setup
+    else:
+        run_altitude = satellite_altitude if satellite_altitude is not None else SATELLITE_ALTITUDE
+        effective_setup = SimulationSetupConfig(
+            satellite=SATELLITE,
+            orbit=OrbitConfig(altitude=run_altitude),
         )
-        if _in_notebook():
-            print(end_msg)
-        else:
-            progress_bar.write(end_msg)
 
-    context = stepper.build_episode_context()
-    return EpisodeResult(
-        episode_return=episode_return,
-        steps=steps,
-        states=states,
-        simulation_series=context.simulation_series,
-        configured_controller_update_interval_s=context.configured_controller_update_interval_s,
-        effective_controller_update_interval_s=context.effective_controller_update_interval_s,
-        effective_controller_update_interval_steps=context.effective_controller_update_interval_steps,
+    return EpisodeRunner(effective_setup).run_serial(
+        agent,
+        mode=mode,
+        train_updates_per_step=train_updates_per_step,
+        step_callback=step_callback,
+        warmup_controller=warmup_controller,
+        warmup_baseline_period_s=warmup_baseline_period_s,
+        feature_config=feature_config,
+        np_rng=np_rng,
+        verbose_print=verbose_print,
     )
 

@@ -18,9 +18,9 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
-from environment_definition.constants.MISSION import los_theta_offsets_deg
-from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
-from simulation.stepper import SimulationStepper
+from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
+from simulation.setup_types import OrbitConfig, SimulationSetupConfig
+from simulation.stepper_factory import build_stepper
 from utils.ml_training.ml_training_utils import RunTelemetryWriter
 
 from .config.randomness import apply_global_seed, derive_seed
@@ -50,29 +50,18 @@ class WorkerResult:
     done: np.ndarray
 
 
-def _build_stepper(*, satellite_altitude: Any) -> SimulationStepper:
-    theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
-    start_angle_deg, end_angle_deg = los_theta_offsets_deg(
-        orbit_height=satellite_altitude,
-        margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
+def _build_stepper(*, satellite_altitude: Any):
+    setup = SimulationSetupConfig(
+        satellite=SATELLITE,
+        orbit=OrbitConfig(altitude=satellite_altitude),
     )
-    return SimulationStepper(
+    resolved = setup.resolve(require_camera=False)
+    return build_stepper(
+        resolved,
         simulation_config=SimulationConfig(
             render_mode=RenderMode.HEADLESS,
             controller_mode="random",
         ),
-        earth_radius=EARTH_RADIUS,
-        earth_gravitational_parameter=EARTH_GRAVITATIONAL_PARAMETER,
-        satellite=SATELLITE,
-        satellite_altitude=satellite_altitude,
-        theta_center_rad=float(theta_center),
-        start_angle_deg=float(start_angle_deg),
-        end_angle_deg=float(end_angle_deg),
-        sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
-        sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
-        ureg=ureg,
-        camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
-        reward_config=RewardConfig(),
     )
 
 

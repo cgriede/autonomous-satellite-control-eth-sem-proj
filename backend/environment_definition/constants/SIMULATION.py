@@ -76,10 +76,13 @@ class RenderMode(str, Enum):
     EXPORT = "export"
 
 
+_BASELINE_CONTROLLER_MODES: frozenset[str] = frozenset({"baseline", "random", "coast"})
+
+
 @dataclass(frozen=True)
 class SimulationConfig:
     render_mode: RenderMode = RenderMode.INTERACTIVE
-    controller_mode: Literal["baseline", "random"] = "random"
+    controller_mode: Literal["baseline", "random", "coast"] = "random"
     controller_seed: int | None = None
 
 

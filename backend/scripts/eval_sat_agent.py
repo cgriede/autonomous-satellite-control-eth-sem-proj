@@ -18,7 +18,7 @@ from autonomous_control.config.randomness import RandomnessConfig, apply_global_
 from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.training_runtime import EpisodeResult, make_attitude_control_env, run_episode
 from environment_definition.constants import RenderMode
-from environment_definition.mission_profiles.mission_1_random_fl import sample_satellite_altitude
+from environment_definition.mission_profiles.s00_simulation_build_sample_fl import sample_satellite_altitude
 from render.render_main import render_from_series
 from utils.ml_training.ml_training_utils import (
     append_jsonl_record,

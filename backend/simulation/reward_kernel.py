@@ -25,19 +25,23 @@ class RewardKernel:
         target_area_intersection_ratio: float,
         target_area_novelty_ratio: float,
         camera_observation_line_codes: np.ndarray,
+        camera_cloud_blocked_fraction: float = 0.0,
+        secondary_camera_cloud_blocked_fraction: float = 0.0,
         wheel_inertia: Any,
         omega_before: Any,
         omega_after: Any,
         reward_config: RewardConfig,
         ureg: Any,
+        target_area: Any | None = None,
     ) -> float:
         _ = sat_pos_xy_km
         codes = np.asarray(camera_observation_line_codes, dtype=np.int8)
         target_visible = bool(np.any(codes == np.int8(OBSERVATION_TARGET)))
-        target_area = OBSERVATION_TARGET_AREAS[0]
+        # Use provided target_area if available; fall back to global constant.
+        _target_area = target_area if target_area is not None else OBSERVATION_TARGET_AREAS[0]
         target_center_lat = 0.5 * (
-            float(target_area.lat_min.to(ureg.deg).magnitude)
-            + float(target_area.lat_max.to(ureg.deg).magnitude)
+            float(_target_area.lat_min.to(ureg.deg).magnitude)
+            + float(_target_area.lat_max.to(ureg.deg).magnitude)
         )
         distance_to_target = geodesic_distance(
             sat_subpoint_lon_deg * ureg.deg,
@@ -47,10 +51,13 @@ class RewardKernel:
         )
         signals = RewardSignals(
             distance_to_target=distance_to_target,
+            # TODO(s01-background): wire picture_taken from capture state machine
             picture_taken=True,
             target_visible=target_visible,
             target_area_intersection_ratio=float(target_area_intersection_ratio),
             target_area_novelty_ratio=float(target_area_novelty_ratio),
+            camera_cloud_blocked_fraction=float(camera_cloud_blocked_fraction),
+            secondary_camera_cloud_blocked_fraction=float(secondary_camera_cloud_blocked_fraction),
             wheel_inertia=wheel_inertia,
             omega_before=omega_before,
             omega_after=omega_after,

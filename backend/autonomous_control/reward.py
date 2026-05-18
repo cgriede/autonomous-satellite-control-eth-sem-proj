@@ -42,9 +42,15 @@ class RewardConfig:
     enable_energy: bool = False
     enable_area_intersection: bool = False
     enable_area_novelty: bool = False
+    # Cloud penalty (§H): scales down / gates distance term when camera strip is cloud-blocked.
+    enable_cloud_penalty: bool = False
+    # Optional secondary-camera cloud penalty (wide-FOV strip, §H).
+    enable_secondary_cloud_penalty: bool = False
     k_energy: float = float(REWARD_ENERGY_LINEAR_COEFFICIENT)
     k_area_intersection: float = float(REWARD_AREA_INTERSECTION_WEIGHT)
     k_area_novelty: float = float(REWARD_AREA_NOVELTY_WEIGHT)
+    # Penalty weight: reward multiplier reduction per unit cloud-blocked fraction.
+    k_cloud_penalty: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -61,6 +67,9 @@ class RewardSignals:
     target_visible: bool
     target_area_intersection_ratio: float = 0.0
     target_area_novelty_ratio: float = 0.0
+    # Cloud signals (§H): fraction of primary/secondary strip blocked by clouds [0, 1].
+    camera_cloud_blocked_fraction: float = 0.0
+    secondary_camera_cloud_blocked_fraction: float = 0.0
     wheel_inertia: Any | None = None  # pint Quantity (kg*m^2)
     omega_before: Any | None = None  # pint Quantity (rad/s)
     omega_after: Any | None = None  # pint Quantity (rad/s)
@@ -181,6 +190,8 @@ def compute_reward(
         "area_intersection_reward": 0.0,
         "area_novelty_reward": 0.0,
         "energy_reward": 0.0,
+        "cloud_penalty": 0.0,
+        "secondary_cloud_penalty": 0.0,
     }
 
     if cfg.enable_distance_reward:
@@ -215,11 +226,21 @@ def compute_reward(
             k_energy=cfg.k_energy,
         )
 
+    if cfg.enable_cloud_penalty:
+        cloud_frac = float(np.clip(signals.camera_cloud_blocked_fraction, 0.0, 1.0))
+        components["cloud_penalty"] = -cfg.k_cloud_penalty * cloud_frac
+
+    if cfg.enable_secondary_cloud_penalty:
+        scnd_frac = float(np.clip(signals.secondary_camera_cloud_blocked_fraction, 0.0, 1.0))
+        components["secondary_cloud_penalty"] = -cfg.k_cloud_penalty * scnd_frac
+
     total = (
         components["distance_reward"]
         + components["area_intersection_reward"]
         + components["area_novelty_reward"]
         + components["energy_reward"]
+        + components["cloud_penalty"]
+        + components["secondary_cloud_penalty"]
     )
     return total, components
 

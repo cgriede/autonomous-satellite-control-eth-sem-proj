@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 
 from environment_definition.constants import EARTH_RADIUS, UREG as ureg
-from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE_ALTITUDE
+from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE_ALTITUDE
 from simulation.camera_2d import (
     compute_cloud_arc_specs_at_time,
     simulate_camera_observation_line_1d,

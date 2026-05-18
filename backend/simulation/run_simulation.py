@@ -11,23 +11,57 @@ from .stepper import run_baseline_rollout
 
 def run_simulation(
     *,
+    setup=None,  # SimulationSetupConfig | None
     simulation_config: SimulationConfig | None = None,
-    earth_radius: Any,
-    earth_gravitational_parameter: Any,
-    satellite: Any,
-    satellite_altitude: Any,
-    theta_center_rad: float,
-    start_angle_deg: float,
-    end_angle_deg: float,
-    sat_motion_span_scale: float,
+    earth_radius: Any | None = None,
+    earth_gravitational_parameter: Any | None = None,
+    satellite: Any | None = None,
+    satellite_altitude: Any | None = None,
+    theta_center_rad: float | None = None,
+    start_angle_deg: float | None = None,
+    end_angle_deg: float | None = None,
+    sat_motion_span_scale: float | None = None,
     num_frames: int | None = None,
-    sat_z_offset_deg: float,
-    ureg: Any,
+    sat_z_offset_deg: float | None = None,
+    ureg: Any | None = None,
     camera_pixel_ray_samples: int = 96,
     camera_observation_line_n_bins: int | None = None,
     reward_config: RewardConfig | None = None,
 ) -> SimulationStateSeries:
-    _ = num_frames  # compatibility: simulation now derives frame count from time-based config
+    """Run a baseline/random-controller simulation episode.
+
+    Accepts either a SimulationSetupConfig (new path) or the legacy flat kwargs.
+    When `setup` is provided, all legacy flat kwargs are ignored.
+    """
+    _ = num_frames  # compatibility: simulation derives frame count from time-based config
+
+    if setup is not None:
+        from environment_definition.constants.SIMULATION import RenderMode, SimulationConfig as _SC
+        from .setup_types import SimulationSetupConfig
+        from .stepper import run_baseline_rollout_from_stepper
+        from .stepper_factory import build_stepper
+
+        assert isinstance(setup, SimulationSetupConfig), (
+            f"run_simulation(setup=...) expects SimulationSetupConfig, got {type(setup)}"
+        )
+        sim_cfg = simulation_config if simulation_config is not None else _SC(
+            render_mode=RenderMode.HEADLESS,
+            controller_mode="random",
+        )
+        resolved = setup.resolve(require_camera=False)
+        stepper = build_stepper(resolved, simulation_config=sim_cfg)
+        tau_max_nm = float(
+            resolved.satellite.reaction_wheel_max_torque
+            .to(resolved.ureg.N * resolved.ureg.m)
+            .magnitude
+        )
+        return run_baseline_rollout_from_stepper(
+            stepper,
+            simulation_config=sim_cfg,
+            tau_max_nm=tau_max_nm,
+        )
+
+    # Legacy flat-kwargs path (all existing callers).
     sim_config = simulation_config if simulation_config is not None else SimulationConfig()
     return run_baseline_rollout(
         simulation_config=sim_config,

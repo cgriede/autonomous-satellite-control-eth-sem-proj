@@ -216,6 +216,7 @@ def load_or_build_notebook_random_warmup_episodes(
     warmup_baseline_period_s: float = 60.0,
     verbose_print: int = 0,
     cache_root: Path | None = None,
+    show_progress: bool = False,
 ) -> list[EpisodeResult]:
     """Load cached ``EpisodeResult`` list or build it with the notebook seed convention.
 
@@ -262,7 +263,12 @@ def load_or_build_notebook_random_warmup_episodes(
 
     bundle_dir.mkdir(parents=True, exist_ok=True)
     episodes_built: list[EpisodeResult] = []
-    for i in range(int(episode_count)):
+    episode_indices = range(int(episode_count))
+    if show_progress:
+        from tqdm.auto import tqdm
+
+        episode_indices = tqdm(episode_indices, desc="Warmup episodes")
+    for i in episode_indices:
         rng = np.random.default_rng(derive_seed(int(base_seed), seed_tag, i))
         result = run_episode(
             env,

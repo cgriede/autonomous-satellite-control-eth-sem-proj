@@ -9,7 +9,7 @@ from environment_definition.constants.MISSION import (
     primary_target_stripe_theta_offsets_deg,
 )
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
-from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE_ALTITUDE
+from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE_ALTITUDE
 from utils.flight_geometry.line_of_sight import minimum_contact_angle
 
 
