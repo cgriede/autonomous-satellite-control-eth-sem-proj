@@ -1,0 +1,26 @@
+{
+  "warmup": {
+    "episodes": 16.0,
+    "total_reward_mean": -177633.03782944113,
+    "total_reward_std": 591.7870400715784,
+    "avg_reward_mean": -94.33512364813654
+  },
+  "train": {
+    "episodes": 5.0,
+    "total_reward_mean": -176905.70888344262,
+    "total_reward_std": 315.89915565078064,
+    "avg_reward_mean": -93.94886292269923
+  },
+  "test": {
+    "episodes": 1.0,
+    "total_reward_mean": -177290.48685171368,
+    "total_reward_std": 0.0,
+    "avg_reward_mean": -94.15320597541884
+  },
+  "best_test": {
+    "episodes": 1.0,
+    "total_reward_mean": -177290.48685171368,
+    "total_reward_std": 0.0,
+    "avg_reward_mean": -94.15320597541884
+  }
+}

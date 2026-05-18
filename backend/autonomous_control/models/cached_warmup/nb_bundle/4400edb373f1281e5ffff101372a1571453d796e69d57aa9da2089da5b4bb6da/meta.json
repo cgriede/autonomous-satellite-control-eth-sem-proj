@@ -1,0 +1,24 @@
+{
+  "action_dim": 1,
+  "base_seed": 7,
+  "camera_observation_line_n_bins": 100,
+  "digest_sha256_hex": "4400edb373f1281e5ffff101372a1571453d796e69d57aa9da2089da5b4bb6da",
+  "episode_count": 2,
+  "feature_config": {
+    "attitude_keys": [
+      "body_z_angle_rad",
+      "omega_sat_rad_s"
+    ],
+    "orbit_keys": [
+      "theta_orbit_rad"
+    ],
+    "vision_keys": [
+      "camera_observation_line_codes"
+    ]
+  },
+  "max_episode_steps": 1000,
+  "nb_warmup_bundle_version": 1,
+  "obs_dim": 103,
+  "satellite_altitude_m": 528758.3065070219,
+  "warmup_controller": "random"
+}
