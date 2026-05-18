@@ -16,7 +16,7 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
-from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
+from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.run_simulation import run_simulation
 from utils.flight_geometry.line_of_sight import minimum_contact_angle
 

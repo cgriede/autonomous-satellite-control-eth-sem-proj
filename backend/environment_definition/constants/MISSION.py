@@ -51,3 +51,4 @@ OBSERVATION_TARGETS: tuple[ObservationTarget, ...] = (
         label=OBSERVATION_TARGET_AREAS[0].label,
     ),
 )
+
