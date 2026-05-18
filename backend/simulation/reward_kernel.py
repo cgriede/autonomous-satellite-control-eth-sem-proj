@@ -6,16 +6,12 @@ import numpy as np
 
 from autonomous_control.reward import RewardConfig, RewardSignals, compute_reward
 from environment_definition.constants.MISSION import (
-    OBSERVATION_TARGET_STRIPE_END_LAT,
-    OBSERVATION_TARGET_STRIPE_END_LON,
-    OBSERVATION_TARGET_STRIPE_START_LAT,
-    OBSERVATION_TARGET_STRIPE_START_LON,
+    LON_GLOBAL,
+    OBSERVATION_TARGET_AREAS,
 )
 from environment_definition.constants.SIMULATION import OBSERVATION_TARGET
 from utils.geodesics.geodesic_helpers import (
     geodesic_distance,
-    lonlat_to_z0_plane_angle_deg,
-    minor_arc_midpoint_deg,
 )
 
 
@@ -36,23 +32,19 @@ class RewardKernel:
         ureg: Any,
     ) -> float:
         _ = sat_pos_xy_km
+        _ = sat_subpoint_lon_deg
         target_visible = bool(target_area_intersection_ratio > 0.0) or bool(
             np.any(camera_observation_line_codes == np.int8(OBSERVATION_TARGET))
         )
-        s0 = lonlat_to_z0_plane_angle_deg(
-            OBSERVATION_TARGET_STRIPE_START_LON,
-            OBSERVATION_TARGET_STRIPE_START_LAT,
+        target_area = OBSERVATION_TARGET_AREAS[0]
+        target_center_lat = 0.5 * (
+            float(target_area.lat_min.to(ureg.deg).magnitude)
+            + float(target_area.lat_max.to(ureg.deg).magnitude)
         )
-        s1 = lonlat_to_z0_plane_angle_deg(
-            OBSERVATION_TARGET_STRIPE_END_LON,
-            OBSERVATION_TARGET_STRIPE_END_LAT,
-        )
-        target_center_lon = minor_arc_midpoint_deg(s0, s1)
-        target_center_lat = 0.0
         distance_to_target = geodesic_distance(
-            sat_subpoint_lon_deg * ureg.deg,
+            LON_GLOBAL,
             sat_subpoint_lat_deg * ureg.deg,
-            target_center_lon * ureg.deg,
+            LON_GLOBAL,
             target_center_lat * ureg.deg,
         )
         signals = RewardSignals(

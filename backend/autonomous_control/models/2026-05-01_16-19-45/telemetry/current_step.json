@@ -1,9 +1,0 @@
-{
-  "event":"step_snapshot",
-  "timestamp_utc":"2026-05-01T16:19:59.330534+00:00",
-  "episode_idx":0,
-  "step_idx":7440,
-  "sim_time_s":743.9017991613731,
-  "reward":0.0,
-  "worker_id":null
-}

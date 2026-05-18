@@ -32,25 +32,19 @@ class ControllerFeatureConfig:
     )
     orbit_keys: tuple[str, ...] = (
         "theta_orbit_rad",
-        "radius_km",
     )
-    wheel_keys: tuple[str, ...] = ("omega_wheel_rad_s",)
     # `state_vector` is built from selected state attributes.
     # `vision_observation` refers to camera-derived arrays/scalars included here.
     vision_keys: tuple[str, ...] = (
         "camera_observation_line_codes",
-        "camera_center_ray_observation_code",
     )
-    mission_keys: tuple[str, ...] = ("sim_time_s",)
 
     @property
     def selected_keys(self) -> tuple[str, ...]:
         return (
             self.attitude_keys
             + self.orbit_keys
-            + self.wheel_keys
             + self.vision_keys
-            + self.mission_keys
         )
 
 

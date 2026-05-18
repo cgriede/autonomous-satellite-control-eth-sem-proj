@@ -10,19 +10,18 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
+from environment_definition.constants.MISSION import mission_target_window_deg
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.stepper import SimulationStepper
-from utils.flight_geometry.line_of_sight import minimum_contact_angle
 
 
 class SimulationStepperTorqueSeriesTest(unittest.TestCase):
     def test_wheel_torque_cmd_nm_indexed_per_step(self) -> None:
         theta_center = float(SIMULATION.theta_center.to(ureg.rad).magnitude)
-        alpha = minimum_contact_angle(observer_height=0.0 * ureg.km, orbit_height=SATELLITE_ALTITUDE)
-        contact_half_angle_deg = float(alpha.to(ureg.deg).magnitude)
-        margin_deg = float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude)
-        start_angle_deg = -(contact_half_angle_deg + margin_deg)
-        end_angle_deg = contact_half_angle_deg + margin_deg
+        start_angle_deg, end_angle_deg = mission_target_window_deg(
+            orbit_height=SATELLITE_ALTITUDE,
+            margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
+        )
 
         stepper = SimulationStepper(
             simulation_config=SimulationConfig(

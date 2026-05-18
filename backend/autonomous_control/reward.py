@@ -39,9 +39,9 @@ class RewardConfig:
 
     enable_distance_reward: bool = True
     enable_outer_gate: bool = True
-    enable_energy: bool = True
-    enable_area_intersection: bool = True
-    enable_area_novelty: bool = True
+    enable_energy: bool = False
+    enable_area_intersection: bool = False
+    enable_area_novelty: bool = False
     k_energy: float = float(REWARD_ENERGY_LINEAR_COEFFICIENT)
     k_area_intersection: float = float(REWARD_AREA_INTERSECTION_WEIGHT)
     k_area_novelty: float = float(REWARD_AREA_NOVELTY_WEIGHT)
@@ -221,9 +221,6 @@ def compute_reward(
         + components["area_novelty_reward"]
         + components["energy_reward"]
     )
-    if total > 0.0000001:
-        pprint(total)
-        pprint(components)
     return total, components
 
 __all__ = [

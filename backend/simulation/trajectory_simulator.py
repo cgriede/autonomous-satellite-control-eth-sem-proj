@@ -8,6 +8,7 @@ from environment_definition.constants.SIMULATION import (
     OBSERVATION_EARTH,
     OBSERVATION_LINE_NOT_COMPUTED,
 )
+from environment_definition.constants.MISSION import LON_GLOBAL
 from .state_types import SimulationMetadata, SimulationStateSeries
 
 
@@ -96,8 +97,8 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     fixed_ground_line_codes[:, :] = np.int8(OBSERVATION_EARTH)
     center_idx = int(n_bins // 2)
     fixed_ground_line_codes[:, center_idx] = np.int8(FIXED_GROUND_CONE_HIT_EARTH)
-    sat_subpoint_lat_deg = np.zeros(n, dtype=float)
-    sat_subpoint_lon_deg = np.rad2deg(theta_orbit_rad).astype(float)
+    sat_subpoint_lon_deg = np.full(n, float(LON_GLOBAL), dtype=float)
+    sat_subpoint_lat_deg = np.rad2deg(theta_orbit_rad).astype(float)
     sat_altitude_m = np.full(n, float(config.sat_altitude_km * 1000.0), dtype=float)
     camera_ground_left_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)
     camera_ground_right_lat_lon_deg = np.full((n, 2), np.nan, dtype=float)

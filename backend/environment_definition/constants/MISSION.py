@@ -1,54 +1,53 @@
 from dataclasses import dataclass
+from typing import Any
 
 from .UNIT_REGISTRY import UREG as ureg
-
-
-@dataclass(frozen=True)
-class ObservationTarget:
-    angle: object
-    label: str = "target"
+from utils.flight_geometry.line_of_sight import minimum_contact_angle
 
 
 @dataclass(frozen=True)
 class ObservationTargetArea:
-    lat_min: object
-    lat_max: object
-    lon_min: object
-    lon_max: object
+    lat_min: Any
+    lat_max: Any
     label: str = "target_area"
-    # Short-lived compatibility bridge while camera kernels still consume in-plane angle.
-    legacy_orbital_angle: object = 90.0 * ureg.deg
 
 
 SATELLITE_ALTITUDE_LOWER_BOUND = 510 * ureg.km
 SATELLITE_ALTITUDE_UPPER_BOUND = 570 * ureg.km
 
-# 2D simulation / z=0 plane: target as a circular-arc "stripe" on the Earth disk.
-# Endpoints are geodetic (lat, lon); `OBSERVATION_TARGET_STRIPE_PLANE_Z_M` documents the
-# equatorial slice used by `SimulationStepper` ground traces (no literal z in 2D kinematics).
-OBSERVATION_TARGET_STRIPE_PLANE_Z_M = 0.0 * ureg.m
-OBSERVATION_TARGET_STRIPE_START_LAT = 0.0 * ureg.deg
-OBSERVATION_TARGET_STRIPE_START_LON = 85.0 * ureg.deg
-OBSERVATION_TARGET_STRIPE_END_LAT = 0.0 * ureg.deg
-OBSERVATION_TARGET_STRIPE_END_LON = 95.0 * ureg.deg
+LON_GLOBAL = 0.0 * ureg.deg
+# 2D polar-orbit convention: longitude is fixed to 0 and the target spans latitude.
+OBSERVATION_TARGET_STRIPE_START_LAT = 89.65 * ureg.deg
+OBSERVATION_TARGET_STRIPE_END_LAT = 90.0 * ureg.deg
 
-# Legacy bbox form: thin equatorial band consistent with the stripe (for tests / adapters).
+# Latitude-band target area used by the camera and reward code.
 OBSERVATION_TARGET_AREAS: tuple[ObservationTargetArea, ...] = (
     ObservationTargetArea(
-        lat_min=-0.5 * ureg.deg,
-        lat_max=0.5 * ureg.deg,
-        lon_min=OBSERVATION_TARGET_STRIPE_START_LON,
-        lon_max=OBSERVATION_TARGET_STRIPE_END_LON,
+        lat_min=OBSERVATION_TARGET_STRIPE_START_LAT,
+        lat_max=OBSERVATION_TARGET_STRIPE_END_LAT,
         label="primary_stripe",
-        legacy_orbital_angle=90.0 * ureg.deg,
     ),
 )
 
-# Compatibility adapter for existing in-plane camera target call sites.
-OBSERVATION_TARGETS: tuple[ObservationTarget, ...] = (
-    ObservationTarget(
-        angle=OBSERVATION_TARGET_AREAS[0].legacy_orbital_angle,
-        label=OBSERVATION_TARGET_AREAS[0].label,
-    ),
-)
 
+def primary_observation_target_area() -> ObservationTargetArea:
+    return OBSERVATION_TARGET_AREAS[0]
+
+
+def mission_target_window_deg(
+    *,
+    orbit_height: Any,
+    margin_deg: float = 0.0,
+    observer_height: Any = 0.0 * ureg.km,
+    area: ObservationTargetArea | None = None,
+) -> tuple[float, float]:
+    target_area = primary_observation_target_area() if area is None else area
+    lat_min_deg = float(target_area.lat_min.to(ureg.deg).magnitude)
+    lat_max_deg = float(target_area.lat_max.to(ureg.deg).magnitude)
+    contact_half_angle_deg = float(
+        minimum_contact_angle(observer_height=observer_height, orbit_height=orbit_height)
+        .to(ureg.deg)
+        .magnitude
+    )
+    margin = float(margin_deg)
+    return lat_max_deg - contact_half_angle_deg - margin, lat_min_deg + contact_half_angle_deg + margin
