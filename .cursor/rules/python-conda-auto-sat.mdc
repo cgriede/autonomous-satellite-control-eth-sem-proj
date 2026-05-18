@@ -6,8 +6,8 @@ alwaysApply: true
 # Python Environment
 
 - Always run Python commands in this project after activating the configured project conda environment.
-- Default in this workspace: `conda activate auto-sat` before `python ...`, `pip ...`, `pytest`, or other Python tooling.
-- If `auto-sat` is not present on this machine, run `conda env list` and use the environment selected by the user for this project.
+- Default in this workspace: `conda activate ASC` before `python ...`, `pip ...`, `pytest`, or other Python tooling.
+- If `ASC` is not present on this machine, run `conda env list` and use the environment selected by the user for this project.
 - If multiple plausible environments exist and none is explicitly selected, ask the user which one to use before running Python commands.
 
 # Fallback

@@ -23,6 +23,7 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
+from environment_definition.constants.MISSION import mission_target_window_deg
 from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.run_simulation import run_simulation
 

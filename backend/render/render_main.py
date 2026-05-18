@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,10 +13,13 @@ from environment_definition.constants import (
     SIMULATION,
     UREG as ureg,
 )
-from environment_definition.constants.MISSION import LON_GLOBAL, OBSERVATION_TARGET_AREAS, primary_observation_target_area
+from environment_definition.constants.MISSION import los_theta_offsets_deg
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.state_types import SimulationStateSeries
-from utils.geodesics.geodesic_helpers import geodesic_distance
+from utils.geometry.mission_stripe_disk import (
+    primary_stripe_disk_phi_bounds_deg,
+    stripe_mid_observer_disk_xy_km_on_sphere,
+)
 
 if __package__:
     from ._closeup_view import build_closeup_panel, update_closeup_panel
@@ -51,6 +53,11 @@ R_EARTH_KM = EARTH_RADIUS.to(ureg.km).magnitude
 SAT_ALTITUDE_KM = SATELLITE_ALTITUDE.to(ureg.km).magnitude
 R_ORBIT_KM = R_EARTH_KM + SAT_ALTITUDE_KM
 THETA_CENTER = SIMULATION.theta_center.to(ureg.rad).magnitude
+MARGIN_DEG = SIMULATION.contact_margin_angle.to(ureg.deg).magnitude
+START_ANGLE_DEG, END_ANGLE_DEG = los_theta_offsets_deg(
+    orbit_height=SATELLITE_ALTITUDE,
+    margin_deg=float(MARGIN_DEG),
+)
 ANIMATION_INTERVAL_MS = RENDER.animation_interval.to(ureg.ms).magnitude
 SIM_SPEED_MULTIPLIER = float(RENDER.default_speed_multiplier)
 SIMULATION_SERIES: SimulationStateSeries | None = None
@@ -70,65 +77,34 @@ def _require_runtime() -> SimulationStateSeries:
     return SIMULATION_SERIES
 
 
-def _debug_log_path() -> Path:
-    return Path(__file__).resolve().parents[1] / "render_debug.log"
-
-
-def _render_xy_from_theta(theta_rad: float, radius_km: float) -> np.ndarray:
-    render_theta = float(theta_rad) - 0.5 * np.pi
-    return np.array([radius_km * np.cos(render_theta), radius_km * np.sin(render_theta)], dtype=float)
-
-
-def _latlonz_to_render_xy(lat_deg: Any, lon_deg: Any, radius_km: Any) -> np.ndarray:
-    """Project geodetic (lat, lon, radius_km) to renderer XY plane centered at the North Pole.
-
-    - radial distance from pole = (pi/2 - lat) * radius
-    - azimuth = lon (radians), with lon=0 -> +x, lon increases CCW (eastwards) -> +y at 90deg
-    """
-    lat_r = float(np.deg2rad(float(lat_deg)))
-    lon_r = float(np.deg2rad(float(lon_deg)))
-    radial = float((0.5 * np.pi - lat_r) * float(radius_km))
-    x = radial * np.cos(lon_r)
-    y = radial * np.sin(lon_r)
-    return np.array([x, y], dtype=float)
-
-
 def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> None:
     global SIMULATION_SERIES, N_CLOUDS, N_BINS, STATIC_SCENE, CONTROLS, FIG, PANELS, CONTROL_ARTISTS
     SIMULATION_SERIES = simulation_series
     N_CLOUDS = int(SIMULATION_SERIES.cloud_arc_radius_km.shape[1])
     N_BINS = int(SIMULATION_SERIES.camera_observation_line_codes.shape[1])
-    target_area = OBSERVATION_TARGET_AREAS[0]
-    target_lat_min_deg = float(target_area.lat_min.to(ureg.deg).magnitude)
-    target_lat_max_deg = float(target_area.lat_max.to(ureg.deg).magnitude)
-    target_center_lat_deg = 0.5 * (target_lat_min_deg + target_lat_max_deg)
-    # build target arc in lat/lon and project to render XY
-    target_lats = np.linspace(target_lat_max_deg, target_lat_min_deg, 256, dtype=float)
-    target_xy_x = []
-    target_xy_y = []
-    for lat in target_lats:
-        xy = _latlonz_to_render_xy(lat, 0.0, float(R_EARTH_KM))
-        target_xy_x.append(xy[0])
-        target_xy_y.append(xy[1])
-    target_line_length_km = float(
-        geodesic_distance(
-            LON_GLOBAL,
-            target_area.lat_min,
-            LON_GLOBAL,
-            target_area.lat_max,
-        ).to(ureg.km).magnitude
+    # Main-panel framing: symmetric LOS window ∪ actual orbit-plane sweep so the big
+    # cross-section is never clipped when the episode arc extends past LOS margins.
+    theta_rel = np.arctan2(
+        np.sin(simulation_series.theta_orbit_rad - THETA_CENTER),
+        np.cos(simulation_series.theta_orbit_rad - THETA_CENTER),
     )
+    traj_off_deg_lo = float(np.rad2deg(np.min(theta_rel)))
+    traj_off_deg_hi = float(np.rad2deg(np.max(theta_rel)))
+    frame_lo_deg = min(START_ANGLE_DEG, END_ANGLE_DEG, traj_off_deg_lo, traj_off_deg_hi)
+    frame_hi_deg = max(START_ANGLE_DEG, END_ANGLE_DEG, traj_off_deg_lo, traj_off_deg_hi)
+    tgt_lo_deg, tgt_hi_deg = primary_stripe_disk_phi_bounds_deg()
+    obs_xy = stripe_mid_observer_disk_xy_km_on_sphere(earth_radius_km=R_EARTH_KM)
     STATIC_SCENE = {
         "R_earth": R_EARTH_KM,
         "R_orbit": R_ORBIT_KM,
         "theta_center": THETA_CENTER,
-        "start_angle_deg": float(simulation_series.metadata.start_angle_deg),
-        "end_angle_deg": float(simulation_series.metadata.end_angle_deg),
-        "observer_x": float(_latlonz_to_render_xy(target_center_lat_deg, 0.0, float(R_EARTH_KM))[0]),
-        "observer_y": float(_latlonz_to_render_xy(target_center_lat_deg, 0.0, float(R_EARTH_KM))[1]),
-        "observer_pos": np.array([*_latlonz_to_render_xy(target_center_lat_deg, 0.0, float(R_EARTH_KM))], dtype=float),
-        "target_arc_xy": (np.asarray(target_xy_x, dtype=float), np.asarray(target_xy_y, dtype=float)),
-        "target_line_length_km": target_line_length_km,
+        "start_angle_deg": frame_lo_deg,
+        "end_angle_deg": frame_hi_deg,
+        "target_region_start_angle_deg": float(tgt_lo_deg),
+        "target_region_end_angle_deg": float(tgt_hi_deg),
+        "observer_x": float(obs_xy[0]),
+        "observer_y": float(obs_xy[1]),
+        "observer_pos": np.asarray(obs_xy, dtype=float),
         "cloud_models": [None] * N_CLOUDS,
         "n_clouds": N_CLOUDS,
         "n_bins": N_BINS,
@@ -138,14 +114,6 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
     FIG = plt.figure(figsize=RENDER.figure_size, facecolor=RENDER.space_background)
     PANELS = {}
     CONTROL_ARTISTS = None
-    try:
-        log_path = _debug_log_path()
-        log_path.write_text(
-            "# render debug log\n"
-            f"# target_window={float(simulation_series.metadata.start_angle_deg):+.3f} -> {float(simulation_series.metadata.end_angle_deg):+.3f}\n"
-        )
-    except Exception:
-        pass
 
 
 def _cloud_world_xy_for_frame(sim_idx: int) -> list[dict[str, np.ndarray]]:
@@ -162,13 +130,7 @@ def _cloud_world_xy_for_frame(sim_idx: int) -> list[dict[str, np.ndarray]]:
             specs.append({"x": np.array([], dtype=float), "y": np.array([], dtype=float)})
             continue
         th = np.linspace(s, e, int(RENDER.cloud_segment_points), dtype=float)
-        xs = []
-        ys = []
-        for t in th:
-            xy = _render_xy_from_theta(t, r)
-            xs.append(xy[0])
-            ys.append(xy[1])
-        specs.append({"x": np.asarray(xs, dtype=float), "y": np.asarray(ys, dtype=float)})
+        specs.append({"x": r * np.cos(th), "y": r * np.sin(th)})
     return specs
 
 
@@ -194,13 +156,6 @@ def _refresh_current_scene() -> None:
     sim_idx = simulation_index_from_time(SIM_TIME_S, wrap_orbit=False)
     scene = sample_scene(sim_idx)
     update_panels(scene)
-    # append a diagnostic line to render_debug.log to help trace misalignments
-    try:
-        sim_series = SIMULATION_SERIES
-        if sim_series is not None:
-            _write_debug_log(sim_idx, scene, sim_series)
-    except Exception:
-        pass
     if FIG is not None:
         FIG.canvas.draw_idle()
 
@@ -222,24 +177,21 @@ def _step_forward_one_frame() -> None:
 
 def sample_scene(sim_idx: int) -> dict:
     sim_series = _require_runtime()
-    # Prefer geodetic satellite position (sat_subpoint_lat_deg, sat_subpoint_lon_deg, sat_altitude_m)
-    sat_lat = float(sim_series.sat_subpoint_lat_deg[sim_idx])
-    sat_lon = float(sim_series.sat_subpoint_lon_deg[sim_idx])
-    sat_alt_km = float(sim_series.sat_altitude_m[sim_idx]) / 1000.0
-    sat_pos = _latlonz_to_render_xy(sat_lat, sat_lon, float(R_EARTH_KM) + sat_alt_km)
+    idx_theta = float(sim_series.theta_orbit_rad[sim_idx])
+    r_orbit_km = float(sim_series.radius_km[sim_idx])
+    sat_pos = np.array([r_orbit_km * np.cos(idx_theta), r_orbit_km * np.sin(idx_theta)], dtype=float)
 
     z_angle = float(sim_series.body_z_angle_rad[sim_idx])
     z_axis_dir = np.array([np.cos(z_angle), np.sin(z_angle)], dtype=float)
 
-    # build trail from sat subpoint lat/lon series
+    # build trail from orbit-plane XY (matches ``camera_2d`` Earth-disk kinematics)
     k = max(sim_idx + 1, 2)
-    trail_lats = np.asarray(sim_series.sat_subpoint_lat_deg[:k], dtype=float)
-    trail_lons = np.asarray(sim_series.sat_subpoint_lon_deg[:k], dtype=float)
-    trail_alts = [float(v) / 1000.0 for v in sim_series.sat_altitude_m[:k]]
     tx = []
     ty = []
-    for la, lo, al in zip(trail_lats, trail_lons, trail_alts):
-        p = _latlonz_to_render_xy(float(la), float(lo), float(R_EARTH_KM) + float(al))
+    for i in range(k):
+        th = float(sim_series.theta_orbit_rad[i])
+        rk = float(sim_series.radius_km[i])
+        p = np.array([rk * np.cos(th), rk * np.sin(th)], dtype=float)
         tx.append(p[0])
         ty.append(p[1])
     trail_xy = (np.asarray(tx, dtype=float), np.asarray(ty, dtype=float))
@@ -255,28 +207,10 @@ def sample_scene(sim_idx: int) -> dict:
     camera_gsd_m = float(sim_series.camera_gsd_m[sim_idx])
     camera_swath_height_km = (N_PIXELS_Y * camera_gsd_m) / 1000.0 if np.isfinite(camera_gsd_m) else float("nan")
     blocked_fraction = float(sim_series.camera_cloud_blocked_fraction[sim_idx])
-    # prefer geodetic lat/lon ground intersection arrays and project them
-    center_hit_lat_lon = np.asarray(sim_series.camera_center_first_hit_xy_km[sim_idx], dtype=float)
-    # simulation also stores lat/lon deg arrays for camera ground points; prefer those when present
-    try:
-        gc_lat, gc_lon = sim_series.camera_ground_center_lat_lon_deg[sim_idx]
-        gl_lat, gl_lon = sim_series.camera_ground_left_lat_lon_deg[sim_idx]
-        gr_lat, gr_lon = sim_series.camera_ground_right_lat_lon_deg[sim_idx]
-        center_first_hit_lat_lon = sim_series.camera_center_first_hit_xy_km[sim_idx]
-        center_first_hit_xy = np.array([np.nan, np.nan], dtype=float)
-        if not np.isnan(center_first_hit_lat_lon).any():
-            # if center-first-hit given in lat/lon deg use that projection
-            ch_lat, ch_lon = sim_series.camera_center_first_hit_xy_km[sim_idx]
-            center_first_hit_xy = _latlonz_to_render_xy(float(ch_lat), float(ch_lon), R_EARTH_KM)
-        ground_center_xy = _latlonz_to_render_xy(float(gc_lat), float(gc_lon), R_EARTH_KM)
-        ground_left_xy = _latlonz_to_render_xy(float(gl_lat), float(gl_lon), R_EARTH_KM)
-        ground_right_xy = _latlonz_to_render_xy(float(gr_lat), float(gr_lon), R_EARTH_KM)
-    except Exception:
-        # fall back to any precomputed XY fields if lat/lon not available
-        center_first_hit_xy = np.asarray(sim_series.camera_center_first_hit_xy_km[sim_idx], dtype=float)
-        ground_center_xy = np.asarray(sim_series.camera_ground_center_xy_km[sim_idx], dtype=float)
-        ground_left_xy = np.asarray(sim_series.camera_ground_left_xy_km[sim_idx], dtype=float)
-        ground_right_xy = np.asarray(sim_series.camera_ground_right_xy_km[sim_idx], dtype=float)
+    center_first_hit_xy_km = np.asarray(sim_series.camera_center_first_hit_xy_km[sim_idx], dtype=float)
+    ground_center_xy = np.asarray(sim_series.camera_ground_center_xy_km[sim_idx], dtype=float)
+    ground_left_xy = np.asarray(sim_series.camera_ground_left_xy_km[sim_idx], dtype=float)
+    ground_right_xy = np.asarray(sim_series.camera_ground_right_xy_km[sim_idx], dtype=float)
 
     nadir_angle = float(sim_series.theta_orbit_rad[sim_idx]) + np.pi
     z_angle_rel_nadir_rad = np.arctan2(np.sin(z_angle - nadir_angle), np.cos(z_angle - nadir_angle))
@@ -284,11 +218,11 @@ def sample_scene(sim_idx: int) -> dict:
     los_angle = float(np.arctan2(sat_to_observer[1], sat_to_observer[0]))
     los_rel_nadir_rad = np.arctan2(np.sin(los_angle - nadir_angle), np.cos(los_angle - nadir_angle))
 
-    if np.isnan(center_first_hit_xy).any():
+    if np.isnan(center_first_hit_xy_km).any():
         intersection_text = "none"
     else:
         hit_type = "cloud" if bool(sim_series.camera_center_first_hit_is_cloud[sim_idx]) else "earth"
-        hit_distance_km = float(np.linalg.norm(center_first_hit_xy - sat_pos))
+        hit_distance_km = float(np.linalg.norm(center_first_hit_xy_km - sat_pos))
         intersection_text = f"{hit_distance_km:.1f} km ({hit_type})"
 
     if np.isnan(ground_center_xy).any():
@@ -333,66 +267,12 @@ def sample_scene(sim_idx: int) -> dict:
         "los_rel_nadir_deg": float(np.rad2deg(los_rel_nadir_rad)),
         "intersection_text": intersection_text,
         "ground_patch_hit_text": ground_patch_hit_text,
-        "target_line_length_km": STATIC_SCENE["target_line_length_km"],
         "render_window_text": (
-            f"{float(sim_series.metadata.start_angle_deg):+.1f} deg to "
-            f"{float(sim_series.metadata.end_angle_deg):+.1f} deg"
+            f"{float(STATIC_SCENE['start_angle_deg']):+.1f} deg to "
+            f"{float(STATIC_SCENE['end_angle_deg']):+.1f} deg"
         ),
         "controller_mode": sim_series.metadata.controller_mode,
     }
-
-
-def _write_debug_log(sim_idx: int, scene: dict, sim_series: SimulationStateSeries) -> None:
-    try:
-        log_path = _debug_log_path()
-        parts = [
-            f"frame={sim_idx}",
-            f"render_window={scene.get('render_window_text', '')}",
-        ]
-        try:
-            sat_lat = float(sim_series.sat_subpoint_lat_deg[sim_idx])
-            sat_lon = float(sim_series.sat_subpoint_lon_deg[sim_idx])
-            sat_alt = float(sim_series.sat_altitude_m[sim_idx]) / 1000.0
-            parts.append(f"sat_lat={sat_lat:.6f}")
-            parts.append(f"sat_lon={sat_lon:.6f}")
-            parts.append(f"sat_alt_km={sat_alt:.3f}")
-        except Exception:
-            parts.append("sat_geodetic=n/a")
-        try:
-            sp = np.asarray(scene.get("sat_pos", np.array([np.nan, np.nan])), dtype=float)
-            parts.append(f"sat_x={sp[0]:.3f}")
-            parts.append(f"sat_y={sp[1]:.3f}")
-        except Exception:
-            parts.append("sat_xy=n/a")
-        try:
-            ta = primary_observation_target_area()
-            parts.append(f"target_lat_min={float(ta.lat_min.to(ureg.deg).magnitude):.6f}")
-            parts.append(f"target_lat_max={float(ta.lat_max.to(ureg.deg).magnitude):.6f}")
-        except Exception:
-            parts.append("target_area=n/a")
-        try:
-            nclouds = int(sim_series.cloud_arc_radius_km.shape[1])
-            parts.append(f"n_clouds={nclouds}")
-            if nclouds > 0:
-                r = float(sim_series.cloud_arc_radius_km[sim_idx, 0])
-                s = float(sim_series.cloud_arc_start_rad[sim_idx, 0])
-                e = float(sim_series.cloud_arc_end_rad[sim_idx, 0])
-                mid = 0.5 * (s + e)
-                parts.append(f"cloud0_r_km={r:.3f}")
-                parts.append(f"cloud0_mid_rad={mid:.6f}")
-        except Exception:
-            parts.append("clouds=n/a")
-        try:
-            codes = np.asarray(sim_series.camera_observation_line_codes[sim_idx], dtype=np.int8)
-            unique, counts = np.unique(codes, return_counts=True)
-            code_summary = ",".join([f"{int(u)}:{int(c)}" for u, c in zip(unique, counts)])
-            parts.append(f"cam_codes={code_summary}")
-        except Exception:
-            parts.append("cam_codes=n/a")
-        with open(log_path, "a") as f:
-            f.write(" | ".join(parts) + "\n")
-    except Exception:
-        return
 
 
 def init() -> list:

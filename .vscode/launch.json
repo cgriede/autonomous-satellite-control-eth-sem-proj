@@ -23,7 +23,7 @@
       },
       "console": "integratedTerminal",
       "justMyCode": true,
-      "args": ["--render-mode", "export", "--save-one-pass-30x"]
+      "args": ["--render-mode", "export", "--save-one-pass-30x", "--controller-mode", "random"]
     },
     {
       "name": "Sat Sim Interactive",
@@ -35,7 +35,7 @@
         "PYTHONPATH": "${workspaceFolder}/backend${pathSeparator}${env:PYTHONPATH}"
       },
       "args": ["--render-mode", "interactive",
-      "--controller-mode", "baseline"], 
+      "--controller-mode", "random"], 
       "console": "integratedTerminal",
       "justMyCode": true
     },

@@ -18,7 +18,7 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
-from environment_definition.constants.MISSION import mission_target_window_deg
+from environment_definition.constants.MISSION import los_theta_offsets_deg
 from environment_definition.mission_profiles.mission_1_random_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.stepper import SimulationStepper
 from utils.ml_training.ml_training_utils import RunTelemetryWriter
@@ -52,7 +52,7 @@ class WorkerResult:
 
 def _build_stepper(*, satellite_altitude: Any) -> SimulationStepper:
     theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
-    start_angle_deg, end_angle_deg = mission_target_window_deg(
+    start_angle_deg, end_angle_deg = los_theta_offsets_deg(
         orbit_height=satellite_altitude,
         margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
     )

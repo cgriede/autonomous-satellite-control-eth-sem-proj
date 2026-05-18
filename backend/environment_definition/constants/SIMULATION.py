@@ -48,12 +48,6 @@ class FieldOfViewCone:
 
 
 @dataclass(frozen=True)
-class SwitzerlandMap:
-    lat_center_deg: float
-    lon_center_deg: float
-
-
-@dataclass(frozen=True)
 class SimulationConstants:
     theta_center: Any
     sat_motion_span_scale: float
@@ -64,7 +58,6 @@ class SimulationConstants:
     field_of_view_cone: Any
     cone_length: Any
     z_axis_length: Any
-    switzerland_map: Any
     clouds: tuple[Cloud, ...]
     export_speed_multiplier: float
     # Rays sampled along the sensor column for camera strip cloud-blocked stats (see simulation.camera_2d).
@@ -106,10 +99,6 @@ SIMULATION = SimulationConstants(
     ),
     cone_length=20000.0 * ureg.km,
     z_axis_length=180.0 * ureg.km,
-    switzerland_map=SwitzerlandMap(
-        lat_center_deg=46.80,
-        lon_center_deg=8.20,
-    ),
     clouds=(
         Cloud(
             height=15.0 * ureg.km,

@@ -155,7 +155,7 @@ def energy_reward(
     e_j = float(e.to(ureg.joule).magnitude)
     return -k_energy * e_j
 
-from rich.pretty import pprint
+
 def compute_reward(
     *,
     signals: RewardSignals,

@@ -1,4 +1,4 @@
-"""Ellipsoidal geodesic helpers (WGS84 via ``environment_definition.constants.geod``)."""
+"""Ellipsoidal geodesic helpers (WGS84 via ``environment_definition.constants.WGS84_ELLIPSOID``)."""
 
 from __future__ import annotations
 
@@ -6,14 +6,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
+from pymap3d import enu2geodetic
+from pymap3d.ellipsoid import Ellipsoid
+from pymap3d.vincenty import vdist
 
-from environment_definition.constants.EARTH import geod as default_geod
+from environment_definition.constants.EARTH import WGS84_ELLIPSOID as default_ellipsoid
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from utils.units.require_compatible_unit import require_compatible_units
 
 if TYPE_CHECKING:
     from pint import Quantity
-    from pyproj import Geod
 
 
 @dataclass(frozen=True)
@@ -56,18 +58,31 @@ def _segment_overlap(a: tuple[float, float], b: tuple[float, float]) -> tuple[fl
     return (lo, hi)
 
 
+def _vincenty_tuple(
+    lat1_deg: float,
+    lon1_deg: float,
+    lat2_deg: float,
+    lon2_deg: float,
+    *,
+    ell: Ellipsoid,
+):
+    """Return ``vdist`` outputs as plain floats (handles 0-D numpy scalars)."""
+    dist_m, az_fwd_deg = vdist(lat1_deg, lon1_deg, lat2_deg, lon2_deg, ell=ell)
+    return float(np.asarray(dist_m).reshape(-1)[0]), float(np.asarray(az_fwd_deg).reshape(-1)[0])
+
+
 def east_north_km_to_lon_lat(
     lon0: Quantity,
     lat0: Quantity,
     east: Quantity,
     north: Quantity,
     *,
-    geod: Geod | None = None,
+    ell: Ellipsoid | None = None,
 ) -> tuple[Quantity, Quantity]:
     """
     Map a local east/north offset from ``(lon0, lat0)`` to geodetic coordinates.
 
-    Uses two ``Geod.fwd`` legs (north, then east) on the reference ellipsoid.
+    Uses ``pymap3d.enu2geodetic`` at ``h0 = 0`` on the reference ellipsoid.
     ``east`` / ``north`` accept any length dimension (e.g. km or m).
 
     Returns:
@@ -77,17 +92,17 @@ def east_north_km_to_lon_lat(
     require_compatible_units(lat0, "radian", "lat0")
     require_compatible_units(east, "meter", "east")
     require_compatible_units(north, "meter", "north")
-    g = default_geod if geod is None else geod
+    e = default_ellipsoid if ell is None else ell
 
     lon0_deg = float(lon0.to(ureg.deg).magnitude)
     lat0_deg = float(lat0.to(ureg.deg).magnitude)
     north_m = float(north.to(ureg.m).magnitude)
     east_m = float(east.to(ureg.m).magnitude)
 
-    lon1_deg, lat1_deg, _back1 = g.fwd(lon0_deg, lat0_deg, 0.0, north_m)
-    lon2_deg, lat2_deg, _back2 = g.fwd(lon1_deg, lat1_deg, 90.0, east_m)
-
-    return lat2_deg * ureg.deg, lon2_deg * ureg.deg
+    lat2_deg, lon2_deg, _alt_m = enu2geodetic(
+        east_m, north_m, 0.0, lat0_deg, lon0_deg, 0.0, ell=e, deg=True
+    )
+    return float(lat2_deg) * ureg.deg, float(lon2_deg) * ureg.deg
 
 
 def geodesic_distance(
@@ -96,22 +111,22 @@ def geodesic_distance(
     lon2: Quantity,
     lat2: Quantity,
     *,
-    geod: Geod | None = None,
+    ell: Ellipsoid | None = None,
 ) -> Quantity:
-    """Ellipsoidal geodesic distance between two lon/lat points."""
+    """Ellipsoidal geodesic distance between two lon/lat points (Vincenty)."""
     require_compatible_units(lon1, "radian", "lon1")
     require_compatible_units(lat1, "radian", "lat1")
     require_compatible_units(lon2, "radian", "lon2")
     require_compatible_units(lat2, "radian", "lat2")
-    g = default_geod if geod is None else geod
+    e = default_ellipsoid if ell is None else ell
 
-    a1 = float(lon1.to(ureg.deg).magnitude)
     b1 = float(lat1.to(ureg.deg).magnitude)
-    a2 = float(lon2.to(ureg.deg).magnitude)
+    a1 = float(lon1.to(ureg.deg).magnitude)
     b2 = float(lat2.to(ureg.deg).magnitude)
+    a2 = float(lon2.to(ureg.deg).magnitude)
 
-    _az12, _az21, dist_m = g.inv(a1, b1, a2, b2)
-    return float(dist_m) * ureg.m
+    dist_m, _az = _vincenty_tuple(b1, a1, b2, a2, ell=e)
+    return abs(dist_m) * ureg.m
 
 
 def geodesic_initial_bearing(
@@ -120,20 +135,20 @@ def geodesic_initial_bearing(
     lon2: Quantity,
     lat2: Quantity,
     *,
-    geod: Geod | None = None,
+    ell: Ellipsoid | None = None,
 ) -> Quantity:
-    """Forward azimuth (initial bearing) from point 1 to point 2."""
+    """Forward azimuth (initial bearing) from point 1 to point 2 (Vincenty)."""
     require_compatible_units(lon1, "radian", "lon1")
     require_compatible_units(lat1, "radian", "lat1")
     require_compatible_units(lon2, "radian", "lon2")
     require_compatible_units(lat2, "radian", "lat2")
-    g = default_geod if geod is None else geod
-    a1 = float(lon1.to(ureg.deg).magnitude)
+    e = default_ellipsoid if ell is None else ell
     b1 = float(lat1.to(ureg.deg).magnitude)
-    a2 = float(lon2.to(ureg.deg).magnitude)
+    a1 = float(lon1.to(ureg.deg).magnitude)
     b2 = float(lat2.to(ureg.deg).magnitude)
-    az12, _az21, _dist_m = g.inv(a1, b1, a2, b2)
-    return float(az12) * ureg.deg
+    a2 = float(lon2.to(ureg.deg).magnitude)
+    _dist_m, az12 = _vincenty_tuple(b1, a1, b2, a2, ell=e)
+    return az12 * ureg.deg
 
 
 def geodetic_bbox_contains(
@@ -170,14 +185,14 @@ def geodetic_bbox_intersection_ratio(
     *,
     target_bbox: GeodeticBoundingBox,
     footprint_bbox: GeodeticBoundingBox,
-    geod: Geod | None = None,
+    ell: Ellipsoid | None = None,
 ) -> float:
     """
     Approximate intersection ratio = (intersection area) / (target area), clipped to [0, 1].
 
     Area is estimated from geodesic north-south and east-west extents (at overlap mid-lat).
     """
-    g = default_geod if geod is None else geod
+    e = default_ellipsoid if ell is None else ell
 
     lat_a_min = float(target_bbox.lat_min.to(ureg.deg).magnitude)
     lat_a_max = float(target_bbox.lat_max.to(ureg.deg).magnitude)
@@ -207,7 +222,7 @@ def geodetic_bbox_intersection_ratio(
         return 0.0
 
     overlap_mid_lat = 0.5 * (lat_int_min + lat_int_max)
-    _az1, _az2, overlap_height_m = g.inv(0.0, lat_int_min, 0.0, lat_int_max)
+    overlap_height_m, _az = _vincenty_tuple(lat_int_min, 0.0, lat_int_max, 0.0, ell=e)
     overlap_height_m = abs(float(overlap_height_m))
     if overlap_height_m <= 0.0:
         return 0.0
@@ -217,12 +232,12 @@ def geodetic_bbox_intersection_ratio(
         for lo, hi in segments:
             if hi <= lo:
                 continue
-            _w_az1, _w_az2, seg_m = g.inv(float(lo), lat_deg, float(hi), lat_deg)
+            seg_m, _w_az = _vincenty_tuple(lat_deg, float(lo), lat_deg, float(hi), ell=e)
             total += abs(float(seg_m))
         return total
 
     target_mid_lat = 0.5 * (lat_a_min + lat_a_max)
-    _t_az1, _t_az2, target_height_m = g.inv(0.0, lat_a_min, 0.0, lat_a_max)
+    target_height_m, _t_az = _vincenty_tuple(lat_a_min, 0.0, lat_a_max, 0.0, ell=e)
     target_height_m = abs(float(target_height_m))
     target_width_m = _width_m(target_segments, target_mid_lat)
     if target_width_m <= 0.0:
@@ -250,11 +265,40 @@ def lonlat_to_z0_plane_angle_deg(lon: "Quantity", lat: "Quantity") -> float:
 
 
 def xy_km_to_plane_angle_deg(xy_km: np.ndarray) -> float:
-    """Same convention as ``SimulationStepper._xy_to_equatorial_lat_lon_deg`` longitude-from-xy."""
+    """_plane xy plane polar angle ``deg(arctan2(y,x))`` (legacy circle-stripe helper)."""
     p = np.asarray(xy_km, dtype=float).reshape(2)
     if not np.all(np.isfinite(p)):
         return float("nan")
     return float(np.rad2deg(np.arctan2(float(p[1]), float(p[0]))))
+
+
+def polar_azimuthal_plane_xy_km_to_lon_lat_deg(
+    xy_km: np.ndarray,
+    *,
+    radius_km: float,
+) -> np.ndarray:
+    """
+    Inverse of the renderer's north-polar azimuthal map at fixed spherical radius.
+
+    Matches ``render_main._latlonz_to_render_xy``: radial = (π/2 − lat)·radius,
+    azimuth = lon. Returns ``array([lon_deg, lat_deg])``.
+
+    Use only for renderer polar-map XY. Earth-disk intersection ``(x, y)`` from ``camera_2d``
+    lives in a different plane model; map those with footprint helpers tied to that geometry,
+    not this inverse.
+    """
+    p = np.asarray(xy_km, dtype=float).reshape(2)
+    if not np.all(np.isfinite(p)):
+        return np.array([np.nan, np.nan], dtype=float)
+    x, y = float(p[0]), float(p[1])
+    rr = float(radius_km)
+    if rr <= 0.0:
+        return np.array([np.nan, np.nan], dtype=float)
+    lon_deg = float(np.rad2deg(np.arctan2(y, x)))
+    r_xy = float(np.hypot(x, y))
+    lat_rad = 0.5 * np.pi - r_xy / rr
+    lat_deg = float(np.rad2deg(lat_rad))
+    return np.array([lon_deg, lat_deg], dtype=float)
 
 
 def minor_arc_length_deg(phi0_deg: float, phi1_deg: float) -> float:
@@ -323,7 +367,7 @@ def sigma_deg_to_meters_north(
     lat: Quantity,
     sigma_deg: Quantity,
     *,
-    geod: Geod | None = None,
+    ell: Ellipsoid | None = None,
 ) -> Quantity:
     """
     Geodesic length of a northward ``sigma_deg`` span at ``(lon, lat)``.
@@ -333,11 +377,11 @@ def sigma_deg_to_meters_north(
     require_compatible_units(lon, "radian", "lon")
     require_compatible_units(lat, "radian", "lat")
     require_compatible_units(sigma_deg, "radian", "sigma_deg")
-    g = default_geod if geod is None else geod
+    e = default_ellipsoid if ell is None else ell
 
     lon_d = float(lon.to(ureg.deg).magnitude)
     lat_d = float(lat.to(ureg.deg).magnitude)
     sig_d = float(sigma_deg.to(ureg.deg).magnitude)
 
-    _az12, _az21, dist_m = g.inv(lon_d, lat_d, lon_d, lat_d + sig_d)
+    dist_m, _az = _vincenty_tuple(lat_d, lon_d, lat_d + sig_d, lon_d, ell=e)
     return abs(float(dist_m)) * ureg.m

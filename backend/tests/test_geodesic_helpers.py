@@ -1,8 +1,10 @@
 import unittest
 
 import numpy as np
+from pymap3d import enu2geodetic
+from pymap3d.vincenty import vdist
 
-from environment_definition.constants.EARTH import geod
+from environment_definition.constants.EARTH import WGS84_ELLIPSOID
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from utils.geodesics.geodesic_helpers import (
     circle_stripe_footprint_overlap_ratio,
@@ -14,6 +16,7 @@ from utils.geodesics.geodesic_helpers import (
     GeodeticBoundingBox,
     lonlat_to_z0_plane_angle_deg,
     minor_arc_midpoint_deg,
+    polar_azimuthal_plane_xy_km_to_lon_lat_deg,
     sigma_deg_to_meters_north,
 )
 
@@ -32,7 +35,7 @@ def _flat_approx_lat_lon(
 
 
 class GeodesicHelpersTest(unittest.TestCase):
-    def test_east_north_matches_two_step_fwd(self):
+    def test_east_north_matches_pymap3d_enu(self):
         lon0_deg, lat0_deg = 8.2, 46.8
         east_km, north_km = 3.5, -2.0
 
@@ -41,18 +44,22 @@ class GeodesicHelpersTest(unittest.TestCase):
             lat0_deg * ureg.deg,
             east_km * ureg.km,
             north_km * ureg.km,
-            geod=geod,
+            ell=WGS84_ELLIPSOID,
         )
 
-        lon1, lat1, _ = geod.fwd(lon0_deg, lat0_deg, 0.0, north_km * 1000.0)
-        lon2, lat2, _ = geod.fwd(lon1, lat1, 90.0, east_km * 1000.0)
+        lat_ref, lon_ref, _ = enu2geodetic(
+            east_km * 1000.0,
+            north_km * 1000.0,
+            0.0,
+            lat0_deg,
+            lon0_deg,
+            0.0,
+            ell=WGS84_ELLIPSOID,
+            deg=True,
+        )
 
-        self.assertAlmostEqual(
-            float(lat_q.to(ureg.deg).magnitude), lat2, places=9
-        )
-        self.assertAlmostEqual(
-            float(lon_q.to(ureg.deg).magnitude), lon2, places=9
-        )
+        self.assertAlmostEqual(float(lat_q.to(ureg.deg).magnitude), float(lat_ref), places=9)
+        self.assertAlmostEqual(float(lon_q.to(ureg.deg).magnitude), float(lon_ref), places=9)
 
     def test_geodesic_distance_short_hop(self):
         """~1 km north from a Switzerland-like latitude — distance ≈ 1000 m."""
@@ -63,7 +70,7 @@ class GeodesicHelpersTest(unittest.TestCase):
             lat1 * ureg.deg,
             lon2 * ureg.deg,
             lat2 * ureg.deg,
-            geod=geod,
+            ell=WGS84_ELLIPSOID,
         )
         self.assertAlmostEqual(float(d.to(ureg.m).magnitude), 1000.0, delta=15.0)
 
@@ -71,37 +78,35 @@ class GeodesicHelpersTest(unittest.TestCase):
         lon = 8.0 * ureg.deg
         lat = 46.8 * ureg.deg
         sigma = 1.0 * ureg.deg
-        sigma_m = sigma_deg_to_meters_north(lon, lat, sigma, geod=geod)
+        sigma_m = sigma_deg_to_meters_north(lon, lat, sigma, ell=WGS84_ELLIPSOID)
         self.assertAlmostEqual(float(sigma_m.to(ureg.km).magnitude), 111.0, delta=2.0)
 
     def test_small_offset_near_flat_formula(self):
         lat0_deg, lon0_deg = 46.80, 8.20
         east_km, north_km = 2.0, -1.5
-        flat_lat, flat_lon = _flat_approx_lat_lon(
-            lat0_deg, lon0_deg, east_km, north_km
-        )
+        flat_lat, flat_lon = _flat_approx_lat_lon(lat0_deg, lon0_deg, east_km, north_km)
         lat_q, lon_q = east_north_km_to_lon_lat(
             lon0_deg * ureg.deg,
             lat0_deg * ureg.deg,
             east_km * ureg.km,
             north_km * ureg.km,
-            geod=geod,
+            ell=WGS84_ELLIPSOID,
         )
         g_lat = float(lat_q.to(ureg.deg).magnitude)
         g_lon = float(lon_q.to(ureg.deg).magnitude)
         self.assertAlmostEqual(g_lat, flat_lat, places=3)
         self.assertAlmostEqual(g_lon, flat_lon, places=3)
 
-    def test_geodesic_initial_bearing_matches_pyproj_azimuth(self):
+    def test_geodesic_initial_bearing_matches_vincenty(self):
         lon1, lat1 = 8.0, 46.8
         lon2, lat2 = 8.3, 47.0
-        az12, _az21, _dist_m = geod.inv(lon1, lat1, lon2, lat2)
+        _dist_m, az12 = vdist(lat1, lon1, lat2, lon2, ell=WGS84_ELLIPSOID)
         b = geodesic_initial_bearing(
             lon1 * ureg.deg,
             lat1 * ureg.deg,
             lon2 * ureg.deg,
             lat2 * ureg.deg,
-            geod=geod,
+            ell=WGS84_ELLIPSOID,
         )
         self.assertAlmostEqual(float(b.to(ureg.deg).magnitude), float(az12), places=9)
 
@@ -182,19 +187,21 @@ class GeodesicHelpersTest(unittest.TestCase):
             lat_max=46.0 * ureg.deg,
         )
         self.assertAlmostEqual(
-            geodetic_bbox_intersection_ratio(target_bbox=target, footprint_bbox=full_overlap, geod=geod),
+            geodetic_bbox_intersection_ratio(
+                target_bbox=target, footprint_bbox=full_overlap, ell=WGS84_ELLIPSOID
+            ),
             1.0,
             places=9,
         )
         ratio_quarter = geodetic_bbox_intersection_ratio(
             target_bbox=target,
             footprint_bbox=quarter_overlap,
-            geod=geod,
+            ell=WGS84_ELLIPSOID,
         )
         self.assertGreater(ratio_quarter, 0.20)
         self.assertLess(ratio_quarter, 0.30)
         self.assertEqual(
-            geodetic_bbox_intersection_ratio(target_bbox=target, footprint_bbox=disjoint, geod=geod),
+            geodetic_bbox_intersection_ratio(target_bbox=target, footprint_bbox=disjoint, ell=WGS84_ELLIPSOID),
             0.0,
         )
 
@@ -231,6 +238,19 @@ class GeodesicHelpersTest(unittest.TestCase):
             n_samples=12,
         )
         self.assertLessEqual(ratio, 0.05)
+
+    def test_polar_azimuthal_roundtrip_lon_lat(self):
+        r_km = 6371.0
+        lat_deg = 89.0
+        lon_deg = 0.0
+        lat_r = np.deg2rad(lat_deg)
+        lon_r = np.deg2rad(lon_deg)
+        radial_km = (0.5 * np.pi - lat_r) * r_km
+        x = radial_km * np.cos(lon_r)
+        y = radial_km * np.sin(lon_r)
+        ll = polar_azimuthal_plane_xy_km_to_lon_lat_deg(np.array([x, y]), radius_km=r_km)
+        self.assertAlmostEqual(float(ll[0]), lon_deg, places=4)
+        self.assertAlmostEqual(float(ll[1]), lat_deg, places=4)
 
 
 if __name__ == "__main__":

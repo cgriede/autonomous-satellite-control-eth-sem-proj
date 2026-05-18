@@ -1,4 +1,7 @@
-from environment_definition.constants import EARTH_RADIUS, UREG as ureg
+import numpy as np
+
+from environment_definition.constants.EARTH import EARTH_RADIUS
+from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from utils.leo_adapter import (
     minimum_contact_angle_from_heights,
     satellite_horizon_geometry,
@@ -42,6 +45,29 @@ def minimum_contact_angle(observer_height: float, orbit_height: float):
         default_r_earth=EARTH_RADIUS,
         ureg=ureg,
     )
+
+
+def subsatellite_latitude_deg_polar_meridian(
+    theta_orbit_rad: np.ndarray | float,
+    *,
+    theta_center_rad: float,
+) -> np.ndarray | float:
+    """
+    Geodetic latitude (degrees) for the polar meridian / orbit-disk model.
+
+    Orbit angle ``theta_orbit_rad`` advances around the circular cross-section with
+    ``theta_center_rad`` at the north pole (λ = 90°). Past the pole, latitude decreases
+    symmetrically: λ = 90° − |Δθ| with Δθ wrapped to (−π, π].
+    """
+    arr = np.asarray(theta_orbit_rad, dtype=float)
+    dtheta = arr - float(theta_center_rad)
+    delta_wrapped = np.arctan2(np.sin(dtheta), np.cos(dtheta))
+    delta_deg = np.rad2deg(delta_wrapped)
+    out = np.clip(90.0 - np.abs(delta_deg), -90.0, 90.0)
+    if np.ndim(theta_orbit_rad) == 0:
+        return float(out)
+    return out.astype(float)
+
 
 if __name__ == "__main__":
     # ────────────────────────────────────────────────

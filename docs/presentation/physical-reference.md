@@ -23,18 +23,23 @@ Source: `environment_definition/constants/EARTH.py`.
 
 Source: `environment_definition/constants/EARTH.py`.
 
-- **`pyproj.Geod(ellps="WGS84")`** — WGS 84 ellipsoid for geodetic routines when needed.
-- **Geodetic helper API:** `utils/geodesics/geodesic_helpers.py` now provides:
-  - point distance (`geodesic_distance`) [m],
-  - forward azimuth (`geodesic_initial_bearing`) [deg],
-  - geodetic bbox containment/intersection (`GeodeticBoundingBox`, `geodetic_bbox_*`) for area-target scoring.
+- **`pymap3d.ellipsoid.Ellipsoid.from_name("wgs84")`** — exported as **`WGS84_ELLIPSOID`** for Vincenty distances, ENU/LLA conversions, LOS helpers.
+- **Geodetic helper API:** `utils/geodesics/geodesic_helpers.py` wraps pymap3d (`vincenty.vdist`, `enu2geodetic`) with pint quantities.
 
 ---
 
 # Frames & usage
 
-- Orbit speed and mission geometry use **μ**, **Earth radius**, and altitude from mission constants.
+- Orbit speed uses **μ**, **mean Earth radius**, and altitude from mission constants; **surface/target sensing** uses WGS84 ellipsoid helpers (`camera_2d` Earth intersections).
 - Render and LOS utilities consume `EARTH_RADIUS` / μ from shared constants (`render`, `utils/flight_geometry`, etc.).
+
+---
+
+# Geographic coordinates
+
+- **Canonical triple `(lon, lat, z)`:** longitude first, latitude second (matches **`Geod.inv`**-style argument ordering historically referenced in telemetry docs). **`z`** is treated as **altitude above mean sea level** for mission-facing descriptions; episode arrays still store `sat_altitude_m` above the ellipsoid from mission altitude sampling—see `environment_definition/constants/MISSION.py` and `simulation/state_types.py`.
+- **Surface distance:** `utils/geodesics/geodesic_helpers.geodesic_distance(lon1, lat1, lon2, lat2)` uses Vincenty inverse via pymap3d with **`WGS84_ELLIPSOID`** (`environment_definition/constants/EARTH.py`).
+- **Camera footprint telemetry (`lon_deg`, `lat_deg`):** stored in `camera_ground_*_lon_lat_deg` (`SimulationStateSeries`) as **geodetic LOS footprint corners** when finite (`ecef2geodetic` after WGS84 ellipsoid intersections). Subsatellite columns track **`ecef2geodetic(satellite ECEF)`** from the orbit-disk mapping documented under `utils/geometry/orbit_disk_wgs84.py`.
 
 ---
 

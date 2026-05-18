@@ -29,9 +29,9 @@ def _build_valid_series(n: int = 3) -> SimulationStateSeries:
         sat_subpoint_lat_deg=np.zeros(n, dtype=float),
         sat_subpoint_lon_deg=np.zeros(n, dtype=float),
         sat_altitude_m=np.full(n, 500000.0, dtype=float),
-        camera_ground_left_lat_lon_deg=np.zeros((n, 2), dtype=float),
-        camera_ground_right_lat_lon_deg=np.zeros((n, 2), dtype=float),
-        camera_ground_center_lat_lon_deg=np.zeros((n, 2), dtype=float),
+        camera_ground_left_lon_lat_deg=np.zeros((n, 2), dtype=float),
+        camera_ground_right_lon_lat_deg=np.zeros((n, 2), dtype=float),
+        camera_ground_center_lon_lat_deg=np.zeros((n, 2), dtype=float),
         target_area_intersection_ratio=np.zeros(n, dtype=float),
         target_area_novelty_ratio=np.zeros(n, dtype=float),
         cloud_arc_radius_km=np.zeros((n, cloud_cols), dtype=float),
@@ -63,7 +63,7 @@ class SimulationStateSeriesGeodeticFieldsTest(unittest.TestCase):
             _ = SimulationStateSeries(
                 **{
                     **_build_valid_series(n=n).__dict__,
-                    "camera_ground_center_lat_lon_deg": np.zeros((n, 3), dtype=float),
+                    "camera_ground_center_lon_lat_deg": np.zeros((n, 3), dtype=float),
                 }
             )
 

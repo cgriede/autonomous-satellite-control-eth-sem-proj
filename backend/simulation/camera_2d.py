@@ -14,9 +14,10 @@ from environment_definition.constants import (
     OBSERVATION_SPACE,
     OBSERVATION_TARGET,
 )
-from environment_definition.constants.MISSION import OBSERVATION_TARGET_AREAS
+from environment_definition.constants.MISSION import LON_GLOBAL, OBSERVATION_TARGET_AREAS
 
 from environment_definition.constants.RENDER import RENDER
+from environment_definition.constants.EARTH import WGS84_ELLIPSOID
 from environment_definition.constants.SIMULATION import SIMULATION
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from environment_definition.constants.SATELLITE import (
@@ -27,6 +28,15 @@ from environment_definition.constants.SATELLITE import (
     SENSOR_WIDTH,
 )
 from simulation.camera_optics import nadir_ground_sample_distance, pinhole_full_fov_rad
+from utils.geometry.mission_stripe_disk import geodetic_on_lon_meridian_to_disk_polar_deg
+from utils.geometry.orbit_disk_wgs84 import (
+    KM_TO_M,
+    batch_disk_direction_xy_to_ecef_unit,
+    batch_ray_oblate_spheroid_positive_hit_distance_m,
+    disk_ray_earth_hit_xy_km,
+    disk_xy_km_to_ecef_m,
+    disk_xy_km_to_geodetic_deg,
+)
 from utils.units.require_compatible_unit import require_compatible_units
 
 
@@ -96,6 +106,19 @@ def _ray_circle_intersection_distance_batch(
     best[both] = np.minimum(t1[both], t2[both])
     out[mask] = best
     return out
+
+
+def _ray_earth_ellipsoid_intersection_distance_km(
+    ray_origin_xy_km: np.ndarray,
+    ray_dir_unit_xy: np.ndarray,
+) -> float | None:
+    """Positive ray parameter until WGS84 ellipsoid intersection (orbit-disk kinematics)."""
+    t_km, _hit = disk_ray_earth_hit_xy_km(
+        sat_xy_km=ray_origin_xy_km,
+        ray_dir_unit_xy=ray_dir_unit_xy,
+        ell=WGS84_ELLIPSOID,
+    )
+    return t_km
 
 
 def _angle_in_arc(angle_rad: float, start_rad: float, end_rad: float) -> bool:
@@ -196,11 +219,18 @@ def compute_cloud_arc_specs_at_time(
         np.clip(growth_phase, 0.0, 1.0)
     )
 
+    lon_deg = float(LON_GLOBAL.to(ureg.deg).magnitude)
     specs: list[dict[str, float]] = []
     for cloud in SIMULATION.clouds:
         radius_km = earth_radius_km + float(cloud.height.to(ureg.km).magnitude)
-        base_start = float(cloud.start_location.to(ureg.rad).magnitude)
-        base_end = float(cloud.end_location.to(ureg.rad).magnitude)
+        lat_start_deg = float(cloud.start_location.to(ureg.deg).magnitude)
+        lat_end_deg = float(cloud.end_location.to(ureg.deg).magnitude)
+        phi_start_deg = geodetic_on_lon_meridian_to_disk_polar_deg(
+            lat_deg=lat_start_deg, lon_deg=lon_deg
+        )
+        phi_end_deg = geodetic_on_lon_meridian_to_disk_polar_deg(lat_deg=lat_end_deg, lon_deg=lon_deg)
+        base_start = float(np.deg2rad(phi_start_deg))
+        base_end = float(np.deg2rad(phi_end_deg))
         center = 0.5 * (base_start + base_end)
         half_span = 0.5 * (base_end - base_start) * cloud_growth
         start = center - half_span
@@ -225,9 +255,7 @@ def _first_hit_point_ray_earth_or_clouds(
         (hit_type, t_hit, hit_point_xy_km)
         where hit_type is one of {"earth","cloud"} or None if no hit exists.
     """
-    t_earth = _ray_circle_intersection_distance(
-        ray_origin_xy_km, ray_dir_unit_xy, radius_km=earth_radius_km
-    )
+    t_earth = _ray_earth_ellipsoid_intersection_distance_km(ray_origin_xy_km, ray_dir_unit_xy)
     if t_earth is None:
         best_t = None
         best_type: str | None = None
@@ -328,7 +356,7 @@ def simulate_camera_strip_2d(
     - The full sensor rectangle reduces to a 1D ground line segment in this plane.
     - We use the *vertical* FOV for that in-plane 1D strip.
 
-    If the vertical-FOV footprint does not fully intersect the Earth disk (any of the
+    If the vertical-FOV footprint does not fully intersect the Earth ellipsoid (any of the
     three boundary rays misses), ground points are NaN, ``center_ray_observation_code``
     is ``OBSERVATION_SPACE`` (0), and ``cloud_blocked_fraction`` is NaN (no valid
     ground rays to sample). Optics scalars (GSD, FOV) are still returned.
@@ -365,15 +393,9 @@ def simulate_camera_strip_2d(
     right_dir = _rotate_unit_xy(boresight_dir_unit_xy, +half_vertical_fov)
     center_dir = boresight_dir_unit_xy
 
-    t_center = _ray_circle_intersection_distance(
-        sat_pos_xy_km, center_dir, radius_km=earth_radius_km
-    )
-    t_left = _ray_circle_intersection_distance(
-        sat_pos_xy_km, left_dir, radius_km=earth_radius_km
-    )
-    t_right = _ray_circle_intersection_distance(
-        sat_pos_xy_km, right_dir, radius_km=earth_radius_km
-    )
+    t_center = _ray_earth_ellipsoid_intersection_distance_km(sat_pos_xy_km, center_dir)
+    t_left = _ray_earth_ellipsoid_intersection_distance_km(sat_pos_xy_km, left_dir)
+    t_right = _ray_earth_ellipsoid_intersection_distance_km(sat_pos_xy_km, right_dir)
 
     nan2 = np.full(2, np.nan, dtype=float)
     if t_center is None or t_left is None or t_right is None:
@@ -424,11 +446,10 @@ def simulate_camera_strip_2d(
     ray_dirs = _rotate_unit_xy_batch(boresight_dir_unit_xy, angle_rel_boresight)
 
     if str(kernel_backend).lower() == "accelerated":
-        t_earth = _ray_circle_intersection_distance_batch(
-            sat_pos_xy_km,
-            ray_dirs,
-            radius_km=earth_radius_km,
-        )
+        o_m = disk_xy_km_to_ecef_m(sat_pos_xy_km)
+        dirs3 = batch_disk_direction_xy_to_ecef_unit(ray_dirs)
+        t_earth = batch_ray_oblate_spheroid_positive_hit_distance_m(o_m, dirs3, ell=WGS84_ELLIPSOID)
+        t_earth = t_earth / KM_TO_M
         valid_mask = np.isfinite(t_earth)
         valid = int(np.count_nonzero(valid_mask))
         if valid == 0:
@@ -459,11 +480,7 @@ def simulate_camera_strip_2d(
         blocked = 0
         valid = 0
         for ray_dir in ray_dirs:
-            t_earth_one = _ray_circle_intersection_distance(
-                sat_pos_xy_km,
-                ray_dir,
-                radius_km=earth_radius_km,
-            )
+            t_earth_one = _ray_earth_ellipsoid_intersection_distance_km(sat_pos_xy_km, ray_dir)
             if t_earth_one is None:
                 continue
             valid += 1
@@ -594,9 +611,8 @@ def simulate_camera_observation_line_1d(
     #logger.debug(f"[CAMERA] Target area lat ranges: {target_area_lat_ranges}")
 
     def _hit_point_is_target_lat(hit_point_xy_km: np.ndarray) -> bool:
-        hit_lat_deg = float(np.rad2deg(np.arctan2(float(hit_point_xy_km[1]), float(hit_point_xy_km[0]))))
-        is_target = any(low <= hit_lat_deg <= high for low, high in target_area_lat_ranges)
-        #logger.debug(f"[CAMERA] Hit point XY={hit_point_xy_km}, lat_deg={hit_lat_deg:.4f}, is_target={is_target}")
+        _lon_deg, lat_deg = disk_xy_km_to_geodetic_deg(hit_point_xy_km, ell=WGS84_ELLIPSOID)
+        is_target = any(low <= lat_deg <= high for low, high in target_area_lat_ranges)
         return is_target
 
     observation_types = np.full(n_bins, int(space_code), dtype=np.int8)

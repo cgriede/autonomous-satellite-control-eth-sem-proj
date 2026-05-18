@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 import sys
 from typing import Any, cast
-from rich.pretty import pprint
 
 import numpy as np
 import torch
@@ -19,7 +18,7 @@ from environment_definition.constants import (
     SimulationConfig,
     UREG as ureg,
 )
-from environment_definition.constants.MISSION import mission_target_window_deg
+from environment_definition.constants.MISSION import los_theta_offsets_deg
 from environment_definition.constants.SIMULATION import (
     OBSERVATION_CLOUD,
     OBSERVATION_EARTH,
@@ -221,7 +220,7 @@ def run_episode(
 
     theta_center = SIMULATION.theta_center.to(ureg.rad).magnitude
     run_satellite_altitude = satellite_altitude if satellite_altitude is not None else SATELLITE_ALTITUDE
-    start_angle_deg, end_angle_deg = mission_target_window_deg(
+    start_angle_deg, end_angle_deg = los_theta_offsets_deg(
         orbit_height=run_satellite_altitude,
         margin_deg=float(SIMULATION.contact_margin_angle.to(ureg.deg).magnitude),
     )
@@ -295,12 +294,6 @@ def run_episode(
                 timestep=next_ts,
                 feature_config=feature_config,
             )
-
-            #DEBUG INSTRUMENTATION
-            if steps % 100 == 0 or stepper.done:
-                pprint(f"Step {steps}:")
-                pprint(f"  Action (Nm): {current_action_nm:.6f}")
-                pprint(next_obs)
 
             reward = float(next_ts.reward)
             done = bool(stepper.done)

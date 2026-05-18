@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-import json
-import time
 from pathlib import Path
 from typing import Any
 
 # Set in ``init_mpo_video_cell()`` when ``ipywidgets`` is available.
 VIDEO_WIDGET_OUT: Any = None
-
-# Workspace-root debug log (``backend/utils`` -> project root).
-_DEBUG_LOG = Path(__file__).resolve().parents[2] / "debug-0f8867.log"
 
 
 def init_mpo_video_cell() -> None:
@@ -54,20 +49,3 @@ def log_exported_video(path: Path | str, *, tag: str = "export") -> None:
     except OSError:
         nbytes = -1
     print(f"[mpo_video:{tag}] {p.name} ({nbytes} bytes)")
-
-    # #region agent log
-    try:
-        payload = {
-            "sessionId": "0f8867",
-            "runId": "notebook",
-            "hypothesisId": "H1",
-            "location": "mpo_notebook_video.py:log_exported_video",
-            "message": "log_exported_video_called",
-            "data": {"path": str(p), "tag": tag, "nbytes": nbytes},
-            "timestamp": int(time.time() * 1000),
-        }
-        with _DEBUG_LOG.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
-    except Exception:
-        pass
-    # #endregion

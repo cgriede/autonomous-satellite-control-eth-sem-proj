@@ -32,17 +32,15 @@ class RewardKernel:
         ureg: Any,
     ) -> float:
         _ = sat_pos_xy_km
-        _ = sat_subpoint_lon_deg
-        target_visible = bool(target_area_intersection_ratio > 0.0) or bool(
-            np.any(camera_observation_line_codes == np.int8(OBSERVATION_TARGET))
-        )
+        codes = np.asarray(camera_observation_line_codes, dtype=np.int8)
+        target_visible = bool(np.any(codes == np.int8(OBSERVATION_TARGET)))
         target_area = OBSERVATION_TARGET_AREAS[0]
         target_center_lat = 0.5 * (
             float(target_area.lat_min.to(ureg.deg).magnitude)
             + float(target_area.lat_max.to(ureg.deg).magnitude)
         )
         distance_to_target = geodesic_distance(
-            LON_GLOBAL,
+            sat_subpoint_lon_deg * ureg.deg,
             sat_subpoint_lat_deg * ureg.deg,
             LON_GLOBAL,
             target_center_lat * ureg.deg,
