@@ -97,6 +97,10 @@ class SimulationStateSeries:
     secondary_camera_observation_line_codes: np.ndarray = None  # type: ignore[assignment]
     # Per-frame cloud-blocked fraction for the secondary strip (0.0 when no secondary).
     secondary_camera_cloud_blocked_fraction: np.ndarray = None  # type: ignore[assignment]
+    # Scalar geometry for rendering the secondary camera FOV cone and strip.
+    # Both default to 0.0 when no secondary camera is configured.
+    secondary_camera_vertical_fov_rad: float = 0.0
+    secondary_camera_tilt_off_nadir_rad: float = 0.0
 
     def __post_init__(self) -> None:
         n = self.t_s.shape[0]

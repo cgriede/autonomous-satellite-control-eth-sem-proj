@@ -45,11 +45,6 @@ def controller_observation_dim(
     feature_config: ControllerFeatureConfig | None = None,
     secondary_camera_observation_line_n_bins: int = 0,
 ) -> int:
-    # #region agent log
-    import json, time, pathlib
-    _log_path = pathlib.Path("debug-c2d20e.log")
-    _log_path.open("a").write(json.dumps({"sessionId": "c2d20e", "hypothesisId": "H-A", "location": "training_runtime.py:controller_observation_dim", "message": "called", "data": {"secondary_camera_observation_line_n_bins": secondary_camera_observation_line_n_bins}, "timestamp": int(time.time() * 1000)}) + "\n")
-    # #endregion
     """Fixed-size MPO state vector width for selected timestep keys.
 
     Args:
@@ -115,13 +110,7 @@ def build_state_vector_from_timestep(
         raise TypeError(
             f"Unsupported controller feature type for key '{key}': {type(value).__name__}"
         )
-    result_arr = np.asarray(flat_features, dtype=np.float32)
-    # #region agent log
-    import json, time, pathlib
-    _log_path = pathlib.Path("debug-c2d20e.log")
-    _log_path.open("a").write(json.dumps({"sessionId": "c2d20e", "hypothesisId": "H-A", "location": "training_runtime.py:build_state_vector_from_timestep", "message": "obs produced", "data": {"obs_size": int(result_arr.shape[0])}, "timestamp": int(time.time() * 1000)}) + "\n")
-    # #endregion
-    return result_arr
+    return np.asarray(flat_features, dtype=np.float32)
 
 
 class ReplayBuffer:
@@ -147,11 +136,6 @@ class ReplayBuffer:
         reward: float,
         done: bool,
     ) -> None:
-        # #region agent log
-        import json, time, pathlib
-        _log_path = pathlib.Path("debug-c2d20e.log")
-        _log_path.open("a").write(json.dumps({"sessionId": "c2d20e", "hypothesisId": "H-A", "location": "training_runtime.py:ReplayBuffer.store", "message": "buffer store attempt", "data": {"buffer_obs_size": self.obs.shape[1], "incoming_obs_size": int(obs.shape[0])}, "timestamp": int(time.time() * 1000)}) + "\n")
-        # #endregion
         self.obs[self.ptr] = obs
         self.next_obs[self.ptr] = next_obs
         self.actions[self.ptr] = action

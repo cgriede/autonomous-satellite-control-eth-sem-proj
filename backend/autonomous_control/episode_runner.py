@@ -36,11 +36,6 @@ class EpisodeRunner:
         self._setup = setup
         # v1: cameras not yet wired into SensorKernel — require_camera stays False.
         self._resolved = setup.resolve(require_camera=False)
-        # #region agent log
-        import json, time, pathlib
-        _log_path = pathlib.Path("debug-c2d20e.log")
-        _log_path.open("a").write(json.dumps({"sessionId": "c2d20e", "hypothesisId": "H-A", "location": "episode_runner.py:EpisodeRunner.__init__", "message": "resolved setup", "data": {"secondary_camera_observation_line_n_bins": self._resolved.secondary_camera_observation_line_n_bins, "n_cameras": len(self._resolved.cameras)}, "timestamp": int(time.time() * 1000)}) + "\n")
-        # #endregion
 
     def run_serial(
         self,

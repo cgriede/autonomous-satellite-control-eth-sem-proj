@@ -15,6 +15,7 @@ from environment_definition.constants import (
 )
 from environment_definition.constants.MISSION import los_theta_offsets_deg
 from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
+from simulation.camera_2d import boresight_dir_for_mount
 from simulation.state_types import SimulationStateSeries
 from utils.geometry.mission_stripe_disk import (
     primary_stripe_disk_phi_bounds_deg,
@@ -24,7 +25,6 @@ from utils.geometry.mission_stripe_disk import (
 if __package__:
     from ._closeup_view import build_closeup_panel, update_closeup_panel
     from ._controls import RenderControls, build_controls_panel
-    from ._fixed_bird_view import build_1d_fixed_bird_view, update_1d_fixed_bird_view
     from ._main_view import build_main_panel, update_main_panel
     from ._reward_plot import build_reward_panel, update_reward_panel
     from ._torque_plot import build_torque_panel, update_torque_panel
@@ -33,7 +33,6 @@ if __package__:
 else:
     from render._closeup_view import build_closeup_panel, update_closeup_panel
     from render._controls import RenderControls, build_controls_panel
-    from render._fixed_bird_view import build_1d_fixed_bird_view, update_1d_fixed_bird_view
     from render._main_view import build_main_panel, update_main_panel
     from render._reward_plot import build_reward_panel, update_reward_panel
     from render._torque_plot import build_torque_panel, update_torque_panel
@@ -42,8 +41,8 @@ else:
 
 
 SHOW_MAIN_PLOT = True
-SHOW_1D_FIXED_BIRD_VIEW = True
 SHOW_1D_SAT_VIEW = True
+SHOW_1D_SAT_VIEW_SECONDARY = True
 SHOW_CLOSEUP = True
 SHOW_TELEMETRY = True
 SHOW_REWARD_PLOT = True
@@ -63,6 +62,7 @@ SIM_SPEED_MULTIPLIER = float(RENDER.default_speed_multiplier)
 SIMULATION_SERIES: SimulationStateSeries | None = None
 N_CLOUDS = 0
 N_BINS = 0
+N_BINS_SECONDARY = 0
 STATIC_SCENE: dict[str, object] = {}
 FIG: plt.Figure | None = None
 SIM_TIME_S = 0.0
@@ -78,10 +78,11 @@ def _require_runtime() -> SimulationStateSeries:
 
 
 def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> None:
-    global SIMULATION_SERIES, N_CLOUDS, N_BINS, STATIC_SCENE, CONTROLS, FIG, PANELS, CONTROL_ARTISTS
+    global SIMULATION_SERIES, N_CLOUDS, N_BINS, N_BINS_SECONDARY, STATIC_SCENE, CONTROLS, FIG, PANELS, CONTROL_ARTISTS
     SIMULATION_SERIES = simulation_series
     N_CLOUDS = int(SIMULATION_SERIES.cloud_arc_radius_km.shape[1])
     N_BINS = int(SIMULATION_SERIES.camera_observation_line_codes.shape[1])
+    N_BINS_SECONDARY = int(SIMULATION_SERIES.secondary_camera_observation_line_codes.shape[1])
     # Main-panel framing: symmetric LOS window ∪ actual orbit-plane sweep so the big
     # cross-section is never clipped when the episode arc extends past LOS margins.
     theta_rel = np.arctan2(
@@ -108,6 +109,7 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
         "cloud_models": [None] * N_CLOUDS,
         "n_clouds": N_CLOUDS,
         "n_bins": N_BINS,
+        "n_bins_secondary": N_BINS_SECONDARY,
         "controller_mode": SIMULATION_SERIES.metadata.controller_mode,
     }
     CONTROLS = RenderControls(sim_speed_multiplier=SIM_SPEED_MULTIPLIER)
@@ -240,6 +242,25 @@ def sample_scene(sim_idx: int) -> dict:
 
     sat_body_rotation_rate_label = f"{body_spin_deg_s:+.2f} deg/s"
 
+    # Secondary camera cone edges (degenerate/invisible when no secondary camera configured).
+    sec_fov_rad = float(sim_series.secondary_camera_vertical_fov_rad)
+    sec_tilt_rad = float(sim_series.secondary_camera_tilt_off_nadir_rad)
+    if sec_fov_rad > 0.0:
+        sec_boresight = boresight_dir_for_mount(z_angle, sec_tilt_rad)
+        sec_half = sec_fov_rad / 2.0
+        cos_s, sin_s = np.cos(sec_half), np.sin(sec_half)
+        rot_sl = np.array([[cos_s, -sin_s], [sin_s, cos_s]], dtype=float)
+        rot_sr = np.array([[cos_s, sin_s], [-sin_s, cos_s]], dtype=float)
+        sec_edge_l = sat_pos + cone_len * (rot_sl @ sec_boresight)
+        sec_edge_r = sat_pos + cone_len * (rot_sr @ sec_boresight)
+    else:
+        sec_edge_l = sat_pos.copy()
+        sec_edge_r = sat_pos.copy()
+
+    secondary_codes: np.ndarray | None = None
+    if N_BINS_SECONDARY > 0:
+        secondary_codes = np.asarray(sim_series.secondary_camera_observation_line_codes[sim_idx], dtype=np.int8)
+
     return {
         "sim_idx": sim_idx,
         "sat_pos": sat_pos,
@@ -251,12 +272,14 @@ def sample_scene(sim_idx: int) -> dict:
         "sim_speed_multiplier": CONTROLS.sim_speed_multiplier,
         "edge_l": edge_l,
         "edge_r": edge_r,
+        "sec_edge_l": sec_edge_l,
+        "sec_edge_r": sec_edge_r,
         "cloud_world": _cloud_world_xy_for_frame(sim_idx),
         "ground_left": ground_left_xy,
         "ground_right": ground_right_xy,
         "ground_center": ground_center_xy,
         "camera_codes": np.asarray(sim_series.camera_observation_line_codes[sim_idx], dtype=np.int8),
-        "fixed_codes": np.asarray(sim_series.fixed_ground_line_codes[sim_idx], dtype=np.int8),
+        "secondary_camera_codes": secondary_codes,
         "center_hit_cloud": bool(sim_series.camera_center_first_hit_is_cloud[sim_idx]),
         "camera_gsd_m": camera_gsd_m,
         "camera_vfov_deg": float(np.rad2deg(sim_series.camera_vertical_fov_rad)),
@@ -285,6 +308,7 @@ def init() -> list:
         a["obs_to_sat"].set_data([], [])
         a["trail"].set_data([], [])
         a["cone"].set_xy([[0, 0], [0, 0], [0, 0]])
+        a["secondary_cone"].set_xy([[0, 0], [0, 0], [0, 0]])
         a["z_axis_arrow"].set_positions((0, 0), (0, 0))
         a["z_axis_label"].set_position((0, 0))
         for g, c in zip(a["cloud_glow"], a["cloud_core"]):
@@ -294,19 +318,19 @@ def init() -> list:
     if "closeup" in PANELS:
         a = PANELS["closeup"]["artists"]
         a["cone"].set_xy([[0, 0], [0, 0], [0, 0]])
+        a["secondary_cone"].set_xy([[0, 0], [0, 0], [0, 0]])
         a["hit"].set_data([], [])
         a["obs_to_hit"].set_data([], [])
         for g, c in zip(a["cloud_glow"], a["cloud_core"]):
             g.set_data([], [])
             c.set_data([], [])
 
-    if "fixed_bird" in PANELS:
-        a = PANELS["fixed_bird"]["artists"]
-        a["img"].set_data(np.zeros((a["H"], a["N_BINS"], 4), dtype=float))
-        a["observer_line"].set_color("red")
-
     if "1d_sat_view" in PANELS:
         a = PANELS["1d_sat_view"]["artists"]
+        a["img"].set_data(np.zeros((a["H"], a["N_BINS"], 4), dtype=float))
+
+    if "1d_sat_view_secondary" in PANELS:
+        a = PANELS["1d_sat_view_secondary"]["artists"]
         a["img"].set_data(np.zeros((a["H"], a["N_BINS"], 4), dtype=float))
 
     if "telemetry" in PANELS:
@@ -328,15 +352,10 @@ def update_panels(scene: dict) -> None:
         update_main_panel(PANELS["main"]["artists"], scene)
     if "closeup" in PANELS:
         update_closeup_panel(PANELS["closeup"]["artists"], scene)
-    if "fixed_bird" in PANELS:
-        observer_cloud_covered = bool(scene["center_hit_cloud"])
-        update_1d_fixed_bird_view(
-            artists=PANELS["fixed_bird"]["artists"],
-            fixed_ground_line_codes=scene["fixed_codes"],
-            observer_cloud_covered=observer_cloud_covered,
-        )
     if "1d_sat_view" in PANELS:
         update_1d_sat_view(PANELS["1d_sat_view"]["artists"], scene["camera_codes"])
+    if "1d_sat_view_secondary" in PANELS and scene["secondary_camera_codes"] is not None:
+        update_1d_sat_view(PANELS["1d_sat_view_secondary"]["artists"], scene["secondary_camera_codes"])
     if "telemetry" in PANELS:
         update_telemetry_panel(PANELS["telemetry"]["artists"], scene)
     if "reward" in PANELS:
@@ -593,12 +612,18 @@ def _build_panels() -> None:
     if SHOW_CLOSEUP:
         axes, artists = build_closeup_panel(FIG, STATIC_SCENE)
         PANELS["closeup"] = {"axes": axes, "artists": artists}
-    if SHOW_1D_FIXED_BIRD_VIEW:
-        axes, artists = build_1d_fixed_bird_view(FIG, STATIC_SCENE)
-        PANELS["fixed_bird"] = {"axes": axes, "artists": artists}
     if SHOW_1D_SAT_VIEW:
         axes, artists = build_1d_sat_view(FIG, STATIC_SCENE)
         PANELS["1d_sat_view"] = {"axes": axes, "artists": artists}
+    if SHOW_1D_SAT_VIEW_SECONDARY and int(STATIC_SCENE["n_bins_secondary"]) > 0:
+        axes, artists = build_1d_sat_view(
+            FIG,
+            STATIC_SCENE,
+            axes_rect=RENDER.sat_view_1d_secondary_axes_rect,
+            n_bins_override=int(STATIC_SCENE["n_bins_secondary"]),
+            title="Secondary Camera",
+        )
+        PANELS["1d_sat_view_secondary"] = {"axes": axes, "artists": artists}
 
 
 def render_from_series(

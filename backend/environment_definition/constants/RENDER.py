@@ -126,6 +126,8 @@ class RenderConstants:
     bird_view_1d_axes_rect     : tuple[float, float, float, float]
     # 1D camera observation strip (per-bin codes from SimulationStateSeries), below bird view.
     sat_view_1d_axes_rect      : tuple[float, float, float, float]
+    # 1D secondary camera observation strip (above primary sat view, reuses former fixed-bird slot).
+    sat_view_1d_secondary_axes_rect: tuple[float, float, float, float]
     closeup_axes_rect          : tuple[float, float, float, float]
     # Observer-centered ±fixed_bird_view_half_extent_km 1D fixed-bird strip coverage.
     fixed_bird_view_half_extent_km: object
@@ -280,8 +282,9 @@ RENDER = RenderConstants(
     transport_bar_rect          = (0.02, 0.02, 0.96, 0.048),
     interactive_start_maximized = True,
     
-    # Stacked left column: fixed-bird strip above sat observation strip.
+    # Stacked left column: secondary-cam strip above primary sat observation strip.
     sat_view_1d_axes_rect=(0.222, 0.068, 0.374, 0.055),
+    sat_view_1d_secondary_axes_rect=(0.222, 0.125, 0.374, 0.055),
     bird_view_1d_axes_rect=(0.222, 0.125, 0.374, 0.055),
     fixed_bird_view_half_extent_km=500.0 * ureg.km,
     bird_view_1d_half_extent_km=500.0 * ureg.km,

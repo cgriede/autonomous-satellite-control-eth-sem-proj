@@ -88,6 +88,18 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     )
     ax.add_patch(artists["cone"])
 
+    artists["secondary_cone"] = Polygon(
+        [[0, 0], [0, 0], [0, 0]],
+        closed=True,
+        facecolor="gold",
+        edgecolor="gold",
+        linewidth=1.2,
+        linestyle="--",
+        alpha=RENDER.cone_alpha,
+        zorder=RENDER.zorder_closeup_cone,
+    )
+    ax.add_patch(artists["secondary_cone"])
+
     artists["hit"], = ax.plot(
         [], [], marker="o", color="yellow", markersize=4,
         linestyle="None", zorder=RENDER.zorder_closeup_hit,
@@ -134,6 +146,12 @@ def update_closeup_panel(artists: dict, scene: dict) -> None:
     yr, zr = proj(float(edge_r[0]), float(edge_r[1]))
     artists["cone"].set_xy([[y0, z0], [yl, zl], [yr, zr]])
     artists["obs_to_hit"].set_data([0.0, y0], [0.0, z0])
+
+    sec_edge_l = np.asarray(scene["sec_edge_l"], dtype=float)
+    sec_edge_r = np.asarray(scene["sec_edge_r"], dtype=float)
+    ysl, zsl = proj(float(sec_edge_l[0]), float(sec_edge_l[1]))
+    ysr, zsr = proj(float(sec_edge_r[0]), float(sec_edge_r[1]))
+    artists["secondary_cone"].set_xy([[y0, z0], [ysl, zsl], [ysr, zsr]])
 
     for i, spec in enumerate(scene["cloud_world"]):
         yl_cloud, zl_cloud = proj(spec["x"], spec["y"])

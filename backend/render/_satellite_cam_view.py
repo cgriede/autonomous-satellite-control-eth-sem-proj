@@ -20,8 +20,15 @@ def _rgba_for_observation_line_code(code: int) -> np.ndarray:
     return np.array([0.5, 0.0, 0.5, 1.0], dtype=float)
 
 
-def build_1d_sat_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
-    l, b, w, h = RENDER.sat_view_1d_axes_rect
+def build_1d_sat_view(
+    fig: plt.Figure,
+    scene: dict,
+    *,
+    axes_rect: tuple | None = None,
+    n_bins_override: int | None = None,
+    title: str = "Primary Camera",
+) -> tuple[dict, dict]:
+    l, b, w, h = axes_rect if axes_rect is not None else RENDER.sat_view_1d_axes_rect
     title_frac = 0.26
     h_title = h * title_frac
     h_strip = h * (1.0 - title_frac)
@@ -32,7 +39,7 @@ def build_1d_sat_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     axes = {"1d_sat_view": ax_strip, "1d_sat_view_title": ax_title}
     artists: dict = {}
 
-    n_bins = int(scene["n_bins"])
+    n_bins = n_bins_override if n_bins_override is not None else int(scene["n_bins"])
     h_pix = 24
     artists["H"] = h_pix
     artists["N_BINS"] = n_bins
@@ -61,7 +68,7 @@ def build_1d_sat_view(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     artists["title_text"] = ax_title.text(
         0.5,
         0.5,
-        "1d_sat_view",
+        title,
         transform=ax_title.transAxes,
         color="white",
         fontsize=9,

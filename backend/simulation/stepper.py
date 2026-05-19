@@ -207,11 +207,13 @@ class SimulationStepper:
 
         # Secondary camera optics (derived from mount spec)
         self._secondary_vertical_fov_rad: float | None = None
+        self._secondary_tilt_rad: float = 0.0
         if self._has_secondary:
             scnd_mount = self._cameras[1]
             self._secondary_vertical_fov_rad = float(
                 scnd_mount.camera.fov(axis="y").to(ureg.rad).magnitude
             )
+            self._secondary_tilt_rad = float(scnd_mount.tilt_off_nadir.to(ureg.rad).magnitude)
 
         _, _vf = calculate_fov_angles()
         self._camera_vertical_fov_rad = float(_vf.to(ureg.rad).magnitude)
@@ -345,6 +347,8 @@ class SimulationStepper:
             cloud_arc_end_rad=self._cloud_arc_end_rad,
             secondary_camera_observation_line_codes=self._secondary_camera_observation_line_codes,
             secondary_camera_cloud_blocked_fraction=self._secondary_camera_cloud_blocked_fraction,
+            secondary_camera_vertical_fov_rad=self._secondary_vertical_fov_rad if self._secondary_vertical_fov_rad is not None else 0.0,
+            secondary_camera_tilt_off_nadir_rad=self._secondary_tilt_rad,
             metadata=self._metadata,
         )
 

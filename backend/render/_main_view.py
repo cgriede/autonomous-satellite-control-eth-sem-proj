@@ -167,6 +167,11 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
                             alpha=RENDER.cone_alpha)
     ax.add_patch(artists["cone"])
 
+    artists["secondary_cone"] = Polygon([[0, 0], [0, 0], [0, 0]],
+                                        closed=True, facecolor="gold", edgecolor="gold",
+                                        alpha=RENDER.cone_alpha, linestyle="--", linewidth=1.2)
+    ax.add_patch(artists["secondary_cone"])
+
     # z-axis indicator (also dynamic)
     artists["z_axis_length_km"] = SIMULATION.z_axis_length.to(ureg.km).magnitude
     artists["z_axis_arrow"] = FancyArrowPatch((0, 0), (0, 0),
@@ -215,6 +220,9 @@ def update_main_panel(artists: dict, scene: dict) -> None:
     x, y = scene["trail_xy"]
     artists["trail"].set_data(x, y)
     artists["cone"].set_xy([sat_pos, edge_l, edge_r])
+    sec_edge_l = np.asarray(scene["sec_edge_l"], dtype=float)
+    sec_edge_r = np.asarray(scene["sec_edge_r"], dtype=float)
+    artists["secondary_cone"].set_xy([sat_pos, sec_edge_l, sec_edge_r])
 
     tip = sat_pos + float(artists["z_axis_length_km"]) * z_axis_dir
     artists["z_axis_arrow"].set_positions((sat_pos[0], sat_pos[1]), (tip[0], tip[1]))
