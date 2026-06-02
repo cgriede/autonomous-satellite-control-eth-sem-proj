@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Grieder"
+    given-names: "Cédric"
+title: "autonomous-satellite-control"
+version: "1.0.0"
+date-released: "2026-06-03"
+url: "https://github.com/cgriede/autonomous-satellite-control-eth-sem-proj"
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Grieder"
+      given-names: "Cédric"
+  title: TBD
+  year: 2026
+  volume: 1
+  issue: 1
+  pages: TBD
+  doi: TBD
