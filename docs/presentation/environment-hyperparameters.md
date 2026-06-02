@@ -23,6 +23,19 @@ Mission and simulation settings that define randomness, geometry, and runtime be
 
 ---
 
+# Pole-meridian track coordinates (orbit disk)
+
+Source: `utils/geometry/orbit_disk_polar_meridian.py`, `utils/geometry/polar_meridian_track.py`.
+
+- **Track offset** `δ` [deg]: along-track angle from north pole in the simulation orbit-disk model (`δ = λ − 90°` on the ascending leg; past the pole latitude mirrors as `λ = 90° − δ` with `δ > 0`).
+- **Meridian longitude rule:** `δ ≤ 0` → `λ = LON_GLOBAL` (default `0°`); `δ > 0` → `λ = LON_GLOBAL + 180°` (anti-meridian, e.g. `180°` when `LON_GLOBAL = 0°`).
+- **Disk polar angle** `φ` [deg]: `φ = SIMULATION.theta_center + δ` (default `theta_center = 90°`); authoritative for `camera_2d` cloud arcs and stripe overlap, via `φ = atan2(z, x)` on WGS84 surface points.
+- **Examples:** `δ = 0` → north pole; `δ = −1°` → `89°N, 0°E`; `δ = +1°` → `89°N, 180°W`.
+- **Not** the renderer north-polar azimuthal map (`geodesic_helpers.polar_azimuthal_plane_xy_km_to_lon_lat_deg`).
+- **Clouds:** `SIMULATION.Cloud` uses `base_altitude`, `top_altitude`, and `GeodeticLonLat` endpoints (`start_location`, `end_location`). Rainforest sampling (`s01_utils/cloud_formation.py`): integer-km start on formation path, extent 1–100 km, base 4–12 km, thickness 1–16 km, `top = min(base + thickness, 20 km)`. Simulation converts LLA → disk φ via `orbit_disk_polar_meridian` at kernel init.
+
+---
+
 # Simulation constants (`SIMULATION`)
 
 Source: `environment_definition/constants/SIMULATION.py`.
@@ -33,6 +46,7 @@ Source: `environment_definition/constants/SIMULATION.py`.
 - **FOV cone:** length 20 000 km; opening from pinhole vertical FOV (`pinhole_full_fov_rad` with `SENSOR_HEIGHT`, `FOCAL_LENGTH`); `z_axis_length` = 180 km.
 - **Cloud strip (latitude bounds on ``LON_GLOBAL`` projected to disk polar angles):** height 15 km, first cloud latitude sweep ≈ **89.99° → 90.2°** geodetic (`SIMULATION.clouds` tuple).
 - **Camera stats:** `camera_pixel_ray_samples` = 96, `camera_observation_line_n_bins` = 100.
+- **Camera kernel backend:** `camera_kernel_backend` = `"accelerated"` (default). Batches all strip pixel rays and all observation-line bins per timestep via NumPy (`simulation/camera_2d.py`). The `"python"` backend remains as a parity reference (per-ray Python loops).
 - **Episode cap:** `max_episode_steps` = 1000 (canonical rollout cap shared by gym and MPO runtime).
 
 ---

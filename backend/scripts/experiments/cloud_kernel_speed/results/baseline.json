@@ -1,0 +1,72 @@
+{
+  "experiment_id": "baseline",
+  "verdict": "baseline",
+  "stats": {
+    "wall_time_s": 59.685528999892995,
+    "n_frames": 1924,
+    "steps_per_s": 32.23561945816798,
+    "n_clouds": 5,
+    "debug_examples": {
+      "observation_line_samples": [
+        {
+          "frame": 0,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 213,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 427,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 641,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 854,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1068,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1282,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1495,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1709,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1923,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        }
+      ]
+    },
+    "micro_benchmark": {
+      "strip_s": 0.16553030000068247,
+      "primary_line_s": 2.2531121000647545,
+      "secondary_line_s": 4.52986010001041,
+      "total_s": 6.948502500075847,
+      "n_iters": 200
+    },
+    "n_cloud_specs": 5
+  }
+}

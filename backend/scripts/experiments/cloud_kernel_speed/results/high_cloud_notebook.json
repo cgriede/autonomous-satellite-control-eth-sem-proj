@@ -1,0 +1,48 @@
+{
+  "experiment_id": "high_cloud_notebook",
+  "cloud_number_bounds": [
+    50,
+    200
+  ],
+  "stats": {
+    "n_clouds": 63,
+    "episode_cull_on": {
+      "wall_time_s": 46.498949999921024,
+      "n_frames": 1924,
+      "steps_per_s": 41.377278411733336,
+      "n_clouds": 99,
+      "cull_enabled": true
+    },
+    "episode_cull_off": {
+      "wall_time_s": 58.98575280001387,
+      "n_frames": 1924,
+      "steps_per_s": 32.61804603093152,
+      "n_clouds": 123,
+      "cull_enabled": false
+    },
+    "episode_speedup_cull_vs_no_cull": 1.268539457345038,
+    "cull_stats_sampled": {
+      "clouds_total": 63,
+      "mean_clouds_culled_per_call": 0.0,
+      "mean_clouds_kept_per_call": 63.0,
+      "cull_overhead_us_per_call": 5.703499773517251
+    },
+    "line_benchmark": {
+      "python_iters": 5,
+      "accelerated_iters": 50,
+      "n_clouds": 63,
+      "python_line_s_total": 0.17078919988125563,
+      "accelerated_line_s_total": 0.11905350000597537,
+      "python_line_s_per_call": 0.034157839976251124,
+      "accelerated_line_s_per_call": 0.002381070000119507,
+      "line_speedup_per_call": 14.345584117450022
+    },
+    "micro_benchmark_accelerated": {
+      "strip_s": 0.1304963999427855,
+      "primary_line_s": 0.12019499996677041,
+      "secondary_line_s": 0.1365277001168579,
+      "total_s": 0.3872191000264138,
+      "n_iters": 50
+    }
+  }
+}

@@ -14,7 +14,7 @@ from environment_definition.constants import (
     OBSERVATION_SPACE,
     OBSERVATION_TARGET,
 )
-from environment_definition.constants.MISSION import LON_GLOBAL, OBSERVATION_TARGET_AREAS
+from environment_definition.constants.MISSION import OBSERVATION_TARGET_AREAS
 
 from environment_definition.constants.RENDER import RENDER
 from environment_definition.constants.EARTH import WGS84_ELLIPSOID
@@ -28,10 +28,14 @@ from environment_definition.constants.SATELLITE import (
     SENSOR_WIDTH,
 )
 from simulation.camera_optics import nadir_ground_sample_distance, pinhole_full_fov_rad
-from utils.geometry.mission_stripe_disk import geodetic_on_lon_meridian_to_disk_polar_deg
+from utils.geometry.orbit_disk_polar_meridian import (
+    cloud_disk_phi_bounds_deg,
+    cloud_mean_altitude_km,
+)
 from utils.geometry.orbit_disk_wgs84 import (
     KM_TO_M,
     batch_disk_direction_xy_to_ecef_unit,
+    batch_disk_xy_rows_km_to_geodetic_deg,
     batch_ray_oblate_spheroid_positive_hit_distance_m,
     disk_ray_earth_hit_xy_km,
     disk_xy_km_to_ecef_m,
@@ -133,6 +137,95 @@ def _angle_in_arc(angle_rad: float, start_rad: float, end_rad: float) -> bool:
     if start <= end:
         return start <= angle <= end
     return angle >= start or angle <= end
+
+
+def _angle_in_arc_batch(angles_rad: np.ndarray, start_rad: float, end_rad: float) -> np.ndarray:
+    """Vectorized :func:`_angle_in_arc` for ``angles_rad`` shaped ``(N,)``."""
+    two_pi = 2.0 * np.pi
+    angle = np.mod(np.asarray(angles_rad, dtype=float), two_pi)
+    start = start_rad % two_pi
+    end = end_rad % two_pi
+    if start <= end:
+        return (angle >= start) & (angle <= end)
+    return (angle >= start) | (angle <= end)
+
+
+def _batch_earth_hit_distances_km(
+    ray_origin_xy_km: np.ndarray,
+    ray_dirs_unit_xy: np.ndarray,
+) -> np.ndarray:
+    """Positive ellipsoid hit distances in km for rows ``(N, 2)`` ray directions."""
+    o_m = disk_xy_km_to_ecef_m(ray_origin_xy_km)
+    dirs3 = batch_disk_direction_xy_to_ecef_unit(ray_dirs_unit_xy)
+    t_m = batch_ray_oblate_spheroid_positive_hit_distance_m(o_m, dirs3, ell=WGS84_ELLIPSOID)
+    return t_m / KM_TO_M
+
+
+def _batch_cloud_hits_t_best(
+    ray_origin_xy_km: np.ndarray,
+    ray_dirs_unit_xy: np.ndarray,
+    cloud_arc_specs: list[dict[str, float]],
+) -> np.ndarray:
+    """Nearest positive cloud-shell hit distance per ray; NaN where no arc hit."""
+    origin = np.asarray(ray_origin_xy_km, dtype=float).reshape(2,)
+    t_cloud_best = np.full(ray_dirs_unit_xy.shape[0], np.nan, dtype=float)
+    for cloud_spec in cloud_arc_specs:
+        t_cloud = _ray_circle_intersection_distance_batch(
+            origin,
+            ray_dirs_unit_xy,
+            radius_km=float(cloud_spec["radius_km"]),
+        )
+        hit_points = origin.reshape(1, 2) + t_cloud.reshape(-1, 1) * ray_dirs_unit_xy
+        hit_angles = np.arctan2(hit_points[:, 1], hit_points[:, 0])
+        in_arc = _angle_in_arc_batch(
+            hit_angles,
+            float(cloud_spec["start_rad"]),
+            float(cloud_spec["end_rad"]),
+        )
+        accepted = np.isfinite(t_cloud) & in_arc
+        if not np.any(accepted):
+            continue
+        assign_mask = accepted & (~np.isfinite(t_cloud_best) | (t_cloud < t_cloud_best))
+        t_cloud_best[assign_mask] = t_cloud[assign_mask]
+    return t_cloud_best
+
+
+def _batch_first_hit_earth_or_clouds(
+    *,
+    ray_origin_xy_km: np.ndarray,
+    ray_dirs_unit_xy: np.ndarray,
+    cloud_arc_specs: list[dict[str, float]],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Batch first-hit classification for all rays.
+
+    Returns:
+        hit_type (N,) int8: 0 space, 1 earth, 2 cloud
+        t_hit (N,) km
+        hit_xy_km (N, 2)
+    """
+    origin = np.asarray(ray_origin_xy_km, dtype=float).reshape(2,)
+    dirs = np.asarray(ray_dirs_unit_xy, dtype=float)
+    n = dirs.shape[0]
+    t_earth = _batch_earth_hit_distances_km(origin, dirs)
+    t_cloud_best = _batch_cloud_hits_t_best(origin, dirs, cloud_arc_specs)
+
+    has_earth = np.isfinite(t_earth)
+    has_cloud = np.isfinite(t_cloud_best)
+    cloud_wins = has_cloud & ((~has_earth) | (t_cloud_best < t_earth))
+    earth_wins = has_earth & (~cloud_wins)
+
+    hit_type = np.zeros(n, dtype=np.int8)
+    hit_type[earth_wins] = np.int8(1)
+    hit_type[cloud_wins] = np.int8(2)
+
+    t_hit = np.full(n, np.nan, dtype=float)
+    t_hit[earth_wins] = t_earth[earth_wins]
+    t_hit[cloud_wins] = t_cloud_best[cloud_wins]
+
+    hit_xy = origin.reshape(1, 2) + t_hit.reshape(-1, 1) * dirs
+    hit_xy[~(earth_wins | cloud_wins)] = np.nan
+    return hit_type, t_hit, hit_xy
 
 
 def calculate_gsd(
@@ -246,16 +339,10 @@ def compute_cloud_arc_specs_at_time(
         np.clip(growth_phase, 0.0, 1.0)
     )
 
-    lon_deg = float(LON_GLOBAL.to(ureg.deg).magnitude)
     specs: list[dict[str, float]] = []
     for cloud in _clouds:
-        radius_km = earth_radius_km + float(cloud.height.to(ureg.km).magnitude)
-        lat_start_deg = float(cloud.start_location.to(ureg.deg).magnitude)
-        lat_end_deg = float(cloud.end_location.to(ureg.deg).magnitude)
-        phi_start_deg = geodetic_on_lon_meridian_to_disk_polar_deg(
-            lat_deg=lat_start_deg, lon_deg=lon_deg
-        )
-        phi_end_deg = geodetic_on_lon_meridian_to_disk_polar_deg(lat_deg=lat_end_deg, lon_deg=lon_deg)
+        radius_km = earth_radius_km + cloud_mean_altitude_km(cloud)
+        phi_start_deg, phi_end_deg = cloud_disk_phi_bounds_deg(cloud)
         base_start = float(np.deg2rad(phi_start_deg))
         base_end = float(np.deg2rad(phi_end_deg))
         center = 0.5 * (base_start + base_end)
@@ -477,34 +564,13 @@ def simulate_camera_strip_2d(
     ray_dirs = _rotate_unit_xy_batch(boresight_dir_unit_xy, angle_rel_boresight)
 
     if str(kernel_backend).lower() == "accelerated":
-        o_m = disk_xy_km_to_ecef_m(sat_pos_xy_km)
-        dirs3 = batch_disk_direction_xy_to_ecef_unit(ray_dirs)
-        t_earth = batch_ray_oblate_spheroid_positive_hit_distance_m(o_m, dirs3, ell=WGS84_ELLIPSOID)
-        t_earth = t_earth / KM_TO_M
+        t_earth = _batch_earth_hit_distances_km(sat_pos_xy_km, ray_dirs)
         valid_mask = np.isfinite(t_earth)
         valid = int(np.count_nonzero(valid_mask))
         if valid == 0:
             cloud_blocked_fraction = 0.0
         else:
-            t_cloud_best_arr = np.full_like(t_earth, np.nan, dtype=float)
-            for cloud_spec in cloud_arc_specs:
-                t_cloud = _ray_circle_intersection_distance_batch(
-                    sat_pos_xy_km,
-                    ray_dirs,
-                    radius_km=float(cloud_spec["radius_km"]),
-                )
-                hit_points = sat_pos_xy_km.reshape(1, 2) + t_cloud.reshape(-1, 1) * ray_dirs
-                hit_angles = np.arctan2(hit_points[:, 1], hit_points[:, 0])
-                in_arc = np.vectorize(_angle_in_arc)(
-                    hit_angles,
-                    float(cloud_spec["start_rad"]),
-                    float(cloud_spec["end_rad"]),
-                )
-                accepted = np.isfinite(t_cloud) & in_arc
-                if not np.any(accepted):
-                    continue
-                assign_mask = accepted & (~np.isfinite(t_cloud_best_arr) | (t_cloud < t_cloud_best_arr))
-                t_cloud_best_arr[assign_mask] = t_cloud[assign_mask]
+            t_cloud_best_arr = _batch_cloud_hits_t_best(sat_pos_xy_km, ray_dirs, cloud_arc_specs)
             blocked = np.isfinite(t_cloud_best_arr) & valid_mask & (t_cloud_best_arr < t_earth)
             cloud_blocked_fraction = float(np.count_nonzero(blocked) / max(valid, 1))
     else:
@@ -579,13 +645,14 @@ def simulate_camera_observation_line_1d(
     cloud_code: int = 2,
     kernel_backend: str = "python",
     vertical_fov_rad: float | None = None,
+    target_areas: tuple | None = None,
 ) -> CameraObservationLine1DResult:
     """
     Simulate a 1D camera observation line by classifying each ray bin as:
     `space`, `earth`, `cloud`, or `target`.
 
-        The "target" is any Earth hit whose latitude falls inside one of
-        `OBSERVATION_TARGET_AREAS`.
+        The "target" is any Earth hit whose latitude falls inside one of the
+        configured target areas (defaults to ``OBSERVATION_TARGET_AREAS``).
     """
 
     if n_bins <= 0:
@@ -633,12 +700,13 @@ def simulate_camera_observation_line_1d(
     )
 
     # Target direction unit vector from the satellite to the target Earth point.
+    areas = target_areas if target_areas is not None else OBSERVATION_TARGET_AREAS
     target_area_lat_ranges = [
         (
             float(area.lat_min.to(ureg.deg).magnitude),
             float(area.lat_max.to(ureg.deg).magnitude),
         )
-        for area in OBSERVATION_TARGET_AREAS
+        for area in areas
     ]
     
     #logger.debug(f"[CAMERA] Target area lat ranges: {target_area_lat_ranges}")
@@ -652,30 +720,49 @@ def simulate_camera_observation_line_1d(
 
     # Classify each bin by first hit (cloud vs earth) and then Earth->target mapping.
     ray_dirs = _rotate_unit_xy_batch(boresight_dir_unit_xy, bin_ray_angles_rel_boresight_rad)
-    for i, ray_dir_unit_xy in enumerate(ray_dirs):
 
-        hit_type, _t_hit, _hit_xy_km = _first_hit_point_ray_earth_or_clouds(
+    if str(kernel_backend).lower() == "accelerated":
+        hit_types, _t_hit, hit_xy = _batch_first_hit_earth_or_clouds(
             ray_origin_xy_km=sat_pos_xy_km,
-            ray_dir_unit_xy=ray_dir_unit_xy,
-            earth_radius_km=earth_radius_km,
+            ray_dirs_unit_xy=ray_dirs,
             cloud_arc_specs=cloud_arc_specs,
         )
+        observation_types[hit_types == 2] = np.int8(cloud_code)
+        earth_mask = hit_types == 1
+        observation_types[earth_mask] = np.int8(earth_code)
+        if np.any(earth_mask):
+            earth_pts = hit_xy[earth_mask]
+            _lon_deg, lat_deg = batch_disk_xy_rows_km_to_geodetic_deg(earth_pts, ell=WGS84_ELLIPSOID)
+            earth_indices = np.nonzero(earth_mask)[0]
+            for j, idx in enumerate(earth_indices):
+                lat = float(lat_deg[j])
+                if any(low <= lat <= high for low, high in target_area_lat_ranges):
+                    observation_types[int(idx)] = np.int8(target_code)
+    else:
+        for i, ray_dir_unit_xy in enumerate(ray_dirs):
 
-        if hit_type is None:
+            hit_type, _t_hit, _hit_xy_km = _first_hit_point_ray_earth_or_clouds(
+                ray_origin_xy_km=sat_pos_xy_km,
+                ray_dir_unit_xy=ray_dir_unit_xy,
+                earth_radius_km=earth_radius_km,
+                cloud_arc_specs=cloud_arc_specs,
+            )
+
+            if hit_type is None:
+                observation_types[i] = int(space_code)
+                continue
+            if hit_type == "cloud":
+                observation_types[i] = int(cloud_code)
+                continue
+            if hit_type == "earth":
+                if _hit_xy_km is not None and _hit_point_is_target_lat(_hit_xy_km):
+                    observation_types[i] = int(target_code)
+                else:
+                    observation_types[i] = int(earth_code)
+                continue
+
+            # Defensive fallback (should not happen).
             observation_types[i] = int(space_code)
-            continue
-        if hit_type == "cloud":
-            observation_types[i] = int(cloud_code)
-            continue
-        if hit_type == "earth":
-            if _hit_xy_km is not None and _hit_point_is_target_lat(_hit_xy_km):
-                observation_types[i] = int(target_code)
-            else:
-                observation_types[i] = int(earth_code)
-            continue
-
-        # Defensive fallback (should not happen).
-        observation_types[i] = int(space_code)
 
     return CameraObservationLine1DResult(
         observation_types=observation_types,

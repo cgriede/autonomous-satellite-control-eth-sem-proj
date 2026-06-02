@@ -56,6 +56,25 @@ def disk_xy_km_to_geodetic_deg(
     return float(lon_deg), float(lat_deg)
 
 
+def batch_disk_xy_rows_km_to_geodetic_deg(
+    xy_km_n2: np.ndarray,
+    *,
+    ell: Ellipsoid | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Vectorized geodetic ``(lon_deg, lat_deg)`` for disk ground points as rows ``(n, 2)``.
+    """
+    p = np.asarray(xy_km_n2, dtype=float)
+    if p.ndim != 2 or p.shape[1] != 2:
+        raise ValueError("xy_km_n2 must have shape (n, 2).")
+    x_m = p[:, 0] * KM_TO_M
+    z_m = p[:, 1] * KM_TO_M
+    y_m = np.zeros_like(x_m)
+    e = WGS84_ELLIPSOID if ell is None else ell
+    lat_deg, lon_deg, _h_m = ecef2geodetic(x_m, y_m, z_m, ell=e, deg=True)
+    return np.asarray(lon_deg, dtype=float), np.asarray(lat_deg, dtype=float)
+
+
 def satellite_disk_xy_rows_km_to_geodetic_deg(
     sat_xy_km_n2: np.ndarray,
     *,

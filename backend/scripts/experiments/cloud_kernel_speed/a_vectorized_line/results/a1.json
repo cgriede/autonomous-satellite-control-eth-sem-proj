@@ -1,0 +1,94 @@
+{
+  "experiment_id": "a1",
+  "verdict": "supported",
+  "stats": {
+    "wall_time_s": 8.529392699943855,
+    "n_frames": 1924,
+    "steps_per_s": 225.57291798895187,
+    "n_clouds": 5,
+    "debug_examples": {
+      "observation_line_samples": [
+        {
+          "frame": 0,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 213,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 427,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 641,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 854,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1068,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1282,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1495,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1709,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        },
+        {
+          "frame": 1923,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0
+        }
+      ]
+    },
+    "micro_benchmark": {
+      "strip_s": 0.11026930017396808,
+      "primary_line_s": 0.11387270013801754,
+      "secondary_line_s": 0.12073599989525974,
+      "total_s": 0.34487800020724535,
+      "n_iters": 200
+    },
+    "parity": {
+      "total_mismatches": 0,
+      "parity_ok": true,
+      "debug_examples": {
+        "parity_cases": [
+          {
+            "case": "nadir_6clouds",
+            "mismatches": 0,
+            "python_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+            "accelerated_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
+          },
+          {
+            "case": "off_nadir",
+            "mismatches": 0,
+            "python_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+            "accelerated_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
+          }
+        ]
+      }
+    },
+    "baseline_wall_time_s": 59.685528999892995,
+    "episode_speedup_vs_baseline": 6.997629385769267,
+    "line_benchmark_speedup_vs_baseline": 28.911852796222206
+  }
+}

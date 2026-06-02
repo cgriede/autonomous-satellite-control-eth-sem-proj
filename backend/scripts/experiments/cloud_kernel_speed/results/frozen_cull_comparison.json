@@ -1,0 +1,36 @@
+{
+  "experiment_id": "frozen_cull_comparison",
+  "cloud_number_bounds": [
+    100,
+    200
+  ],
+  "rng_seed": 42,
+  "stats": {
+    "n_clouds_frozen": 108,
+    "episode_cull_on": {
+      "wall_time_s": 50.19630189985037,
+      "n_frames": 1924,
+      "steps_per_s": 38.32951686039914,
+      "n_clouds": 108,
+      "cull_enabled": true,
+      "cull_calls": 0,
+      "mean_clouds_culled_per_call": 0.0,
+      "mean_clouds_total_per_call": 0.0,
+      "fraction_clouds_culled_per_call": 0.0
+    },
+    "episode_cull_off": {
+      "wall_time_s": 51.444652899866924,
+      "n_frames": 1924,
+      "steps_per_s": 37.399416490279734,
+      "n_clouds": 108,
+      "cull_enabled": false,
+      "cull_calls": 0,
+      "mean_clouds_culled_per_call": 0.0,
+      "mean_clouds_total_per_call": 0.0,
+      "fraction_clouds_culled_per_call": 0.0
+    },
+    "cull_faster_by_factor": 1.0248693818621781,
+    "cull_saves_wall_time_s": 1.2483510000165552,
+    "cull_saves_wall_time_pct": 2.4265903833511615
+  }
+}
