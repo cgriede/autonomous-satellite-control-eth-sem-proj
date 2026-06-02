@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation as mpl_animation
 from matplotlib.animation import FuncAnimation
+from tqdm import tqdm
 
 from environment_definition.constants import (
     EARTH_RADIUS,
@@ -21,6 +22,7 @@ from utils.geometry.mission_stripe_disk import (
     primary_stripe_midpoint_disk_xy_km_on_sphere,
     primary_stripe_disk_phi_bounds_deg,
 )
+from utils.video_archive import archive_existing_video
 
 if __package__:
     from ._closeup_view import build_closeup_panel, update_closeup_panel
@@ -93,8 +95,18 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
     traj_off_deg_hi = float(np.rad2deg(np.max(theta_rel)))
     frame_lo_deg = min(START_ANGLE_DEG, END_ANGLE_DEG, traj_off_deg_lo, traj_off_deg_hi)
     frame_hi_deg = max(START_ANGLE_DEG, END_ANGLE_DEG, traj_off_deg_lo, traj_off_deg_hi)
-    tgt_lo_deg, tgt_hi_deg = primary_stripe_disk_phi_bounds_deg()
-    view_anchor_xy = primary_stripe_midpoint_disk_xy_km_on_sphere(earth_radius_km=R_EARTH_KM)
+    meta = simulation_series.metadata
+    region_bounds = meta.target_region_bounds_deg
+    if region_bounds:
+        tgt_lo_deg = min(lo for lo, _ in region_bounds)
+        tgt_hi_deg = max(hi for _, hi in region_bounds)
+        if meta.view_anchor_xy_km is not None:
+            view_anchor_xy = np.asarray(meta.view_anchor_xy_km, dtype=float)
+        else:
+            view_anchor_xy = primary_stripe_midpoint_disk_xy_km_on_sphere(earth_radius_km=R_EARTH_KM)
+    else:
+        tgt_lo_deg, tgt_hi_deg = primary_stripe_disk_phi_bounds_deg()
+        view_anchor_xy = primary_stripe_midpoint_disk_xy_km_on_sphere(earth_radius_km=R_EARTH_KM)
     STATIC_SCENE = {
         "R_earth": R_EARTH_KM,
         "R_orbit": R_ORBIT_KM,
@@ -103,6 +115,7 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
         "end_angle_deg": frame_hi_deg,
         "target_region_start_angle_deg": float(tgt_lo_deg),
         "target_region_end_angle_deg": float(tgt_hi_deg),
+        "target_region_bounds_deg": list(region_bounds) if region_bounds else None,
         "view_anchor_x": float(view_anchor_xy[0]),
         "view_anchor_y": float(view_anchor_xy[1]),
         "view_anchor_pos": np.asarray(view_anchor_xy, dtype=float),
@@ -261,7 +274,7 @@ def sample_scene(sim_idx: int) -> dict:
     if N_BINS_SECONDARY > 0:
         secondary_codes = np.asarray(sim_series.secondary_camera_observation_line_codes[sim_idx], dtype=np.int8)
 
-    return {
+    scene_out = {
         "sim_idx": sim_idx,
         "sat_pos": sat_pos,
         "z_axis_dir": z_axis_dir,
@@ -296,6 +309,7 @@ def sample_scene(sim_idx: int) -> dict:
         ),
         "controller_mode": sim_series.metadata.controller_mode,
     }
+    return {**STATIC_SCENE, **scene_out}
 
 
 def init() -> list:
@@ -321,7 +335,8 @@ def init() -> list:
         a = PANELS["closeup"]["artists"]
         a["cone"].set_xy([[0, 0], [0, 0], [0, 0]])
         a["secondary_cone"].set_xy([[0, 0], [0, 0], [0, 0]])
-        a["hit"].set_data([], [])
+        if "ground_footprint" in a:
+            a["ground_footprint"].set_data([], [])
         a["anchor_to_sat"].set_data([], [])
         for g, c in zip(a["cloud_glow"], a["cloud_core"]):
             g.set_data([], [])
@@ -343,7 +358,9 @@ def init() -> list:
         a["cursor"].set_data([], [])
     if "torque" in PANELS:
         a = PANELS["torque"]["artists"]
-        a["line"].set_data([], [])
+        a["line_applied"].set_data([], [])
+        if "line_agent" in a:
+            a["line_agent"].set_data([], [])
         a["cursor"].set_data([], [])
 
     return []
@@ -393,27 +410,6 @@ def _resolve_ffmpeg_executable() -> tuple[str | None, str]:
     if path_which:
         return path_which, "path_which"
     return None, "none"
-
-
-# #region agent log
-def _agent_debug_log_render(*, location: str, message: str, data: dict, hypothesis_id: str) -> None:
-    import json
-    import time
-
-    entry = {
-        "sessionId": "c8a7bc",
-        "timestamp": int(time.time() * 1000),
-        "location": location,
-        "message": message,
-        "data": data,
-        "hypothesisId": hypothesis_id,
-    }
-    log_path = Path(__file__).resolve().parents[2] / "debug-c8a7bc.log"
-    with log_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(entry) + "\n")
-
-
-# #endregion
 
 
 def _try_reencode_mp4_h264_for_web(path: Path) -> tuple[bool, str]:
@@ -484,7 +480,11 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
     export_num_frames = max(2, int(np.ceil(sim_total_s / dt_sim_s)) + 1)
     if export_path is None:
         export_path = Path(__file__).resolve().parents[2] / RENDER.export_filename
+    export_path = Path(export_path).resolve()
     export_path.parent.mkdir(parents=True, exist_ok=True)
+    archived = archive_existing_video(export_path)
+    if archived is not None:
+        print(f"[video] archived previous export -> {archived}")
 
     def export_update(frame: int) -> list:
         sim_t = min(float(frame) * dt_sim_s, sim_total_s)
@@ -494,37 +494,20 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
         return []
 
     mpl_ffmpeg_available = bool(mpl_animation.writers.is_available("ffmpeg"))
-    # #region agent log
-    ffmpeg_exe, ffmpeg_via = _resolve_ffmpeg_executable()
-    _agent_debug_log_render(
-        location="render_main.py:save_one_pass_video_30x",
-        message="export_writer_select",
-        data={
-            "mpl_ffmpeg_available": mpl_ffmpeg_available,
-            "ffmpeg_exe_resolved": ffmpeg_exe is not None,
-            "ffmpeg_via": ffmpeg_via,
-            "export_path": str(export_path),
-        },
-        hypothesis_id="H1,H2",
+    init()
+
+    frame_iter = tqdm(
+        range(export_num_frames),
+        desc="Writing video",
+        unit="frame",
     )
-    # #endregion
 
     if mpl_ffmpeg_available:
-        export_ani = FuncAnimation(
-            FIG,
-            export_update,
-            init_func=init,
-            frames=export_num_frames,
-            blit=False,
-            interval=1000.0 / export_fps,
-            repeat=False,
-        )
-        export_ani.save(
-            str(export_path),
-            writer="ffmpeg",
-            fps=export_fps,
-            dpi=RENDER.export_dpi,
-        )
+        writer = mpl_animation.FFMpegWriter(fps=export_fps, dpi=RENDER.export_dpi)
+        with writer.saving(FIG, str(export_path), dpi=RENDER.export_dpi):
+            for frame in frame_iter:
+                export_update(frame)
+                writer.grab_frame()
         reencode_ok, reencode_detail = False, "skipped_mpl_ffmpeg_path"
     else:
         from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -541,8 +524,7 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
         )
         if not writer.isOpened():
             raise RuntimeError("Could not open MP4 writer (OpenCV fallback).")
-        init()
-        for frame in range(export_num_frames):
+        for frame in frame_iter:
             export_update(frame)
             canvas.draw()
             rgba = np.asarray(canvas.buffer_rgba())
@@ -550,20 +532,6 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
             writer.write(bgr)
         writer.release()
         reencode_ok, reencode_detail = _try_reencode_mp4_h264_for_web(export_path)
-
-    # #region agent log
-    _agent_debug_log_render(
-        location="render_main.py:save_one_pass_video_30x",
-        message="export_complete",
-        data={
-            "writer": "mpl_ffmpeg" if mpl_ffmpeg_available else "opencv_mp4v",
-            "reencode_ok": reencode_ok,
-            "reencode_detail": reencode_detail,
-            "size_bytes": int(export_path.stat().st_size) if export_path.exists() else -1,
-        },
-        hypothesis_id="H1,H2,H5",
-    )
-    # #endregion
 
     return export_path
 
@@ -606,7 +574,12 @@ def _build_panels() -> None:
         )
         PANELS["reward"] = {"axes": axes, "artists": artists}
     if SHOW_TORQUE_PLOT:
-        axes, artists = build_torque_panel(FIG, sim_series.t_s, sim_series.wheel_torque_cmd_nm)
+        axes, artists = build_torque_panel(
+            FIG,
+            sim_series.t_s,
+            sim_series.wheel_torque_cmd_nm,
+            torque_agent_nm=sim_series.wheel_torque_agent_cmd_nm,
+        )
         PANELS["torque"] = {"axes": axes, "artists": artists}
     if SHOW_MAIN_PLOT:
         axes, artists = build_main_panel(FIG, STATIC_SCENE)

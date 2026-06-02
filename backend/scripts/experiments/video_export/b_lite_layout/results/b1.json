@@ -1,0 +1,69 @@
+{
+  "experiment_id": "b1_lite_layout",
+  "hypothesis_id": "lite_layout",
+  "phase": "B1",
+  "run_at_utc": "2026-06-02T19:59:37.254735+00:00",
+  "frozen_input": {
+    "description": "Export without telemetry/reward/torque/secondary cam panels",
+    "scenario": "high_cloud_notebook",
+    "seed": 0,
+    "tunables": {
+      "lite_panels": true
+    },
+    "n_items": null
+  },
+  "control": {
+    "label": "baseline",
+    "export_wall_s": 78.2032395999413,
+    "export_frames_per_s": 11.022561269963642,
+    "n_frames_drawn": 862
+  },
+  "treatment": {
+    "label": "lite_layout",
+    "export_wall_s": 54.01278149988502,
+    "export_frames_per_s": 15.959185512448288,
+    "n_frames_drawn": 862
+  },
+  "delta": {
+    "primary_kpi": "export_wall_s",
+    "export_speedup": 1.4478654390370134,
+    "relative_wall_reduction_pct": 30.932808185192417,
+    "speed_gate": 1.2,
+    "speed_gate_met": true
+  },
+  "parity": {
+    "required": true,
+    "passed": true,
+    "notes": "H.264 required; layout differs by design (orbit+closeup retained)"
+  },
+  "instrumentation": {
+    "patch": "SHOW_* flags before render_from_series"
+  },
+  "debug_examples": {
+    "baseline_video": {
+      "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\results\\baseline_preview.mp4",
+      "exists": true,
+      "bytes": 1319253,
+      "codec": "h264 (High) (avc1 / 0x31637661)",
+      "width": 1200,
+      "height": 700,
+      "duration_s": 43.1,
+      "probe_via": "imageio_ffmpeg"
+    },
+    "treatment_video": {
+      "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\b_lite_layout\\results\\b1_preview.mp4",
+      "exists": true,
+      "bytes": 876684,
+      "codec": "h264 (High) (avc1 / 0x31637661)",
+      "width": 1200,
+      "height": 700,
+      "duration_s": 43.1,
+      "probe_via": "imageio_ffmpeg"
+    }
+  },
+  "files_changed": [
+    "b_lite_layout/render_export_fork.py"
+  ],
+  "verdict": "supported",
+  "closeout": "promote"
+}

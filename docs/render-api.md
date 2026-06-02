@@ -63,6 +63,16 @@ python backend/render/render_main.py --render-mode interactive --controller-mode
 python backend/render/render_main.py --render-mode export --controller-mode baseline --save-one-pass-30x
 ```
 
+## Panels
+
+### Closeup (“Target Zoom”)
+
+- **Module:** `backend/render/_closeup_view.py`
+- **Data:** same world-km frame as the main orbit panel; consumes `ground_center`, `ground_left`, `ground_right`, primary/secondary cone edges, and cloud arcs from the per-frame scene dict built in `render_main.py`.
+- **Ground footprint:** polyline through left — center — right ground patch corners (`camera_ground_*_xy_km` from `SimulationStateSeries`). The center vertex is the primary boresight ground intersection; it is not drawn as a separate marker.
+- **Dynamic follow:** when `ground_center` is finite, axis limits are recomputed each frame with `_closeup_world_window_km(..., focus_xy_km=ground_center)` so the zoom window tracks the moving footprint. When ground intersection is unavailable, limits fall back to framing the static mission target arc.
+- **Telemetry:** ground-patch coordinates remain in the info panel (`ground_patch_hit_text`); only the redundant yellow center dot was removed from the plot.
+
 ## Notes
 
 - Module import creates figure/panel globals; this is a singleton-style render script.

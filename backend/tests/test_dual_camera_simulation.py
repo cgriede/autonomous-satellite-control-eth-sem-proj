@@ -69,7 +69,16 @@ class CloudArcShapeTest(unittest.TestCase):
 
     def test_single_cloud_setup_gives_one_column(self):
         """A single-cloud setup yields shape (..., 1) in the series."""
-        one_cloud = (Cloud(height=10.0 * ureg.km, start_location=89.8 * ureg.deg, end_location=90.1 * ureg.deg),)
+        from environment_definition.constants.SIMULATION import GeodeticLonLat
+
+        one_cloud = (
+            Cloud(
+                base_altitude=8.0 * ureg.km,
+                top_altitude=12.0 * ureg.km,
+                start_location=GeodeticLonLat(lat=89.8 * ureg.deg, lon=0.0 * ureg.deg),
+                end_location=GeodeticLonLat(lat=90.1 * ureg.deg, lon=0.0 * ureg.deg),
+            ),
+        )
         cfg = EnvironmentSetup(
             satellite=SATELLITE,
             orbit=OrbitConfig(altitude=_ALTITUDE),
@@ -190,6 +199,7 @@ class CoastControllerTest(unittest.TestCase):
             simulation_config=_SIM_CFG_COAST,
             tau_max_nm=tau_max,
             show_progress=False,
+            show_simulation_info=False,
         )
         self.assertTrue(np.all(series.wheel_torque_cmd_nm == 0.0), "Coast: all torques must be 0")
 

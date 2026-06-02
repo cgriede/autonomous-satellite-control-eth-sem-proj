@@ -52,4 +52,5 @@ def build_stepper(
         cameras=resolved.cameras,
         camera_kernel_backend=resolved.camera_kernel_backend,
         secondary_camera_observation_line_n_bins=resolved.secondary_camera_observation_line_n_bins,
+        target_areas=resolved.target_areas,
     )

@@ -1,0 +1,70 @@
+{
+  "experiment_id": "a1_frame_stride",
+  "hypothesis_id": "frame_stride",
+  "phase": "A1",
+  "run_at_utc": "2026-06-02T19:58:26.245523+00:00",
+  "frozen_input": {
+    "description": "Export frame_stride=2 on high_cloud notebook fixture",
+    "scenario": "high_cloud_notebook",
+    "seed": 0,
+    "tunables": {
+      "frame_stride": 2
+    },
+    "n_items": 1200
+  },
+  "control": {
+    "label": "baseline",
+    "export_wall_s": 78.2032395999413,
+    "export_frames_per_s": 11.022561269963642,
+    "n_frames_drawn": 862
+  },
+  "treatment": {
+    "label": "frame_stride_2",
+    "export_wall_s": 39.09772159997374,
+    "export_frames_per_s": 11.049237201594124,
+    "n_frames_drawn": 432
+  },
+  "delta": {
+    "primary_kpi": "export_wall_s",
+    "export_speedup": 2.000199408039005,
+    "relative_wall_reduction_pct": 50.00498470398011,
+    "speed_gate": 1.5,
+    "speed_gate_met": true
+  },
+  "parity": {
+    "required": true,
+    "passed": true,
+    "notes": "H.264 output required; temporal subsampling by design (coarser motion)"
+  },
+  "instrumentation": {
+    "patch": "save_one_pass_video_30x",
+    "frame_stride": 2
+  },
+  "debug_examples": {
+    "baseline_video": {
+      "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\results\\baseline_preview.mp4",
+      "exists": true,
+      "bytes": 1319253,
+      "codec": "h264 (High) (avc1 / 0x31637661)",
+      "width": 1200,
+      "height": 700,
+      "duration_s": 43.1,
+      "probe_via": "imageio_ffmpeg"
+    },
+    "treatment_video": {
+      "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\a_frame_stride\\results\\a1_preview.mp4",
+      "exists": true,
+      "bytes": 781601,
+      "codec": "h264 (High) (avc1 / 0x31637661)",
+      "width": 1200,
+      "height": 700,
+      "duration_s": 21.6,
+      "probe_via": "imageio_ffmpeg"
+    }
+  },
+  "files_changed": [
+    "a_frame_stride/render_export_fork.py"
+  ],
+  "verdict": "supported",
+  "closeout": "promote"
+}

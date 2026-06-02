@@ -1,5 +1,9 @@
 *leo_gym*
 
+# Agent debug probes (see .cursor/skills/debug-workflow/SKILL.md)
+.cursor/debug_logs/
+/debug-*.log
+
 #videos
 *.mp4
 
@@ -147,6 +151,9 @@ env/
 venv/
 ENV/
 env.bak/
+# Project path module (backend/ENV), not a Python venv
+!backend/ENV/
+!backend/ENV/**
 venv.bak/
 
 # Spyder project settings
@@ -210,3 +217,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# research exclude research pdfs as they might contain sensitive information
+docs/research/*.pdf

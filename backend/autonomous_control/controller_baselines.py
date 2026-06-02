@@ -32,6 +32,38 @@ class ZeroTorquePolicy:
         return np.array([0.0], dtype=np.float64)
 
 
+class DelayedMaxTorquePolicy:
+    """
+    Coast at 0 N·m for ``delay_s``, then request constant agent torque (stress / violation test).
+
+    Uses ``env._sim_time_s`` set by the rollout driver each step (see movement_constraints_patch).
+    """
+
+    def __init__(
+        self,
+        env,
+        *,
+        delay_s: float = 5.0,
+        tau_scale: float = 1.0,
+    ) -> None:
+        self._tau_max = float(env.action_space.high[0])
+        self._delay_s = float(delay_s)
+        self._tau_scale = float(tau_scale)
+        self._sim_time_s = 0.0
+
+    def reset_episode(self) -> None:
+        self._sim_time_s = 0.0
+
+    def set_sim_time_s(self, sim_time_s: float) -> None:
+        self._sim_time_s = float(sim_time_s)
+
+    def get_action(self, obs: np.ndarray, train: bool) -> np.ndarray:
+        del obs, train
+        if self._sim_time_s < self._delay_s:
+            return np.array([0.0], dtype=np.float64)
+        return np.array([self._tau_scale * self._tau_max], dtype=np.float64)
+
+
 class MaxTorqueSweepPolicy:
     """
     Hardcoded baseline:

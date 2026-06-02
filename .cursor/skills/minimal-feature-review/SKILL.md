@@ -15,6 +15,8 @@ Why: the focused review commit then stands alone, and any later `git pull` or me
 
 The user named this lesson explicitly: *"we should have just committed the unrelated file moves first before running our thing"*. Do not repeat it.
 
+After the review commit: if backlog rows or process changed, run [learn-skill](../learn-skill/SKILL.md) or update `backlog.xlsx` via [pm-backlog-review](../pm-backlog-review/SKILL.md) — not `backlog.md` alone.
+
 If the working tree is already clean, note it and proceed.
 
 ## Phase 1 — Frame the review

@@ -1,0 +1,104 @@
+{
+  "experiment_id": "d1_tensor_clouds",
+  "hypothesis_id": "tensor_clouds",
+  "phase": "X1",
+  "run_at_utc": "2026-06-02T17:22:05.878321+00:00",
+  "frozen_input": {
+    "description": "tensor (C\u00d7N) cloud hits on high_cloud_notebook fixture",
+    "scenario": "high_cloud_notebook + low_cloud guardrail",
+    "seed": 42,
+    "tunables": {},
+    "n_items": {
+      "low": 5,
+      "high": 63
+    }
+  },
+  "control": {
+    "label": "baseline",
+    "variant": "production _batch_cloud_hits_t_best loop",
+    "kpis": {
+      "high_line": {
+        "python_iters": 5,
+        "accelerated_iters": 50,
+        "n_clouds": 63,
+        "python_line_s_per_call": 0.03036436000838876,
+        "accelerated_line_s_per_call": 0.0022902820026502015,
+        "line_speedup_per_call": 13.25791320599499,
+        "production_line_s_per_call": 0.0022902820026502015
+      },
+      "low_micro": {
+        "strip_s": 0.10998439998365939,
+        "primary_line_s": 0.11235690000467002,
+        "secondary_line_s": 0.12554899998940527,
+        "total_s": 0.3478902999777347,
+        "n_iters": 200,
+        "per_call_s": 0.0017394514998886734
+      }
+    },
+    "result_path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\sensor_ray_batch\\results\\baseline.json"
+  },
+  "treatment": {
+    "label": "D1",
+    "variant": "tensor _batch_cloud_hits_t_best",
+    "kpis": {
+      "high_line": {
+        "python_iters": 5,
+        "accelerated_iters": 50,
+        "n_clouds": 63,
+        "python_line_s_per_call": 0.03313607997260988,
+        "accelerated_line_s_per_call": 0.0007795459963381291,
+        "line_speedup_per_call": 42.506895203444884,
+        "production_line_s_per_call": 0.0007795459963381291
+      },
+      "low_micro": {
+        "strip_s": 0.08876490010879934,
+        "primary_line_s": 0.09903959999792278,
+        "secondary_line_s": 0.1181540999095887,
+        "total_s": 0.3059586000163108,
+        "n_iters": 200,
+        "per_call_s": 0.0015297930000815541
+      },
+      "line_speedup": 2.9379690401960437
+    },
+    "result_path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\sensor_ray_batch\\d_tensor_clouds\\results\\d1.json"
+  },
+  "delta": {
+    "primary_kpi": "line_speedup_per_call",
+    "baseline_value": 1.0,
+    "treatment_value": 2.9379690401960437,
+    "direction": "better",
+    "relative_change_pct": 193.79690401960437,
+    "within_noise": false
+  },
+  "parity": {
+    "required": true,
+    "passed": true,
+    "notes": "total_mismatches=0"
+  },
+  "instrumentation": {
+    "hooks_valid": true,
+    "notes": "patched camera_2d._batch_cloud_hits_t_best"
+  },
+  "debug_examples": {
+    "parity_cases": [
+      {
+        "fixture": "low",
+        "mismatches": 0,
+        "ref_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+        "cand_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
+      },
+      {
+        "fixture": "high",
+        "mismatches": 0,
+        "ref_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+        "cand_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
+      }
+    ],
+    "low_regression_factor": 0.8794686142036512
+  },
+  "files_changed": [
+    "d_tensor_clouds/camera_2d_fork.py"
+  ],
+  "verdict": "supported",
+  "closeout": "promote"
+}

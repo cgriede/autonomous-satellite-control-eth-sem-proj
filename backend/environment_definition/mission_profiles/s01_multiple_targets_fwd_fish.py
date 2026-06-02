@@ -23,7 +23,7 @@ from environment_definition.constants import (
     SIMULATION,
     STAR_TRACKER_MAX_MANEUVER_RATE,
 )
-from environment_definition.constants.SIMULATION import Cloud
+from environment_definition.constants.SIMULATION import Cloud, GeodeticLonLat
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from utils.leo_adapter.orbit_geometry import circular_orbital_speed_from_altitude
 from environment_definition.runtime_types import Mission, MissionScenario, Satellite
@@ -36,8 +36,18 @@ _UPPER_MAG = SATELLITE_ALTITUDE_UPPER_BOUND.to(SATELLITE_ALTITUDE_LOWER_BOUND.un
 # S01 cloud placement (§G): target stripe 89.65°–90.0° N.
 # Cloud 1 partially occludes the observation stripe; cloud 2 adds wider scene coverage.
 S01_CLOUDS = (
-    Cloud(height=15.0 * ureg.km, start_location=89.70 * ureg.deg, end_location=90.05 * ureg.deg),
-    Cloud(height=12.0 * ureg.km, start_location=89.55 * ureg.deg, end_location=89.78 * ureg.deg),
+    Cloud(
+        base_altitude=8.0 * ureg.km,
+        top_altitude=18.0 * ureg.km,
+        start_location=GeodeticLonLat(lat=89.70 * ureg.deg, lon=0.0 * ureg.deg),
+        end_location=GeodeticLonLat(lat=90.05 * ureg.deg, lon=0.0 * ureg.deg),
+    ),
+    Cloud(
+        base_altitude=6.0 * ureg.km,
+        top_altitude=15.0 * ureg.km,
+        start_location=GeodeticLonLat(lat=89.55 * ureg.deg, lon=0.0 * ureg.deg),
+        end_location=GeodeticLonLat(lat=89.78 * ureg.deg, lon=0.0 * ureg.deg),
+    ),
 )
 
 

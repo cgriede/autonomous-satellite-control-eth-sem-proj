@@ -10,6 +10,9 @@ class ObservationTargetArea:
     lat_min: Any
     lat_max: Any
     label: str = "target_area"
+    # Optional endpoint longitudes [deg]; when omitted, derived from track offset (δ = λ − 90° rule).
+    lat_min_lon: Any | None = None
+    lat_max_lon: Any | None = None
 
 
 SATELLITE_ALTITUDE_LOWER_BOUND = 510 * ureg.km
@@ -17,10 +20,10 @@ SATELLITE_ALTITUDE_UPPER_BOUND = 570 * ureg.km
 
 LON_GLOBAL = 0.0 * ureg.deg
 # Polar episode slice (see docs/presentation): subsatellite meridian LON_GLOBAL; primary target is a
-# latitude stripe. Canonical orbit-plane episode extent uses symmetric LOS θ offsets from
-# ``los_theta_offsets_deg`` (aligned with the renderer). ``mission_target_window_deg`` maps expanded
-# latitude bounds to θ offsets for diagnostics / stripe geometry and can be asymmetric when λ_high
-# saturates at 90° N.
+# latitude stripe. Canonical episode extent for ``EnvironmentSetup.resolve()`` uses
+# ``episode_theta_offsets_deg_for_target_areas`` (per-target disk-φ bounds + LOS margin).
+# ``los_theta_offsets_deg`` is the symmetric LOS fallback when no targets are set.
+# ``mission_target_window_deg`` maps expanded latitude bounds to θ offsets for diagnostics only.
 OBSERVATION_TARGET_STRIPE_START_LAT = 89.65 * ureg.deg
 OBSERVATION_TARGET_STRIPE_END_LAT = 90.0 * ureg.deg
 
@@ -79,6 +82,83 @@ def mission_target_latitude_bounds_deg(
     if lat_low > lat_high:
         lat_low, lat_high = lat_high, lat_low
     return lat_low, lat_high
+
+
+def episode_theta_offsets_deg_for_target_areas(
+    target_areas: tuple[ObservationTargetArea, ...],
+    *,
+    orbit_height: Any,
+    margin_deg: float,
+    observer_height: Any = 0.0 * ureg.km,
+    theta_center_deg: float | None = None,
+) -> tuple[float, float]:
+    """
+    Orbit-plane θ offsets (degrees) covering every target band on the orbit disk.
+
+    For each target area, uses minor-arc φ bounds on the polar meridian disk (including
+    ``lat_min_lon`` / track-offset targets), converts to offsets relative to
+    ``theta_center``, and pads by minimum contact half-angle plus ``margin_deg`` so the
+    satellite can place LOS on the leading and trailing extremes at episode start and end.
+    """
+    if not target_areas:
+        return los_theta_offsets_deg(
+            orbit_height=orbit_height,
+            margin_deg=margin_deg,
+            observer_height=observer_height,
+        )
+
+    from environment_definition.constants.SIMULATION import SIMULATION
+    from utils.geometry.mission_stripe_disk import target_areas_disk_phi_bounds_deg
+
+    tc_deg = (
+        float(theta_center_deg)
+        if theta_center_deg is not None
+        else float(SIMULATION.theta_center.to(ureg.deg).magnitude)
+    )
+    los_half_deg = float(
+        minimum_contact_angle(observer_height=observer_height, orbit_height=orbit_height)
+        .to(ureg.deg)
+        .magnitude
+    ) + float(margin_deg)
+
+    per_area = target_areas_disk_phi_bounds_deg(tuple(target_areas))
+    start_candidates: list[float] = []
+    end_candidates: list[float] = []
+    for phi_lo, phi_hi in per_area:
+        off_lo = float(phi_lo) - tc_deg
+        off_hi = float(phi_hi) - tc_deg
+        start_candidates.append(off_lo - los_half_deg)
+        end_candidates.append(off_hi + los_half_deg)
+    return min(start_candidates), max(end_candidates)
+
+
+def episode_theta_offsets_legacy_lat_envelope_deg(
+    target_areas: tuple[ObservationTargetArea, ...],
+    *,
+    orbit_height: Any,
+    margin_deg: float,
+    observer_height: Any = 0.0 * ureg.km,
+) -> tuple[float, float]:
+    """Legacy latitude-envelope inference (diagnostics / regression only)."""
+    if not target_areas:
+        return los_theta_offsets_deg(
+            orbit_height=orbit_height,
+            margin_deg=margin_deg,
+            observer_height=observer_height,
+        )
+    lat_min_deg = min(float(a.lat_min.to(ureg.deg).magnitude) for a in target_areas)
+    lat_max_deg = max(float(a.lat_max.to(ureg.deg).magnitude) for a in target_areas)
+    envelope = ObservationTargetArea(
+        lat_min=lat_min_deg * ureg.deg,
+        lat_max=lat_max_deg * ureg.deg,
+        label="episode_envelope",
+    )
+    return mission_target_window_deg(
+        orbit_height=orbit_height,
+        margin_deg=margin_deg,
+        observer_height=observer_height,
+        area=envelope,
+    )
 
 
 def los_theta_offsets_deg(

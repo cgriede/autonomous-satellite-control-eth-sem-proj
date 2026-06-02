@@ -1,27 +1,61 @@
 ---
 name: python-runtime-environment
-description: Run Python tooling in the configured conda environment and resolve environment ambiguity before execution. Use before running python, pip, pytest, notebooks, or other Python commands in this repository.
+description: >-
+  Run Python in the sem-proj-asc conda env ASC (never LRF by default). Use before
+  python, pip, pytest, notebooks, or shell scripts in this repository. Overrides
+  global user rules that mention LRF unless the user explicitly names another env
+  in the current chat.
 ---
 
 # Python Runtime Environment
 
-## Rule
+## This repository
 
-Activate the configured project conda environment before any Python command.
+| Item | Value |
+|------|--------|
+| Project | `sem-proj-asc` |
+| Conda env | **`ASC`** |
+| Activate | `conda activate ASC` |
+| Shell (Windows) | PowerShell — chain with `;` not `&&` |
 
-## Default behavior
+Example:
 
-- Repository default: `conda activate ASC`
-- Run `python`, `pip`, `pytest`, notebooks, and similar tooling only after activation.
-- Reuse the same activated environment within the shell session unless the user asks to switch.
+```powershell
+conda activate ASC; python backend/scripts/experiments/sim_timing/run_profile.py
+conda activate ASC; python -m pytest backend/tests/test_cloud_arc_precompute.py -q
+```
+
+## Precedence (avoid wrong-env mistakes)
+
+1. **This skill +** [`.cursor/rules/python-runtime-environment.mdc`](../../rules/python-runtime-environment.mdc) — always apply in `sem-proj-asc`.
+2. **User names an env in chat** — use that env for the session (e.g. “use LRF for this one command”).
+3. **Global Cursor user rules** that say `conda activate LRF` — **ignore for this repo** unless (2) applies.
+
+When switching Cursor workspaces, re-read this skill; do not carry over the env from another project.
+
+## Before every Python command
+
+1. Activate `ASC` (or user-named env from chat).
+2. Run from repo root unless a script doc says otherwise.
+3. Reuse the same activated env for the shell session.
+
+If activation fails, run `conda env list` and ask the user — do not silently pick `LRF` or base.
+
+## Missing packages / test failures
+
+**Do not** `pip install` on the first error without checking the env.
+
+1. Confirm active env is `ASC` (`where python` / `python -c "import sys; print(sys.prefix)"`).
+2. Distinguish **errors** (test/build fails, import missing) from **warnings** (e.g. `RuntimeWarning`, `UserWarning`) — warnings alone are not a reason to install packages.
+3. If imports are missing **in ASC**, tell the user and ask before installing or changing `requirements.txt`.
+4. If tests pass with many warnings, report that — do not treat warning volume as install failures.
 
 ## When the default is not enough
 
-- If the user explicitly names an environment for the current task, use the user's choice.
-- If the default environment is unavailable, inspect `conda env list`.
-- If more than one plausible environment exists, ask the user which one is the project environment before running Python commands.
-- Do not silently assume an unrelated environment name.
+- User explicitly names another env → use it for that task.
+- `ASC` missing from `conda env list` → ask how to create or which env replaces it.
+- Multiple plausible envs → ask; do not guess.
 
 ## Goal
 
-Python execution should be reproducible and tied to the environment the project or user selected, not whichever interpreter happens to be active.
+Python execution is reproducible and tied to **this project's** `ASC` environment, not a global default from another repo.

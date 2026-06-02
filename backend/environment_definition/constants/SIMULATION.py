@@ -23,10 +23,21 @@ from .SATELLITE import FOCAL_LENGTH, SENSOR_HEIGHT
 
 
 @dataclass(frozen=True)
+class GeodeticLonLat:
+    """Surface geodetic endpoint (pint lat/lon quantities)."""
+
+    lat: Any
+    lon: Any
+
+
+@dataclass(frozen=True)
 class Cloud:
-    height: Any
-    start_location: Any
-    end_location: Any
+    """Cloud patch as a vertical slab along an orbit-disk arc (converted to disk φ at sim time)."""
+
+    base_altitude: Any
+    top_altitude: Any
+    start_location: GeodeticLonLat
+    end_location: GeodeticLonLat
 
 @dataclass(frozen=True)
 class Location:
@@ -73,14 +84,49 @@ class RenderMode(str, Enum):
     EXPORT = "export"
 
 
-_BASELINE_CONTROLLER_MODES: frozenset[str] = frozenset({"baseline", "random", "coast"})
+BuiltinTorquePolicy = Literal["baseline", "random", "coast"]
+TorqueCommandSource = Literal["builtin", "external"]
+
+BASELINE_TORQUE_POLICIES: frozenset[str] = frozenset({"baseline", "random", "coast"})
+
+
+def control_stack_display_label(
+    *,
+    torque_command_source: str,
+    builtin_torque_policy: str | None = None,
+    torque_policy_label: str | None = None,
+    attitude_controller_enabled: bool = False,
+) -> str:
+    """Human-readable control stack for metadata / render telemetry."""
+    if str(torque_command_source).lower() == "external":
+        label = str(torque_policy_label or "external_policy")
+    else:
+        label = f"builtin:{builtin_torque_policy or 'coast'}"
+    if attitude_controller_enabled:
+        label = f"{label} · attitude_controller"
+    return label
 
 
 @dataclass(frozen=True)
 class SimulationConfig:
+    """Simulation run options.
+
+    Torque command path (high level):
+    - ``torque_command_source="builtin"``: stepper baseline loop (``builtin_torque_policy``).
+    - ``torque_command_source="external"``: caller/policy supplies torque each step
+      (``torque_policy_label`` names the policy, e.g. ``delayed_max_torque``).
+
+    Low level (reaction wheel plant):
+    - ``attitude_controller_enabled``: ``AttitudeSafetyController`` arbitrates external
+      requests before the wheel (taper / safe mode).
+    """
+
     render_mode: RenderMode = RenderMode.INTERACTIVE
-    controller_mode: Literal["baseline", "random", "coast"] = "random"
+    torque_command_source: TorqueCommandSource = "builtin"
+    builtin_torque_policy: BuiltinTorquePolicy = "random"
+    torque_policy_label: str | None = None
     controller_seed: int | None = None
+    attitude_controller_enabled: bool = False
 
 
 SIMULATION = SimulationConstants(
@@ -101,9 +147,10 @@ SIMULATION = SimulationConstants(
     z_axis_length=180.0 * ureg.km,
     clouds=(
         Cloud(
-            height=15.0 * ureg.km,
-            start_location=89.99 * ureg.deg,
-            end_location=90.2 * ureg.deg,
+            base_altitude=4.0 * ureg.km,
+            top_altitude=20.0 * ureg.km,
+            start_location=GeodeticLonLat(lat=89.99 * ureg.deg, lon=0.0 * ureg.deg),
+            end_location=GeodeticLonLat(lat=90.0 * ureg.deg, lon=0.0 * ureg.deg),
         ),
     ),
     export_speed_multiplier=30.0,

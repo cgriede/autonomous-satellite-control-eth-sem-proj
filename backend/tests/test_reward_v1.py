@@ -39,7 +39,7 @@ class RewardV1Test(unittest.TestCase):
             picture_taken=False,
             target_visible=False,
         )
-        self.assertEqual(r, 0.0)
+        self.assertEqual(r, -100.0)
 
     def test_inside_gate_no_picture(self):
         d_op = 400.0 * ureg.km

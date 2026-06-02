@@ -1,24 +1,45 @@
 ---
 name: debug-workflow
-description: LRF debugging conventions. Use whenever in debug mode, when prompted to debug anything, or when adding runtime logging probes.
+description: >-
+  Workspace debugging conventions (debug logs, probe placement). Use whenever in
+  debug mode, when prompted to debug anything, or when adding runtime logging probes.
 ---
 
 # Debug Workflow
 
 ## Debug log location
 
-**Always** write probe logs to `.cursor/debug_logs/`. Never write to the repo root, `backend/`, or any other working directory.
+**Always** write probe logs under **`.cursor/debug_logs/`** at the workspace (repo) root.
+
+**Never** write to the repo root, `backend/`, notebook folders, or any other working directory — even if a debug-mode prompt names a path like `debug-<sessionId>.log` at the project root. Remap that filename into `.cursor/debug_logs/`.
 
 ```python
-import json, time
+import json
+import time
 from pathlib import Path
-_log = Path(__file__).resolve().parents[N] / ".cursor/debug_logs/<topic>.log"
+
+# From backend/simulation/foo.py → parents[2] is repo root.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_log = _REPO_ROOT / ".cursor" / "debug_logs" / "<topic>.log"
 _log.parent.mkdir(parents=True, exist_ok=True)
-_log.open("a").write(json.dumps({"ts": int(time.time()*1000), ...}) + "\n")
+_log.open("a", encoding="utf-8").write(
+    json.dumps({"sessionId": "<id>", "ts": int(time.time() * 1000), ...}) + "\n"
+)
 ```
 
-Replace `N` with the number of `parent` steps needed to reach the workspace root.  
+Replace `parents[N]` so `_REPO_ROOT` is the directory that contains `.cursor/` and `backend/`. Common cases:
+
+| File location | `N` (parents) |
+|---------------|----------------|
+| `backend/simulation/*.py` | 2 |
+| `backend/scripts/*.py` | 2 |
+| `backend/notebooks/...` (resolve from notebook path) | varies — count up to repo root |
+
 For notebooks, resolve `N` from the notebook file path, not from `Path.cwd()`.
+
+Use a **topic** filename per investigation (e.g. `reward-kernel-1a7e56.log`), not a bare `debug.log` in the repo root.
+
+`.cursor/debug_logs/` is gitignored; safe to append during debug sessions.
 
 ## Leading-space import error
 

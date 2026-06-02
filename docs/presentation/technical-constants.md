@@ -33,6 +33,17 @@ Source: `environment_definition/constants/SATELLITE.py` (and `attitude_control_e
 
 ---
 
+# Attitude safety (movement constraints)
+
+Source: `environment_definition/constants/ATTITUDE_SAFETY.py`, `simulation/attitude_controller.py`.
+
+- **Off-nadir hard limit:** `OFF_NADIR_HARD_LIMIT_DEG` = 45°.
+- **Safe-mode cruise rate:** `SAFE_MODE_CRUISE_RATE_DEG_S` = 0.05°/s.
+- **Post-recovery lockout:** `SAFE_MODE_LOCKOUT_S` = 10 s (no external torque).
+- **Dynamic taper arm:** `θ_arm = θ_hard − ω²/(2τ/I_sat)` (braking distance from current rate).
+
+---
+
 # Wheel model in 2D env
 
 Source: `environment_definition/attitude_control_env.py`.

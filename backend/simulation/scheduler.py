@@ -19,9 +19,13 @@ def resolve_controller_interval_steps(
     raw_steps = interval_s / sim_dt_s
     rounded_steps = max(1, int(np.round(raw_steps)))
     if not np.isclose(raw_steps, float(rounded_steps)) and not _SCHEDULER_WARNED:
+        effective_interval_s = rounded_steps * sim_dt_s
         warnings.warn(
-            "controller_update_interval is not an integer multiple of simulation_timestep; "
-            "using nearest multiple.",
+            "controller_update_interval "
+            f"({interval_s:g} s) is not an integer multiple of simulation_timestep "
+            f"({sim_dt_s:g} s); using nearest multiple: "
+            f"{effective_interval_s:g} s ({rounded_steps} sim step"
+            f"{'' if rounded_steps == 1 else 's'}).",
             stacklevel=2,
         )
         _SCHEDULER_WARNED = True

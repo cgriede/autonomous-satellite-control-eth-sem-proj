@@ -19,6 +19,10 @@ class OrbitConfig:
     contact_margin: Any | None = None
     motion_span_scale: float | None = None
     sat_z_offset: Any | None = None
+    # Orbit-plane θ offsets relative to ``theta_center`` [deg]. ``None`` → inferred at resolve()
+    # from ``target_areas`` disk-φ bounds plus LOS contact half-angle and ``contact_margin``.
+    start_angle_deg: float | None = None
+    end_angle_deg: float | None = None
 
 
 @dataclass(frozen=True)
@@ -96,7 +100,7 @@ class EnvironmentSetup:
         )
         from environment_definition.constants.MISSION import (
             OBSERVATION_TARGET_AREAS,
-            los_theta_offsets_deg,
+            episode_theta_offsets_deg_for_target_areas,
         )
 
         if self.satellite is None:
@@ -132,10 +136,77 @@ class EnvironmentSetup:
             if orbit.contact_margin is not None
             else SIMULATION.contact_margin_angle
         )
-        start_angle_deg, end_angle_deg = los_theta_offsets_deg(
+        margin_deg = float(contact_margin.to(ureg.deg).magnitude)
+        inferred_start_deg, inferred_end_deg = episode_theta_offsets_deg_for_target_areas(
+            tuple(target_areas),
             orbit_height=orbit.altitude,
-            margin_deg=float(contact_margin.to(ureg.deg).magnitude),
+            margin_deg=margin_deg,
+            theta_center_deg=float(theta_center.to(ureg.deg).magnitude),
         )
+        start_angle_deg = (
+            float(orbit.start_angle_deg)
+            if orbit.start_angle_deg is not None
+            else inferred_start_deg
+        )
+        end_angle_deg = (
+            float(orbit.end_angle_deg)
+            if orbit.end_angle_deg is not None
+            else inferred_end_deg
+        )
+        if start_angle_deg >= end_angle_deg:
+            raise SimulationSetupError(
+                f"start_angle_deg ({start_angle_deg}) must be < end_angle_deg ({end_angle_deg})."
+            )
+        # #region agent log
+        try:
+            import json
+            import time
+            from pathlib import Path
+
+            from environment_definition.constants.MISSION import (
+                episode_theta_offsets_legacy_lat_envelope_deg,
+            )
+
+            _legacy_lo, _legacy_hi = episode_theta_offsets_legacy_lat_envelope_deg(
+                tuple(target_areas),
+                orbit_height=orbit.altitude,
+                margin_deg=margin_deg,
+            )
+            _log = (
+                Path(__file__).resolve().parents[2]
+                / ".cursor"
+                / "debug_logs"
+                / "episode-bounds-e7cfb0.log"
+            )
+            _log.parent.mkdir(parents=True, exist_ok=True)
+            _log.open("a", encoding="utf-8").write(
+                json.dumps(
+                    {
+                        "sessionId": "e7cfb0",
+                        "hypothesisId": "H1-H4",
+                        "location": "setup_types.py:resolve",
+                        "message": "episode_theta_offsets_resolved",
+                        "data": {
+                            "n_targets": len(target_areas),
+                            "inferred_start_deg": inferred_start_deg,
+                            "inferred_end_deg": inferred_end_deg,
+                            "legacy_lat_start_deg": _legacy_lo,
+                            "legacy_lat_end_deg": _legacy_hi,
+                            "resolved_start_deg": start_angle_deg,
+                            "resolved_end_deg": end_angle_deg,
+                            "override_start": orbit.start_angle_deg is not None,
+                            "override_end": orbit.end_angle_deg is not None,
+                            "margin_deg": margin_deg,
+                            "theta_center_deg": float(theta_center.to(ureg.deg).magnitude),
+                        },
+                        "timestamp": int(time.time() * 1000),
+                    }
+                )
+                + "\n"
+            )
+        except OSError:
+            pass
+        # #endregion
 
         sat_motion_span_scale = (
             orbit.motion_span_scale

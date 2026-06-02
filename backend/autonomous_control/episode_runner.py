@@ -69,10 +69,11 @@ class EpisodeRunner:
         if hasattr(agent, "reset_episode"):
             agent.reset_episode()
 
-        controller_mode = _infer_controller_mode(agent, mode)
+        torque_policy_label = _infer_torque_policy_label(agent, mode)
         sim_config = SimulationConfig(
             render_mode=RenderMode.HEADLESS,
-            controller_mode=controller_mode,  # type: ignore[arg-type]
+            torque_command_source="external",
+            torque_policy_label=torque_policy_label,
         )
         stepper = build_stepper(self._resolved, simulation_config=sim_config)
 
@@ -116,8 +117,14 @@ class EpisodeRunner:
             disable=verbose_print != 0,
         )
         if verbose_print == 0:
-            progress_bar.write(
-                f"[run_serial] start mode={mode} max_steps={episode_total_steps}"
+            from simulation.simulation_info import print_simulation_info
+
+            print_simulation_info(
+                stepper,
+                simulation_config=sim_config,
+                tau_max_nm=tau_max_nm,
+                agent=agent,
+                episode_mode=mode,
             )
 
         try:
@@ -191,14 +198,18 @@ class EpisodeRunner:
         )
 
 
-def _infer_controller_mode(agent: Any, mode: str) -> str:
-    """Map agent class name + episode mode to a SimulationConfig controller_mode string."""
+def _infer_torque_policy_label(agent: Any, mode: str) -> str:
+    """Map agent class + episode mode to metadata torque_policy_label (external command source)."""
     class_name = type(agent).__name__.lower()
     if "random" in class_name:
-        return "random"
+        return "random_torque_agent"
     if "sweep" in class_name or "baseline" in class_name:
-        return "baseline"
-    return "mpo"
+        return "max_torque_sweep_agent"
+    if "delayed" in class_name and "max" in class_name:
+        return "delayed_max_torque"
+    if "zero" in class_name:
+        return "zero_torque"
+    return f"{type(agent).__name__}:{mode}"
 
 
 def _make_warmup_policy(

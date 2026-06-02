@@ -132,15 +132,16 @@ def distance_band_reward(
     """
     d_v = _distance_m(distance_to_target)
     v_t = _distance_m(viewing_threshold)
-    if outer_gate_enabled and d_v > v_t:
-        return 0.0
-
     d_op_m = _distance_m(d_op)
     if v_t <= d_op_m:
         raise ValueError("Require viewing_threshold > d_op for distance-band reward.")
 
+    # Primary camera must see target pixels; no "free" zero reward when far but not imaging.
     if not picture_taken or not target_visible:
         return -100.0
+
+    if outer_gate_enabled and d_v > v_t:
+        return 0.0
 
     d_eff = min(max(d_v, d_op_m), v_t)
     denom = v_t - d_op_m
@@ -204,11 +205,11 @@ def compute_reward(
             outer_gate_enabled=cfg.enable_outer_gate,
         )
 
-    if cfg.enable_area_intersection:
+    if cfg.enable_area_intersection and signals.target_visible and signals.picture_taken:
         area_ratio = float(np.clip(signals.target_area_intersection_ratio, 0.0, 1.0))
         components["area_intersection_reward"] = cfg.k_area_intersection * area_ratio
 
-    if cfg.enable_area_novelty:
+    if cfg.enable_area_novelty and signals.target_visible and signals.picture_taken:
         novelty_ratio = float(np.clip(signals.target_area_novelty_ratio, 0.0, 1.0))
         components["area_novelty_reward"] = cfg.k_area_novelty * novelty_ratio
 

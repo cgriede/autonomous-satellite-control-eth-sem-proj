@@ -20,6 +20,13 @@ from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from utils.units.require_compatible_unit import require_compatible_units
 
 
+def _lon_deg_for_track_offset_deg(offset_deg: float) -> float:
+    lon_asc = float(LON_GLOBAL.to(ureg.deg).magnitude)
+    if float(offset_deg) > 0.0:
+        return lon_asc + 180.0 if lon_asc >= 0.0 else lon_asc - 180.0
+    return lon_asc
+
+
 def lat_deg_from_track_offset_deg(offset_deg: float) -> float:
     """Map along-track offset to geodetic latitude on the forward meridian sweep."""
     if offset_deg <= 0.0:
@@ -47,9 +54,30 @@ class MeridianTargetSegment:
     label: str
     track_offset_lo_deg: float
     track_offset_hi_deg: float
+    lon_min_deg: float | None = None
+    lon_max_deg: float | None = None
+
+    def endpoint_lon_deg(self, *, which: str) -> float:
+        if which == "min":
+            if self.lon_min_deg is not None:
+                return float(self.lon_min_deg)
+            return _lon_deg_for_track_offset_deg(self.track_offset_lo_deg)
+        if which == "max":
+            if self.lon_max_deg is not None:
+                return float(self.lon_max_deg)
+            return _lon_deg_for_track_offset_deg(self.track_offset_hi_deg)
+        raise ValueError("which must be 'min' or 'max'.")
 
     def to_observation_target_area(self) -> ObservationTargetArea:
-        return ObservationTargetArea(lat_min=self.lat_min, lat_max=self.lat_max, label=self.label)
+        lon_lo = self.endpoint_lon_deg(which="min")
+        lon_hi = self.endpoint_lon_deg(which="max")
+        return ObservationTargetArea(
+            lat_min=self.lat_min,
+            lat_max=self.lat_max,
+            label=self.label,
+            lat_min_lon=lon_lo * ureg.deg,
+            lat_max_lon=lon_hi * ureg.deg,
+        )
 
     def phi_bounds_deg(self, *, theta_center_deg: float = 90.0) -> tuple[float, float]:
         phi_lo = phi_deg_from_track_offset_deg(self.track_offset_lo_deg, theta_center_deg=theta_center_deg)
@@ -90,6 +118,8 @@ def build_target_grid_polar_meridian(
         offset_hi = offset_cursor + target_step_deg
         lat_lo = lat_deg_from_track_offset_deg(offset_lo)
         lat_hi = lat_deg_from_track_offset_deg(offset_hi)
+        lon_lo = _lon_deg_for_track_offset_deg(offset_lo)
+        lon_hi = _lon_deg_for_track_offset_deg(offset_hi)
         segments.append(
             MeridianTargetSegment(
                 lat_min=min(lat_lo, lat_hi) * ureg.deg,
@@ -97,6 +127,8 @@ def build_target_grid_polar_meridian(
                 label=f"target_{i}",
                 track_offset_lo_deg=float(offset_lo),
                 track_offset_hi_deg=float(offset_hi),
+                lon_min_deg=float(lon_lo),
+                lon_max_deg=float(lon_hi),
             )
         )
         offset_cursor = offset_hi + spacing_step_deg

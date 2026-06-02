@@ -9,6 +9,8 @@ When a new skill lands, the rules and dev-process docs that previously carried t
 
 ## Phase 1 — Confirm scope and aggressiveness
 
+**Before authoring:** glob `.cursor/skills/**/SKILL.md` and `.cursor/commands/` — if a matching skill or command exists, extend it instead of creating a duplicate (see `learnings.md` → `check-existing-before-create-skill`).
+
 Ask the user two narrow scoping questions before doing any work:
 
 1. **Scope**: which trees does the sweep cover?

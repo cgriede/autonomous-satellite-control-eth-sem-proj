@@ -1,6 +1,6 @@
 ---
 name: pm-briefing
-description: Produce a project-manager briefing from the live backlog workbook, current git state, active plans, and remote branch context. Use when the user says "brief me", asks what was worked on recently, what is in the backlog or sprint, whether outside work or PRs need review, whether the sprint is on track, what to pick up today, or asks to separate unrelated uncommitted changes before continuing work.
+description: Produce a project-manager briefing from the live backlog workbook (backlog.xlsx — preflight required), current git state, active plans, and remote branch context. Use when the user says "brief me", asks what was worked on recently, what is in the backlog or sprint, whether outside work or PRs need review, whether the sprint is on track, what to pick up today, asks to update the backlog, or asks to separate unrelated uncommitted changes before continuing work.
 disable-model-invocation: true
 ---
 
@@ -10,22 +10,36 @@ Use this when the user wants a quick PM/status readout of the repo.
 
 ## Rules
 
-- Backlog truth comes from the live workbook, not chat or plan files.
+- Backlog truth comes from the **live workbook** ([`backlog.xlsx`](../../../backlog.xlsx)), not chat, plan files, or [`backlog.md`](../../../backlog.md).
+- **Preflight the workbook before any backlog read or update** — see [Backlog preflight](#backlog-preflight-mandatory) below.
 - Git truth comes from the current tree plus recent history.
 - Plans are supporting context for in-flight work.
 - Do not commit or push unless the user explicitly asks.
 - PowerShell on this machine uses `;`, not `&&`.
 
+## Backlog preflight (mandatory)
+
+Before answering backlog/sprint questions or updating the board:
+
+1. Run `python backend/scripts/backlog_xlsx.py check` (see commands below).
+2. If check **passes** → read rows from `BACKLOG_XLSX` via `read_backlog_entries`.
+3. If workbook **missing** → **ask the user** where the live `.xlsx` lives; do not silently use `backlog.md`. Default path: repo root `backlog.xlsx` (`backend/ENV/PATHS.py`). Offer `init` only after confirmation.
+4. If user names a **different path** → update `ENV.PATHS.BACKLOG_XLSX` or use `--path`, then re-check.
+
+**Forbidden:** treating `backlog.md` as the sprint board when an xlsx workflow exists or was requested.
+
 ## Read in this order
 
 ### 1. Live backlog
 
-Use `backend/scripts/backlog_xlsx.py`.
+Use `backend/scripts/backlog_xlsx.py` after preflight passes.
 
 ```powershell
 $env:PYTHONPATH = "backend"
-conda activate LRF
-python -c "from ENV.PATHS import BACKLOG_XLSX; from scripts.backlog_xlsx import assert_backlog_workbook_healthy, read_backlog_entries; assert_backlog_workbook_healthy(BACKLOG_XLSX); print(len(read_backlog_entries()))"
+conda activate ASC
+python backend/scripts/backlog_xlsx.py check
+python backend/scripts/backlog_xlsx.py list
+python -c "from ENV.PATHS import BACKLOG_XLSX; from scripts.backlog_xlsx import read_backlog_entries; print(len(read_backlog_entries(BACKLOG_XLSX)))"
 ```
 
 Surface at least: `uid`, `Sprint`, `prio`, `Size`, `status`, `dep on`, `name`, `notes / blockers`.
@@ -98,4 +112,5 @@ Be careful with notebook-heavy WIP: untracked notebook helpers, hypotheses, or r
 ## Related skills
 
 - For backlog row updates or new idea capture: [pm-backlog-review](../pm-backlog-review/SKILL.md)
+- After a backlog/process mistake: [learn-skill](../learn-skill/SKILL.md)
 - For splitting off unrelated tree noise into its own commit: [minimal-feature-review](../minimal-feature-review/SKILL.md)

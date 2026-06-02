@@ -1,6 +1,6 @@
 ---
 name: minimal-feature-cycle
-description: Guide a backlog item through a thin prototype notebook to production using the project's minimal feature cycle. Use when the user says "minimal feature cycle", "minimal feature notebook", "simplify the notebook", "notebook too large", or "let's implement this backlog item as a minimal feature", or when an opened notebook is too big for a human to grasp in one go (then also read notebook-simplify.md).
+description: Guide a backlog item through a thin prototype notebook to production using the project's minimal feature cycle. Use when the user says "minimal feature cycle", "minimal feature notebook", "simplify the notebook", "notebook too large", or "let's implement this backlog item as a minimal feature", or when an opened notebook is too big for a human to grasp in one go (then also read notebook-simplify.md). When promote/close is done, ask whether to run minimal-feature-review (/minimal-feature-review).
 ---
 
 # Minimal Feature Cycle
@@ -11,7 +11,7 @@ In this workflow, verification means the real output that will be produced when 
 
 ## Phase 1 — Scope from backlog
 
-1. Read the backlog entry (typically [.cursor/plans/backlog-hot-now.md](../../plans/backlog-hot-now.md) or a ticket the user names).
+1. **Preflight** the live workbook: `python backend/scripts/backlog_xlsx.py check` (see [pm-backlog-review](../pm-backlog-review/SKILL.md) if missing). Read the row by `uid` from [`backlog.xlsx`](../../../backlog.xlsx) — not from `backlog.md` or plan todos alone.
 2. Copy [.cursor/plans/00-initialized/DEFAULT_DEVELOPMENT_CYCLE.plan.md](../../plans/00-initialized/DEFAULT_DEVELOPMENT_CYCLE.plan.md) to a new file in `00-initialized/`. Rename with a short suffix.
 3. Fill section 0: problem, outcome, non-goals, backward compatibility, acceptance criteria.
 4. When scope is fuzzy, ask the questions required by [.cursor/rules/planning-clarifying-questions.mdc](../../rules/planning-clarifying-questions.mdc) before writing code.
@@ -74,6 +74,8 @@ Required loop:
 3. Move the plan file through stages per [.cursor/rules/plans-lifecycle-workflow.mdc](../../rules/plans-lifecycle-workflow.mdc).
 4. Complete the human UX walkthrough required by [.cursor/rules/post-implementation-human-ux-review.mdc](../../rules/post-implementation-human-ux-review.mdc), or write `Human UX review: N/A — <one-line reason>` in section 4b.
 5. Archive the plan when the done checklist is satisfied.
+6. **Update backlog:** set matching `backlog.xlsx` row to `status=done` (see [pm-backlog-review](../pm-backlog-review/SKILL.md)); do not update only `backlog.md`.
+7. **Review handoff (required):** Before treating the cycle as finished, ask the user whether to run [.cursor/skills/minimal-feature-review/SKILL.md](../minimal-feature-review/SKILL.md) (`/minimal-feature-review`). Offer a one-line summary of what changed (commits, branch, or plan name) so they can say yes with context. Do not start the review yourself unless they agree — the review skill begins with working-tree hygiene and framed cleanup targets.
 
 ## Phase flow
 
@@ -85,11 +87,14 @@ flowchart LR
   instrument --> fix[Source fix - no symptom suppression]
   fix --> gates[Place validation: unit / e2e / visual]
   gates --> promote[Promote: code + tests + notebook utils]
-  promote --> archive["Plan -> 99-archive"]
+  promote --> backlogDone["backlog.xlsx status=done"]
+  backlogDone --> archive["Plan -> 99-archive"]
+  archive --> askReview["Ask: /minimal-feature-review?"]
 ```
 
 ## Pointers
 
+- Post-cycle cleanup and ship prep: [minimal-feature-review](../minimal-feature-review/SKILL.md) — run after promote/close when the user accepts the handoff.
 - Patterns and rules in depth: [reference.md](reference.md).
 - One worked example from a real cycle: [examples.md](examples.md). Read on request.
 - Oversized notebook cleanup: [notebook-simplify.md](notebook-simplify.md) (subskill).

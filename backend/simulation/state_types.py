@@ -40,8 +40,16 @@ class SimulationMetadata :
     sat_theta_span_rad : float 
     start_angle_deg    : float 
     end_angle_deg      : float
-    controller_mode    : str = "unknown"
-    render_mode        : str = "interactive"
+    # Display label for render telemetry (see control_stack_display_label).
+    controller_mode: str = "unknown"
+    torque_command_source: str = "unknown"
+    builtin_torque_policy: str | None = None
+    torque_policy_label: str | None = None
+    attitude_controller_enabled: bool = False
+    render_mode: str = "interactive"
+    # Optional render framing for multi-band target grids (φ bounds on orbit disk, degrees).
+    target_region_bounds_deg: tuple[tuple[float, float], ...] | None = None
+    view_anchor_xy_km: tuple[float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -51,12 +59,12 @@ class SimulationStateSeries:
     radius_km            : np.ndarray #orbital radius
     body_z_angle_rad     : np.ndarray #body z angle in respect to earth
     simulation_reward    : np.ndarray # per-frame scalar reward
-    # Wheel torque command [N·m], same indexing as t_s; frame 0 before any step is 0.
-    wheel_torque_cmd_nm  : np.ndarray
+    # Wheel torque applied to plant [N·m] (after attitude safety), same indexing as t_s.
+    wheel_torque_cmd_nm: np.ndarray
 
     # Camera (2D optics) outputs: the sensor rectangle maps to a 1D
     # in-plane footprint line segment in the renderer's 2D geometry.
-    camera_gsd_m                 : np.ndarray # per-frame GSD at current altitude [m]
+    camera_gsd_m                 : np.ndarray # per-frame effective GSD at boresight [m]
     camera_vertical_fov_rad      : float      # full vertical FOV angle [rad]
     camera_ground_left_xy_km    : np.ndarray # per-frame (x,y) Earth intersection at left sensor edge
     camera_ground_right_xy_km   : np.ndarray # per-frame (x,y) Earth intersection at right sensor edge
@@ -87,6 +95,9 @@ class SimulationStateSeries:
     cloud_arc_end_rad    : np.ndarray
 
     metadata             : SimulationMetadata
+
+    # Agent-requested torque before attitude safety (optional; defaults to applied in __post_init__).
+    wheel_torque_agent_cmd_nm: np.ndarray | None = None
 
     # Secondary camera fields (§B): placed after metadata with None defaults for backward compat.
     # n_bins_secondary == 0 (shape (n, 0)) signals "no secondary camera".
@@ -123,6 +134,10 @@ class SimulationStateSeries:
             raise ValueError("simulation_reward must have the same length as t_s.")
         if self.wheel_torque_cmd_nm.shape[0] != n:
             raise ValueError("wheel_torque_cmd_nm must have the same length as t_s.")
+        if self.wheel_torque_agent_cmd_nm is None:
+            object.__setattr__(self, "wheel_torque_agent_cmd_nm", np.array(self.wheel_torque_cmd_nm))
+        elif self.wheel_torque_agent_cmd_nm.shape[0] != n:
+            raise ValueError("wheel_torque_agent_cmd_nm must have the same length as t_s.")
 
         if self.camera_gsd_m.shape[0] != n:
             raise ValueError("camera_gsd_m must have the same length as t_s.")

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 import logging
+import warnings
 
 import numpy as np
 
@@ -166,28 +167,65 @@ def _batch_cloud_hits_t_best(
     ray_dirs_unit_xy: np.ndarray,
     cloud_arc_specs: list[dict[str, float]],
 ) -> np.ndarray:
-    """Nearest positive cloud-shell hit distance per ray; NaN where no arc hit."""
+    """Nearest positive cloud-shell hit distance per ray; all clouds in one (C, N) tensor pass."""
     origin = np.asarray(ray_origin_xy_km, dtype=float).reshape(2,)
-    t_cloud_best = np.full(ray_dirs_unit_xy.shape[0], np.nan, dtype=float)
-    for cloud_spec in cloud_arc_specs:
-        t_cloud = _ray_circle_intersection_distance_batch(
-            origin,
-            ray_dirs_unit_xy,
-            radius_km=float(cloud_spec["radius_km"]),
+    dirs = np.asarray(ray_dirs_unit_xy, dtype=float)
+    if dirs.ndim != 2 or dirs.shape[1] != 2:
+        raise ValueError("ray_dirs_unit_xy must have shape (N,2).")
+    n_rays = dirs.shape[0]
+    if not cloud_arc_specs:
+        return np.full(n_rays, np.nan, dtype=float)
+
+    radii = np.array([float(s["radius_km"]) for s in cloud_arc_specs], dtype=float)
+    starts = np.array([float(s["start_rad"]) for s in cloud_arc_specs], dtype=float)
+    ends = np.array([float(s["end_rad"]) for s in cloud_arc_specs], dtype=float)
+    c_count = radii.shape[0]
+
+    b = 2.0 * (origin[0] * dirs[:, 0] + origin[1] * dirs[:, 1])
+    c_origin = float(np.dot(origin, origin))
+    c = c_origin - radii.reshape(c_count, 1) ** 2
+    disc = b.reshape(1, n_rays) ** 2 - 4.0 * c
+
+    t_cloud = np.full((c_count, n_rays), np.nan, dtype=float)
+    mask = disc >= 0.0
+    if np.any(mask):
+        sqrt_disc = np.sqrt(np.maximum(disc[mask], 0.0))
+        b_m = np.broadcast_to(b.reshape(1, n_rays), (c_count, n_rays))[mask]
+        t1 = (-b_m - sqrt_disc) / 2.0
+        t2 = (-b_m + sqrt_disc) / 2.0
+        t1_valid = t1 > 1e-9
+        t2_valid = t2 > 1e-9
+        best = np.full(t1.shape, np.nan, dtype=float)
+        best[t1_valid] = t1[t1_valid]
+        replace = ~t1_valid & t2_valid
+        best[replace] = t2[replace]
+        both = t1_valid & t2_valid
+        best[both] = np.minimum(t1[both], t2[both])
+        t_cloud[mask] = best
+
+    hit_points = origin.reshape(1, 1, 2) + t_cloud.reshape(c_count, n_rays, 1) * dirs.reshape(1, n_rays, 2)
+    hit_angles = np.arctan2(hit_points[:, :, 1], hit_points[:, :, 0])
+
+    two_pi = 2.0 * np.pi
+    angle = np.mod(hit_angles, two_pi)
+    start = np.mod(starts.reshape(c_count, 1), two_pi)
+    end = np.mod(ends.reshape(c_count, 1), two_pi)
+    wrap = start > end
+    in_arc_normal = (angle >= start) & (angle <= end)
+    in_arc_wrap = (angle >= start) | (angle <= end)
+    in_arc = np.where(wrap, in_arc_wrap, in_arc_normal)
+
+    accepted = np.isfinite(t_cloud) & in_arc
+    t_cloud_masked = np.where(accepted, t_cloud, np.nan)
+    # NOTE: Most rays miss every cloud arc, so nanmin sees all-NaN columns and NumPy emits
+    # RuntimeWarning even though NaN is the intended "no cloud hit" sentinel (see has_cloud below).
+    with np.errstate(all="ignore"), warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=RuntimeWarning,
+            message="All-NaN slice encountered",
         )
-        hit_points = origin.reshape(1, 2) + t_cloud.reshape(-1, 1) * ray_dirs_unit_xy
-        hit_angles = np.arctan2(hit_points[:, 1], hit_points[:, 0])
-        in_arc = _angle_in_arc_batch(
-            hit_angles,
-            float(cloud_spec["start_rad"]),
-            float(cloud_spec["end_rad"]),
-        )
-        accepted = np.isfinite(t_cloud) & in_arc
-        if not np.any(accepted):
-            continue
-        assign_mask = accepted & (~np.isfinite(t_cloud_best) | (t_cloud < t_cloud_best))
-        t_cloud_best[assign_mask] = t_cloud[assign_mask]
-    return t_cloud_best
+        return np.nanmin(t_cloud_masked, axis=0)
 
 
 def _batch_first_hit_earth_or_clouds(
@@ -317,6 +355,37 @@ def boresight_dir_for_mount(body_z_angle_rad: float, tilt_off_nadir_rad: float) 
     return _rotate_unit_xy(nadir_boresight, -tilt_off_nadir_rad)
 
 
+def off_nadir_angle_rad(
+    sat_pos_xy_km: np.ndarray,
+    boresight_dir_unit_xy: np.ndarray,
+) -> float:
+    """Angle between boresight and local nadir (toward Earth disk origin) [rad]."""
+    sat = np.asarray(sat_pos_xy_km, dtype=float).reshape(2)
+    bore = np.asarray(boresight_dir_unit_xy, dtype=float).reshape(2)
+    sat_norm = float(np.linalg.norm(sat))
+    if sat_norm <= 0.0:
+        return 0.0
+    nadir = -sat / sat_norm
+    bore_norm = float(np.linalg.norm(bore))
+    if bore_norm <= 0.0:
+        return 0.0
+    bore = bore / bore_norm
+    dot = float(np.clip(np.dot(bore, nadir), -1.0, 1.0))
+    return float(np.arccos(dot))
+
+
+def effective_gsd_m(
+    altitude: Any,
+    sat_pos_xy_km: np.ndarray,
+    boresight_dir_unit_xy: np.ndarray,
+) -> float:
+    """Nadir GSD scaled by ``1/cos(off_nadir)`` for the current boresight."""
+    off_nadir_rad = off_nadir_angle_rad(sat_pos_xy_km, boresight_dir_unit_xy)
+    return float(
+        calculate_gsd(altitude, off_nadir_angle=off_nadir_rad * ureg.rad).to(ureg.m).magnitude
+    )
+
+
 def compute_cloud_arc_specs_at_time(
     *,
     sim_time_s: float,
@@ -351,6 +420,65 @@ def compute_cloud_arc_specs_at_time(
         end = center + half_span
         specs.append({"radius_km": radius_km, "start_rad": start, "end_rad": end})
     return specs
+
+
+def precompute_cloud_arc_specs_series(
+    *,
+    t_s: np.ndarray,
+    sim_total_s: float,
+    earth_radius_km: float,
+    clouds: tuple,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Precompute cloud arc geometry for every simulation frame.
+
+    Same semantics as calling :func:`compute_cloud_arc_specs_at_time` per row of ``t_s``.
+    Returns ``(radius_km, start_rad, end_rad)`` each with shape ``(n_frames, n_clouds)``.
+    """
+    times = np.asarray(t_s, dtype=float).ravel()
+    n_frames = int(times.shape[0])
+    n_clouds = len(clouds)
+    if n_clouds == 0:
+        empty = np.empty((n_frames, 0), dtype=float)
+        return empty, empty.copy(), empty.copy()
+
+    growth_phase = np.clip(times / max(float(sim_total_s), 1e-9), 0.0, 1.0)
+    cloud_growth = 1.0 + (float(RENDER.cloud_growth_max_span_scale) - 1.0) * growth_phase
+
+    radius_km = np.empty((n_frames, n_clouds), dtype=float)
+    start_rad = np.empty((n_frames, n_clouds), dtype=float)
+    end_rad = np.empty((n_frames, n_clouds), dtype=float)
+
+    for i, cloud in enumerate(clouds):
+        r_km = float(earth_radius_km) + float(cloud_mean_altitude_km(cloud))
+        phi_start_deg, phi_end_deg = cloud_disk_phi_bounds_deg(cloud)
+        base_start = float(np.deg2rad(phi_start_deg))
+        base_end = float(np.deg2rad(phi_end_deg))
+        center = 0.5 * (base_start + base_end)
+        half_span_base = 0.5 * (base_end - base_start)
+        half_span = half_span_base * cloud_growth
+        radius_km[:, i] = r_km
+        start_rad[:, i] = center - half_span
+        end_rad[:, i] = center + half_span
+
+    return radius_km, start_rad, end_rad
+
+
+def cloud_arc_specs_list_for_frame(
+    *,
+    radius_km: np.ndarray,
+    start_rad: np.ndarray,
+    end_rad: np.ndarray,
+    frame_idx: int,
+) -> list[dict[str, float]]:
+    """Build per-cloud spec dicts for one frame index (sensor / ray API)."""
+    r_row = np.asarray(radius_km[frame_idx], dtype=float)
+    s_row = np.asarray(start_rad[frame_idx], dtype=float)
+    e_row = np.asarray(end_rad[frame_idx], dtype=float)
+    return [
+        {"radius_km": float(r_row[i]), "start_rad": float(s_row[i]), "end_rad": float(e_row[i])}
+        for i in range(r_row.shape[0])
+    ]
 
 
 def _first_hit_point_ray_earth_or_clouds(
@@ -495,7 +623,7 @@ def simulate_camera_strip_2d(
         vertical_fov_rad = float(_vfov.to(ureg.rad).magnitude)
     half_vertical_fov = 0.5 * vertical_fov_rad
 
-    gsd_m = float(calculate_gsd(altitude).to(ureg.m).magnitude)
+    gsd_m = effective_gsd_m(altitude, sat_pos_xy_km, boresight_dir_unit_xy)
     swath_height_flat_km = (N_PIXELS_Y * gsd_m) / 1000.0
 
     # Clouds for this time step (reuse pre-computed specs when provided)
@@ -544,8 +672,16 @@ def simulate_camera_strip_2d(
     center_first_hit_is_cloud = bool(hit_type == "cloud")
     if hit_type == "cloud":
         center_ray_observation_code = OBSERVATION_CLOUD
-    elif hit_type == "earth":
-        center_ray_observation_code = OBSERVATION_EARTH
+    elif hit_type == "earth" and center_first_hit_xy_km is not None:
+        from utils.geometry.mission_stripe_disk import classify_earth_hit_observation_code
+
+        areas = OBSERVATION_TARGET_AREAS
+        center_ray_observation_code = classify_earth_hit_observation_code(
+            center_first_hit_xy_km,
+            target_areas=areas,
+            earth_code=int(OBSERVATION_EARTH),
+            target_code=int(OBSERVATION_TARGET),
+        )
     else:
         center_ray_observation_code = OBSERVATION_SPACE
 
@@ -701,20 +837,20 @@ def simulate_camera_observation_line_1d(
 
     # Target direction unit vector from the satellite to the target Earth point.
     areas = target_areas if target_areas is not None else OBSERVATION_TARGET_AREAS
-    target_area_lat_ranges = [
-        (
-            float(area.lat_min.to(ureg.deg).magnitude),
-            float(area.lat_max.to(ureg.deg).magnitude),
-        )
-        for area in areas
-    ]
-    
-    #logger.debug(f"[CAMERA] Target area lat ranges: {target_area_lat_ranges}")
+    from utils.geometry.mission_stripe_disk import (
+        geodetic_deg_in_target_areas,
+        target_areas_track_offset_ranges_deg,
+    )
 
-    def _hit_point_is_target_lat(hit_point_xy_km: np.ndarray) -> bool:
-        _lon_deg, lat_deg = disk_xy_km_to_geodetic_deg(hit_point_xy_km, ell=WGS84_ELLIPSOID)
-        is_target = any(low <= lat_deg <= high for low, high in target_area_lat_ranges)
-        return is_target
+    target_offset_ranges = target_areas_track_offset_ranges_deg(areas)
+
+    def _hit_point_is_target(hit_point_xy_km: np.ndarray) -> bool:
+        lon_deg, lat_deg = disk_xy_km_to_geodetic_deg(hit_point_xy_km, ell=WGS84_ELLIPSOID)
+        return geodetic_deg_in_target_areas(
+            lon_deg=lon_deg,
+            lat_deg=lat_deg,
+            offset_ranges=target_offset_ranges,
+        )
 
     observation_types = np.full(n_bins, int(space_code), dtype=np.int8)
 
@@ -735,8 +871,13 @@ def simulate_camera_observation_line_1d(
             _lon_deg, lat_deg = batch_disk_xy_rows_km_to_geodetic_deg(earth_pts, ell=WGS84_ELLIPSOID)
             earth_indices = np.nonzero(earth_mask)[0]
             for j, idx in enumerate(earth_indices):
+                lon = float(_lon_deg[j])
                 lat = float(lat_deg[j])
-                if any(low <= lat <= high for low, high in target_area_lat_ranges):
+                if geodetic_deg_in_target_areas(
+                    lon_deg=lon,
+                    lat_deg=lat,
+                    offset_ranges=target_offset_ranges,
+                ):
                     observation_types[int(idx)] = np.int8(target_code)
     else:
         for i, ray_dir_unit_xy in enumerate(ray_dirs):
@@ -755,7 +896,7 @@ def simulate_camera_observation_line_1d(
                 observation_types[i] = int(cloud_code)
                 continue
             if hit_type == "earth":
-                if _hit_xy_km is not None and _hit_point_is_target_lat(_hit_xy_km):
+                if _hit_xy_km is not None and _hit_point_is_target(_hit_xy_km):
                     observation_types[i] = int(target_code)
                 else:
                     observation_types[i] = int(earth_code)

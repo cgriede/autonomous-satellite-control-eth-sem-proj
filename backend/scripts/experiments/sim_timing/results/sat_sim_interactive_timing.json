@@ -1,0 +1,148 @@
+{
+  "sim_loop_wall_s": 1.7916089999489486,
+  "n_steps": 976,
+  "steps_per_s": 544.7617197880849,
+  "per_step_wall_ms": 1.8356649589640868,
+  "measured_in_loop_s": 1.7857636029366404,
+  "measured_episode_extra_s": 0.0,
+  "measured_grand_total_s": 1.7857636029366404,
+  "unaccounted_in_loop_s": 0.00584539701230824,
+  "categories": [
+    {
+      "key": "sensor_camera_rays",
+      "label": "Visual: camera ray kernel",
+      "total_s": 0.6217483968939632,
+      "per_step_ms": 0.6370372918995525,
+      "pct_of_sim_loop": 34.70335307043444
+    },
+    {
+      "key": "reward_ml",
+      "label": "Reward / ML-side scoring",
+      "total_s": 0.45615639933384955,
+      "per_step_ms": 0.4673733599732065,
+      "pct_of_sim_loop": 25.46071153621396
+    },
+    {
+      "key": "robotics_dynamics",
+      "label": "Reaction wheel & attitude dynamics",
+      "total_s": 0.313534104032442,
+      "per_step_ms": 0.3212439590496332,
+      "pct_of_sim_loop": 17.500141160341126
+    },
+    {
+      "key": "geodesy",
+      "label": "Geodesy transforms (disk to geodetic)",
+      "total_s": 0.2576752952300012,
+      "per_step_ms": 0.2640115729815586,
+      "pct_of_sim_loop": 14.382339854139135
+    },
+    {
+      "key": "stepper_bookkeeping",
+      "label": "Stepper bookkeeping (residual per step)",
+      "total_s": 0.12741550290957093,
+      "per_step_ms": 0.13054867101390466,
+      "pct_of_sim_loop": 7.111791853758359
+    },
+    {
+      "key": "orbit_kinematics",
+      "label": "Orbit position lookup (precomputed ephemeris)",
+      "total_s": 0.006431603338569403,
+      "per_step_ms": 0.006589757519026028,
+      "pct_of_sim_loop": 0.35898476390510814
+    },
+    {
+      "key": "controller_actuator",
+      "label": "Controller / policy (actuator command)",
+      "total_s": 0.002802301198244095,
+      "per_step_ms": 0.0028712102441025562,
+      "pct_of_sim_loop": 0.15641254304504754
+    },
+    {
+      "key": "environment_clouds",
+      "label": "Environment: cloud arc / meteo encoding",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_sim_loop": 0.0
+    },
+    {
+      "key": "footprint_target",
+      "label": "Target footprint overlap & novelty",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_sim_loop": 0.0
+    },
+    {
+      "key": "render",
+      "label": "Render setup & frame draw",
+      "total_s": 0.0,
+      "per_step_ms": null,
+      "pct_of_sim_loop": 0.0
+    },
+    {
+      "key": "export_video",
+      "label": "Video export / encode",
+      "total_s": 0.0,
+      "per_step_ms": null,
+      "pct_of_sim_loop": 0.0
+    }
+  ],
+  "top_7_consumers": [
+    {
+      "key": "sensor_camera_rays",
+      "label": "Visual: camera ray kernel",
+      "total_s": 0.6217483968939632,
+      "per_step_ms": 0.6370372918995525,
+      "pct_of_sim_loop": 34.70335307043444
+    },
+    {
+      "key": "reward_ml",
+      "label": "Reward / ML-side scoring",
+      "total_s": 0.45615639933384955,
+      "per_step_ms": 0.4673733599732065,
+      "pct_of_sim_loop": 25.46071153621396
+    },
+    {
+      "key": "robotics_dynamics",
+      "label": "Reaction wheel & attitude dynamics",
+      "total_s": 0.313534104032442,
+      "per_step_ms": 0.3212439590496332,
+      "pct_of_sim_loop": 17.500141160341126
+    },
+    {
+      "key": "geodesy",
+      "label": "Geodesy transforms (disk to geodetic)",
+      "total_s": 0.2576752952300012,
+      "per_step_ms": 0.2640115729815586,
+      "pct_of_sim_loop": 14.382339854139135
+    },
+    {
+      "key": "stepper_bookkeeping",
+      "label": "Stepper bookkeeping (residual per step)",
+      "total_s": 0.12741550290957093,
+      "per_step_ms": 0.13054867101390466,
+      "pct_of_sim_loop": 7.111791853758359
+    },
+    {
+      "key": "orbit_kinematics",
+      "label": "Orbit position lookup (precomputed ephemeris)",
+      "total_s": 0.006431603338569403,
+      "per_step_ms": 0.006589757519026028,
+      "pct_of_sim_loop": 0.35898476390510814
+    },
+    {
+      "key": "controller_actuator",
+      "label": "Controller / policy (actuator command)",
+      "total_s": 0.002802301198244095,
+      "per_step_ms": 0.0028712102441025562,
+      "pct_of_sim_loop": 0.15641254304504754
+    }
+  ],
+  "context": {
+    "scenario": "sat_sim_interactive",
+    "n_clouds": 2,
+    "with_render": false,
+    "include_cameras": false,
+    "controller_mode": "random"
+  },
+  "run_at_utc": "2026-06-02T18:38:57.129121+00:00"
+}

@@ -9,3 +9,4 @@ pymap3d>=3.2
 torch
 imageio-ffmpeg
 nbconvert
+openpyxl

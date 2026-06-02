@@ -10,17 +10,22 @@ from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, Random
 from autonomous_control.reward import RewardConfig
 from environment_definition.constants.EARTH import WGS84_ELLIPSOID
 from environment_definition.constants.MISSION import OBSERVATION_TARGET_AREAS
-from environment_definition.constants.SIMULATION import (
-    RenderMode,
-    SIMULATION,
-    SimulationConfig,
-    _BASELINE_CONTROLLER_MODES,
+from utils.geometry.mission_stripe_disk import (
+    target_areas_disk_phi_bounds_deg,
+    target_areas_envelope_disk_phi_bounds_deg,
+    target_areas_midpoint_disk_xy_km_on_sphere,
 )
+from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
+from environment_definition.constants.SIMULATION import RenderMode, SIMULATION, SimulationConfig
+
+from .attitude_controller import AttitudeSafetyConfig, AttitudeSafetyController
 
 from .attitude_dynamics import AttitudeState2D
 from .camera_2d import (
     boresight_dir_for_mount,
     calculate_fov_angles,
+    cloud_arc_specs_list_for_frame,
+    precompute_cloud_arc_specs_series,
 )
 from .dynamics_kernel import DynamicsKernel
 from .reaction_wheel import ReactionWheel
@@ -29,7 +34,6 @@ from .scheduler import resolve_controller_interval_steps
 from .sensor_kernel import SensorKernel
 from .state_types import SimulationMetadata, SimulationStateSeries, SimulationTimestepState
 from utils.geodesics.geodesic_helpers import circle_stripe_footprint_overlap_ratio
-from utils.geometry.mission_stripe_disk import primary_stripe_disk_phi_bounds_deg
 from utils.geometry.orbit_disk_wgs84 import disk_xy_km_to_geodetic_deg
 
 
@@ -47,8 +51,8 @@ class _ControllerAdapterEnv:
     dt: Any
 
 
-def _build_simulation_controller(*, controller_mode: str, tau_max_nm: float, dt: Any, rng: np.random.Generator):
-    mode = str(controller_mode).lower()
+def _build_simulation_controller(*, builtin_torque_policy: str, tau_max_nm: float, dt: Any, rng: np.random.Generator):
+    mode = str(builtin_torque_policy).lower()
     if mode == "coast":
         return ZeroTorquePolicy()
     from gymnasium import spaces
@@ -66,7 +70,7 @@ def _build_simulation_controller(*, controller_mode: str, tau_max_nm: float, dt:
         return RandomTorquePolicy(adapter_env, rng=rng)
     if mode == "baseline":
         return MaxTorqueSweepPolicy(adapter_env, period_s=100.0)
-    raise ValueError(f"Unsupported controller_mode: {controller_mode!r}")
+    raise ValueError(f"Unsupported builtin_torque_policy: {builtin_torque_policy!r}")
 
 
 class SimulationStepper:
@@ -91,11 +95,17 @@ class SimulationStepper:
         cameras: tuple = (),
         camera_kernel_backend: str | None = None,
         secondary_camera_observation_line_n_bins: int = 0,
+        target_areas: tuple | None = None,
     ) -> None:
         if sat_motion_span_scale <= 0.0:
             raise ValueError("sat_motion_span_scale must be > 0.")
-        if len(OBSERVATION_TARGET_AREAS) == 0:
-            raise ValueError("MISSION.OBSERVATION_TARGET_AREAS must contain at least one target area.")
+        self._sat_motion_span_scale = float(sat_motion_span_scale)
+        self._sat_z_offset_deg = float(sat_z_offset_deg)
+        self._target_areas = tuple(
+            target_areas if target_areas is not None else OBSERVATION_TARGET_AREAS
+        )
+        if len(self._target_areas) == 0:
+            raise ValueError("target_areas must contain at least one target area.")
         self._sim_config = simulation_config
         self._theta_center_rad = float(theta_center_rad)
         self._render_mode = str(
@@ -103,7 +113,18 @@ class SimulationStepper:
             if isinstance(simulation_config.render_mode, RenderMode)
             else simulation_config.render_mode
         )
-        self._controller_mode = str(simulation_config.controller_mode).lower()
+        from environment_definition.constants.SIMULATION import control_stack_display_label
+
+        self._torque_command_source = str(simulation_config.torque_command_source).lower()
+        self._builtin_torque_policy = str(simulation_config.builtin_torque_policy).lower()
+        self._torque_policy_label = simulation_config.torque_policy_label
+        self._attitude_controller_enabled = bool(simulation_config.attitude_controller_enabled)
+        self._control_stack_label = control_stack_display_label(
+            torque_command_source=self._torque_command_source,
+            builtin_torque_policy=self._builtin_torque_policy,
+            torque_policy_label=self._torque_policy_label,
+            attitude_controller_enabled=self._attitude_controller_enabled,
+        )
         self._ureg = ureg
 
         # Resolved setup objects (§1.2, §C)
@@ -138,6 +159,7 @@ class SimulationStepper:
         self._sim_dt_s = float(t_s[1] - t_s[0])
         self._t_s = t_s
         configured_interval_s = float(SIMULATION.controller_update_interval.to(ureg.s).magnitude)
+        self._configured_controller_interval_s = configured_interval_s
         self._controller_interval_steps, self._effective_controller_interval_s = resolve_controller_interval_steps(
             configured_interval_s=configured_interval_s,
             sim_dt_s=sim_dt_requested_s,
@@ -156,6 +178,11 @@ class SimulationStepper:
             wheel_inertia=wheel_inertia,
             max_manouver_rate=satellite.star_tracker_max_maneuver_rate,
         )
+        self._satellite = satellite
+        self._attitude_safety: AttitudeSafetyController | None = None
+        self.attitude_safety_events: list[dict[str, Any]] = []
+        if self._attitude_controller_enabled:
+            self.enable_attitude_safety()
         sat_z_initial_angle_rad = sat_theta_start_rad + np.pi + np.deg2rad(float(sat_z_offset_deg))
         self._state = AttitudeState2D(
             theta=float(sat_z_initial_angle_rad) * ureg.rad,
@@ -167,6 +194,7 @@ class SimulationStepper:
         self._simulation_reward = np.empty(n, dtype=float)
         self._simulation_reward[0] = 0.0
         self._wheel_torque_cmd_nm = np.zeros(n, dtype=float)
+        self._wheel_torque_agent_cmd_nm = np.zeros(n, dtype=float)
         n_bins = int(camera_observation_line_n_bins or SIMULATION.camera_observation_line_n_bins)
         if n_bins < 1:
             raise ValueError("camera_observation_line_n_bins must be >= 1.")
@@ -191,9 +219,16 @@ class SimulationStepper:
 
         # Cloud arc prealloc: use resolved clouds length (§C)
         n_clouds = len(self._clouds)
-        self._cloud_arc_radius_km = np.full((n, n_clouds), np.nan, dtype=float)
-        self._cloud_arc_start_rad = np.full((n, n_clouds), np.nan, dtype=float)
-        self._cloud_arc_end_rad = np.full((n, n_clouds), np.nan, dtype=float)
+        (
+            self._cloud_arc_radius_km,
+            self._cloud_arc_start_rad,
+            self._cloud_arc_end_rad,
+        ) = precompute_cloud_arc_specs_series(
+            t_s=self._t_s,
+            sim_total_s=self._sim_total_s,
+            earth_radius_km=float(r_earth_km),
+            clouds=tuple(self._clouds),
+        )
 
         # Secondary camera prealloc (§B/§J): allocate only when has_secondary.
         # When has_secondary=False, shape (n, 0) is used (valid sentinel per §J).
@@ -218,9 +253,14 @@ class SimulationStepper:
         self._dt = self._sim_dt_s * ureg.s
         self._camera_pixel_ray_samples = int(camera_pixel_ray_samples)
         self._reward_cfg = reward_config if reward_config is not None else RewardConfig()
-        phi_lo_deg, phi_hi_deg = primary_stripe_disk_phi_bounds_deg()
+        self._target_region_bounds_deg = target_areas_disk_phi_bounds_deg(self._target_areas)
+        phi_lo_deg, phi_hi_deg = target_areas_envelope_disk_phi_bounds_deg(self._target_areas)
         self._stripe_phi_min_deg = float(phi_lo_deg)
         self._stripe_phi_max_deg = float(phi_hi_deg)
+        view_anchor_xy = target_areas_midpoint_disk_xy_km_on_sphere(
+            self._target_areas,
+            earth_radius_km=float(r_earth_km),
+        )
         self._target_area_visited_cells: set[tuple[int, int]] = set()
         self._earth_radius_km = float(r_earth_km)
         self._satellite_altitude = satellite_altitude
@@ -235,8 +275,20 @@ class SimulationStepper:
             sat_theta_span_rad=float(sat_theta_span_rad),
             start_angle_deg=float(start_angle_deg),
             end_angle_deg=float(end_angle_deg),
-            controller_mode=self._controller_mode,
+            controller_mode=self._control_stack_label,
+            torque_command_source=self._torque_command_source,
+            builtin_torque_policy=(
+                self._builtin_torque_policy
+                if self._torque_command_source == "builtin"
+                else None
+            ),
+            torque_policy_label=(
+                self._torque_policy_label if self._torque_command_source == "external" else None
+            ),
+            attitude_controller_enabled=self._attitude_controller_enabled,
             render_mode=self._render_mode,
+            target_region_bounds_deg=self._target_region_bounds_deg,
+            view_anchor_xy_km=(float(view_anchor_xy[0]), float(view_anchor_xy[1])),
         )
         self._index = 0
         self._done = False
@@ -286,10 +338,50 @@ class SimulationStepper:
             secondary_camera_observation_line_codes=secondary_codes,
         )
 
+    def enable_attitude_safety(
+        self,
+        *,
+        config: AttitudeSafetyConfig | None = None,
+    ) -> AttitudeSafetyController:
+        tau_max_nm = float(
+            self._satellite.reaction_wheel_max_torque.to(self._ureg.N * self._ureg.m).magnitude
+        )
+        self._attitude_safety = AttitudeSafetyController(
+            config=config or AttitudeSafetyConfig(tau_max=REACTION_WHEEL_MAX_TORQUE),
+            sat_inertia=self._sat_inertia,
+            tau_max_nm=tau_max_nm,
+        )
+        self._attitude_safety.reset_episode()
+        self.attitude_safety_events = []
+        return self._attitude_safety
+
     def step(self, *, wheel_torque_cmd_nm: float) -> SimulationTimestepState:
         if self._done:
             raise RuntimeError("Cannot step a completed SimulationStepper.")
-        self._last_torque_nm = float(wheel_torque_cmd_nm)
+        agent_nm = float(wheel_torque_cmd_nm)
+        cmd_nm = agent_nm
+        if self._attitude_safety is not None:
+            sat_xy = self._satellite_xy_km(self._index)
+            result = self._attitude_safety.arbitrate(
+                tau_cmd_nm=agent_nm,
+                state=self._state,
+                sat_pos_xy_km=sat_xy,
+                theta_orbit_rad=float(self._theta_orbit_rad[self._index]),
+                dt_s=float(self._sim_dt_s),
+            )
+            for ev in result.events:
+                self.attitude_safety_events.append(
+                    {
+                        "step": self._index,
+                        "t_s": float(self._t_s[self._index]),
+                        "event": ev,
+                        "off_nadir_deg": float(np.rad2deg(result.off_nadir_rad)),
+                        "cmd_nm": result.agent_cmd_nm,
+                        "out_nm": result.tau_out_nm,
+                    }
+                )
+            cmd_nm = result.tau_out_nm
+        self._last_torque_nm = cmd_nm
         next_idx = self._index + 1
         if next_idx >= self._t_s.shape[0]:
             self._done = True
@@ -306,6 +398,7 @@ class SimulationStepper:
             ureg=self._ureg,
         )
         self._index = next_idx
+        self._wheel_torque_agent_cmd_nm[self._index] = agent_nm
         self._wheel_torque_cmd_nm[self._index] = self._last_torque_nm
         self._body_z_angle_rad[self._index] = float(self._state.theta.to(self._ureg.rad).magnitude)
         self._populate_camera_and_reward(k=self._index, prev_omega_wheel=prev_omega_wheel)
@@ -321,6 +414,7 @@ class SimulationStepper:
             body_z_angle_rad=self._body_z_angle_rad,
             simulation_reward=self._simulation_reward,
             wheel_torque_cmd_nm=self._wheel_torque_cmd_nm,
+            wheel_torque_agent_cmd_nm=self._wheel_torque_agent_cmd_nm,
             camera_gsd_m=self._camera_gsd_m,
             camera_vertical_fov_rad=self._camera_vertical_fov_rad,
             camera_ground_left_xy_km=self._camera_ground_left_xy_km,
@@ -380,6 +474,12 @@ class SimulationStepper:
             tilt_rad = float(scnd_mount.tilt_off_nadir.to(self._ureg.rad).magnitude)
             secondary_boresight = boresight_dir_for_mount(z_ang, tilt_rad)
 
+        cloud_specs = cloud_arc_specs_list_for_frame(
+            radius_km=self._cloud_arc_radius_km,
+            start_rad=self._cloud_arc_start_rad,
+            end_rad=self._cloud_arc_end_rad,
+            frame_idx=k,
+        )
         sensor = SensorKernel.evaluate(
             sat_pos_xy_km=sat_pos_xy_km,
             boresight_dir_unit_xy=boresight_dir_unit_xy,
@@ -395,6 +495,8 @@ class SimulationStepper:
             n_bins_secondary=self._n_bins_secondary,
             secondary_boresight_dir_unit_xy=secondary_boresight,
             secondary_vertical_fov_rad=self._secondary_vertical_fov_rad,
+            target_areas=self._target_areas,
+            cloud_arc_specs=cloud_specs,
         )
         self._camera_gsd_m[k] = sensor.camera_gsd_m
         self._camera_ground_left_xy_km[k, :] = sensor.camera_ground_left_xy_km
@@ -461,8 +563,6 @@ class SimulationStepper:
         else:
             novelty_ratio = 0.0
         self._target_area_novelty_ratio[k] = novelty_ratio
-        # Use first resolved target_area for reward (§I)
-        _target_area = OBSERVATION_TARGET_AREAS[0]
         self._simulation_reward[k] = RewardKernel.evaluate(
             sat_pos_xy_km=sat_pos_xy_km,
             sat_subpoint_lat_deg=float(sat_lat_deg),
@@ -479,7 +579,7 @@ class SimulationStepper:
             omega_after=self._state.omega_wheel,
             reward_config=self._reward_cfg,
             ureg=self._ureg,
-            target_area=_target_area,
+            target_areas=self._target_areas,
         )
 
 
@@ -489,6 +589,7 @@ def run_baseline_rollout_from_stepper(
     simulation_config: SimulationConfig,
     tau_max_nm: float,
     show_progress: bool = True,
+    show_simulation_info: bool = True,
 ) -> SimulationStateSeries:
     """Run the baseline/random/coast controller loop on an already-constructed stepper.
 
@@ -497,16 +598,23 @@ def run_baseline_rollout_from_stepper(
 
     Args:
         stepper: A freshly-constructed SimulationStepper.
-        simulation_config: Must have controller_mode in _BASELINE_CONTROLLER_MODES.
+        simulation_config: Must use ``torque_command_source="builtin"``.
         tau_max_nm: Reaction wheel max torque in N·m (from resolved.satellite or constants).
         show_progress: Whether to render a tqdm progress bar.
+        show_simulation_info: Whether to print the simulation info panel before stepping.
     """
-    if simulation_config.controller_mode not in _BASELINE_CONTROLLER_MODES:
+    from environment_definition.constants.SIMULATION import BASELINE_TORQUE_POLICIES
+
+    if str(simulation_config.torque_command_source).lower() != "builtin":
         raise ValueError(
-            f"run_baseline_rollout_from_stepper supports {_BASELINE_CONTROLLER_MODES} controller_mode only."
+            "run_baseline_rollout_from_stepper requires torque_command_source='builtin'."
+        )
+    if simulation_config.builtin_torque_policy not in BASELINE_TORQUE_POLICIES:
+        raise ValueError(
+            f"run_baseline_rollout_from_stepper supports builtin_torque_policy in {BASELINE_TORQUE_POLICIES} only."
         )
     controller = _build_simulation_controller(
-        controller_mode=str(simulation_config.controller_mode),
+        builtin_torque_policy=str(simulation_config.builtin_torque_policy),
         tau_max_nm=tau_max_nm,
         dt=stepper._dt,
         rng=np.random.default_rng(simulation_config.controller_seed),
@@ -514,6 +622,14 @@ def run_baseline_rollout_from_stepper(
     controller_obs = np.zeros(1, dtype=np.float64)
     torque_cmd_nm = 0.0
     total_steps = max(0, int(stepper._t_s.shape[0]) - 1)
+    if show_simulation_info:
+        from .simulation_info import print_simulation_info
+
+        print_simulation_info(
+            stepper,
+            simulation_config=simulation_config,
+            tau_max_nm=tau_max_nm,
+        )
     with tqdm(
         total=total_steps,
         desc="Running simulation",
@@ -547,9 +663,16 @@ def run_baseline_rollout(
     camera_observation_line_n_bins: int | None = None,
     reward_config: RewardConfig | None = None,
     show_progress: bool = True,
+    show_simulation_info: bool = True,
 ) -> SimulationStateSeries:
-    if simulation_config.controller_mode not in _BASELINE_CONTROLLER_MODES:
-        raise ValueError(f"run_baseline_rollout supports {_BASELINE_CONTROLLER_MODES} controller_mode only.")
+    from environment_definition.constants.SIMULATION import BASELINE_TORQUE_POLICIES
+
+    if str(simulation_config.torque_command_source).lower() != "builtin":
+        raise ValueError("run_baseline_rollout requires torque_command_source='builtin'.")
+    if simulation_config.builtin_torque_policy not in BASELINE_TORQUE_POLICIES:
+        raise ValueError(
+            f"run_baseline_rollout supports builtin_torque_policy in {BASELINE_TORQUE_POLICIES} only."
+        )
     stepper = SimulationStepper(
         simulation_config=simulation_config,
         earth_radius=earth_radius,
@@ -572,4 +695,5 @@ def run_baseline_rollout(
         simulation_config=simulation_config,
         tau_max_nm=tau_max_nm,
         show_progress=show_progress,
+        show_simulation_info=show_simulation_info,
     )

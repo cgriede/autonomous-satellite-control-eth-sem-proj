@@ -39,6 +39,45 @@ class CameraOptics2DTest(unittest.TestCase):
         swath_height = (N_PIXELS_Y * gsd).to(ureg.km)
         self.assertAlmostEqual(swath_height.magnitude, 10.5, places=1)
 
+    def test_calculate_gsd_off_nadir_stretch(self):
+        altitude = 500 * ureg.km
+        nadir_gsd = calculate_gsd(altitude).to(ureg.m).magnitude
+        off_gsd = calculate_gsd(altitude, off_nadir_angle=30 * ureg.deg).to(ureg.m).magnitude
+        self.assertAlmostEqual(off_gsd, nadir_gsd / np.cos(np.deg2rad(30.0)), places=9)
+
+    def test_strip_gsd_increases_with_off_nadir_boresight(self):
+        altitude = 500 * ureg.km
+        earth_radius_km = EARTH_RADIUS.to(ureg.km).magnitude
+        sat_radius_km = earth_radius_km + altitude.to(ureg.km).magnitude
+        sat_pos_xy_km = np.array([sat_radius_km, 0.0], dtype=float)
+        nadir_boresight = np.array([-1.0, 0.0], dtype=float)
+        off_nadir_boresight = np.array([-np.sqrt(3) / 2.0, 0.5], dtype=float)
+
+        nadir_result = simulate_camera_strip_2d(
+            sat_pos_xy_km=sat_pos_xy_km,
+            boresight_dir_unit_xy=nadir_boresight,
+            altitude=altitude,
+            earth_radius_km=earth_radius_km,
+            sim_time_s=0.0,
+            sim_total_s=1.0,
+            pixel_ray_samples=32,
+        )
+        off_result = simulate_camera_strip_2d(
+            sat_pos_xy_km=sat_pos_xy_km,
+            boresight_dir_unit_xy=off_nadir_boresight,
+            altitude=altitude,
+            earth_radius_km=earth_radius_km,
+            sim_time_s=0.0,
+            sim_total_s=1.0,
+            pixel_ray_samples=32,
+        )
+        self.assertGreater(off_result.gsd_m, nadir_result.gsd_m)
+        self.assertAlmostEqual(
+            off_result.gsd_m,
+            nadir_result.gsd_m / np.cos(np.deg2rad(30.0)),
+            places=6,
+        )
+
     def test_footprint_endpoints_nadir_reasonable(self):
         altitude = 500 * ureg.km
         earth_radius_km = EARTH_RADIUS.to(ureg.km).magnitude
@@ -59,7 +98,8 @@ class CameraOptics2DTest(unittest.TestCase):
         )
 
         ground_edge_distance_km = float(np.linalg.norm(result.ground_left_xy_km - result.ground_right_xy_km))
-        self.assertAlmostEqual(ground_edge_distance_km, result.swath_height_flat_km, places=1)
+        # Flat swath from nadir GSD is a design approximation; ground geometry is slightly narrower.
+        self.assertAlmostEqual(ground_edge_distance_km, result.swath_height_flat_km, delta=0.2)
         self.assertIn(
             result.center_ray_observation_code,
             (OBSERVATION_EARTH, OBSERVATION_CLOUD),

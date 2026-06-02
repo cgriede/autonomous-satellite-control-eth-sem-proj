@@ -21,15 +21,16 @@ def build_telemetry_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
 
     artists["text"] = ax.text(
         0.04,
-        0.98,
+        0.96,
         "",
         transform=ax.transAxes,
         color=RENDER.info_text_color,
-        fontsize=RENDER.info_panel_fontsize,
+        fontsize=9,
         family=RENDER.info_panel_fontfamily,
         va="top",
         ha="left",
-        linespacing=1.14,
+        linespacing=1.35,
+        clip_on=True,
     )
 
     return axes, artists
@@ -41,41 +42,20 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
         f"{scene['camera_swath_height_km']:.1f} km" if np.isfinite(scene["camera_swath_height_km"]) else "n/a"
     )
     blocked_txt = f"{scene['cloud_blocked_pct']:.0f}%" if np.isfinite(scene["cloud_blocked_pct"]) else "n/a"
-    text = "\n\n".join(
+    text = "\n".join(
         [
-            "\n".join(
-                [
-                    "Orbit / attitude",
-                    f"  Controller mode: {scene['controller_mode']}",
-                    f"  Orbit height: {scene['orbit_altitude_km']:.1f} km",
-                    f"  Body spin: {scene['sat_body_rotation_rate_label']}",
-                    f"  z angle rel nadir: {scene['z_angle_rel_nadir_deg']:+.1f} deg",
-                    f"  LOS rel nadir: {scene['los_rel_nadir_deg']:+.1f} deg",
-                    f"  Render window: {scene['render_window_text']}",
-                ]
-            ),
-            "\n".join(
-                [
-                    "Camera / strip",
-                    f"  GSD: {gsd_txt}, V-FOV: {scene['camera_vfov_deg']:.2f} deg",
-                    f"  Swath height: {swath_txt}",
-                    f"  Strip cloud blocked: {blocked_txt}",
-                ]
-            ),
-            "\n".join(
-                [
-                    "Hits",
-                    f"  Centerline hit: {scene['intersection_text']}",
-                    f"  Ground patch hit: {scene['ground_patch_hit_text']}",
-                ]
-            ),
-            "\n".join(
-                [
-                    "Playback",
-                    f"  Speed: {scene['sim_speed_multiplier']:.0f}x",
-                    f"  Frame: {scene['sim_idx']}",
-                ]
-            ),
+            "Orbit / attitude",
+            f"  {scene['controller_mode']}  ·  h {scene['orbit_altitude_km']:.1f} km",
+            f"  spin {scene['sat_body_rotation_rate_label']}",
+            f"  z {scene['z_angle_rel_nadir_deg']:+.1f}°  ·  LOS {scene['los_rel_nadir_deg']:+.1f}°",
+            f"  window {scene['render_window_text']}",
+            "Camera / strip",
+            f"  GSD {gsd_txt}  ·  FOV {scene['camera_vfov_deg']:.2f}°",
+            f"  swath {swath_txt}  ·  blocked {blocked_txt}",
+            "Hits",
+            f"  center {scene['intersection_text']}",
+            f"  ground {scene['ground_patch_hit_text']}",
+            f"Playback  {scene['sim_speed_multiplier']:.0f}x  ·  frame {scene['sim_idx']}",
         ]
     )
     artists["text"].set_text(text)

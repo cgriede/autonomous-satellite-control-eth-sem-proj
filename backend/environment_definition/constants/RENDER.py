@@ -247,19 +247,19 @@ RENDER = RenderConstants(
     closeup_half_window_km=380.0 * ureg.km,
     closeup_cloud_height_scale=1.8,
 
-    # Left telemetry | right: main (top) + lower half split (left stacked strips, right enlarged closeup).
+    # Left column: compact telemetry (top) + reward/torque plots; right: main + enlarged closeup.
     figure_inset_gutter_frac    = 0.012,
-    telemetry_axes_rect         = (0.02, 0.270, 0.19, 0.710),
-    torque_axes_rect            = (0.02, 0.078, 0.19, 0.085),
-    reward_axes_rect            = (0.02, 0.168, 0.19, 0.085),
+    telemetry_axes_rect         = (0.02, 0.720, 0.19, 0.260),
+    torque_axes_rect            = (0.02, 0.078, 0.19, 0.305),
+    reward_axes_rect            = (0.02, 0.375, 0.19, 0.305),
     main_axes_rect              = (0.222, 0.280, 0.758, 0.70),
-    closeup_axes_rect           = (0.606, 0.068, 0.374, 0.192),
+    closeup_axes_rect           = (0.478, 0.048, 0.502, 0.318),
     transport_bar_rect          = (0.02, 0.02, 0.96, 0.048),
     interactive_start_maximized = True,
     
     # Stacked left column: secondary-cam strip above primary sat observation strip.
-    sat_view_1d_axes_rect=(0.222, 0.068, 0.374, 0.055),
-    sat_view_1d_secondary_axes_rect=(0.222, 0.125, 0.374, 0.055),
+    sat_view_1d_axes_rect=(0.222, 0.048, 0.248, 0.054),
+    sat_view_1d_secondary_axes_rect=(0.222, 0.110, 0.248, 0.054),
 
     export_filename = "satellite_orbit_one_pass_30x.mp4",
     export_fps      = 20,

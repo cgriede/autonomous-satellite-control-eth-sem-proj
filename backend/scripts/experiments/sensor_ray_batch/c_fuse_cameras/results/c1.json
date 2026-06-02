@@ -1,0 +1,375 @@
+{
+  "experiment_id": "c1_fuse_cameras",
+  "hypothesis_id": "fuse_cameras",
+  "phase": "X1",
+  "run_at_utc": "2026-06-02T17:22:11.644154+00:00",
+  "frozen_input": {
+    "description": "low_cloud_dual s01 coast dual-camera",
+    "scenario": "s01 coast",
+    "seed": 0,
+    "tunables": {
+      "camera_pixel_ray_samples": 96,
+      "n_bins": 100,
+      "n_bins_secondary": 200
+    },
+    "n_items": 5
+  },
+  "control": {
+    "label": "baseline",
+    "variant": "production SensorKernel.evaluate",
+    "kpis": {
+      "micro": {
+        "total_s": 0.38522349996492267,
+        "n_iters": 200,
+        "per_call_s": 0.0019261174998246133
+      },
+      "episode": {
+        "wall_time_s": 7.421533500077203,
+        "n_frames": 1924,
+        "steps_per_s": 259.24561278069893,
+        "n_clouds": 5,
+        "debug_examples": {
+          "observation_line_samples": [
+            {
+              "frame": 0,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.0
+            },
+            {
+              "frame": 213,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEECCCEEEEEEEECEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.02
+            },
+            {
+              "frame": 427,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "-----------EEEEEEEEEXXEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEECCCCCCCCCEEEEEEEEEEEEEEEEEEEEEEEECCCCCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.075
+            },
+            {
+              "frame": 641,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "---------------------------ECEEEEEEEEEEEEEEEEEEEEEEEEEEEEEXXXXXEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.005
+            },
+            {
+              "frame": 854,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "------------------------------------------EEEEEECEEEEEECCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEXXXXXXXXXXXXXXXXXEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.02
+            },
+            {
+              "frame": 1068,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "---------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEECCEEEEEEEEEEEEEEEEEEEEECCECCCCCCCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.06
+            },
+            {
+              "frame": 1282,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEECCCCCCCCCEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.045
+            },
+            {
+              "frame": 1495,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "----------------------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.0
+            },
+            {
+              "frame": 1709,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "-------------------------------------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.0
+            },
+            {
+              "frame": 1923,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "----------------------------------------------------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.0
+            }
+          ]
+        }
+      }
+    },
+    "result_path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\sensor_ray_batch\\results\\baseline.json"
+  },
+  "treatment": {
+    "label": "C1",
+    "variant": "fused 396-ray batch in sensor_kernel_fork",
+    "kpis": {
+      "micro": {
+        "total_s": 0.2395467001479119,
+        "n_iters": 200,
+        "per_call_s": 0.0011977335007395595
+      },
+      "episode": {
+        "wall_time_s": 6.313033399870619,
+        "n_frames": 1924,
+        "steps_per_s": 304.7663267613048,
+        "n_clouds": 5,
+        "debug_examples": {
+          "observation_line_samples": [
+            {
+              "frame": 0,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.0
+            },
+            {
+              "frame": 213,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEECCCEEEEEEEECEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.02
+            },
+            {
+              "frame": 427,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "-----------EEEEEEEEEXXEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEECCCCCCCCCEEEEEEEEEEEEEEEEEEEEEEEECCCCCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.075
+            },
+            {
+              "frame": 641,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "---------------------------ECEEEEEEEEEEEEEEEEEEEEEEEEEEEEEXXXXXEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.005
+            },
+            {
+              "frame": 854,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "------------------------------------------EEEEEECEEEEEECCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEXXXXXXXXXXXXXXXXXEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.02
+            },
+            {
+              "frame": 1068,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "---------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEECCEEEEEEEEEEEEEEEEEEEEECCECCCCCCCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.06
+            },
+            {
+              "frame": 1282,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEECCCCCCCCCEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.045
+            },
+            {
+              "frame": 1495,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "----------------------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.0
+            },
+            {
+              "frame": 1709,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "-------------------------------------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.0
+            },
+            {
+              "frame": 1923,
+              "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "secondary_ascii": "----------------------------------------------------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+              "cloud_blocked_fraction": 0.0,
+              "secondary_cloud_fraction": 0.0
+            }
+          ]
+        }
+      },
+      "speedup_micro": 1.608135281041485,
+      "speedup_episode": 1.1755891391655402
+    },
+    "result_path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\sensor_ray_batch\\c_fuse_cameras\\results\\c1.json"
+  },
+  "delta": {
+    "primary_kpi": "micro_sensor_evaluate.total_s",
+    "baseline_value": 0.38522349996492267,
+    "treatment_value": 0.2395467001479119,
+    "direction": "better",
+    "relative_change_pct": 60.8135281041485,
+    "within_noise": false
+  },
+  "parity": {
+    "required": true,
+    "passed": true,
+    "notes": "total_mismatches=0"
+  },
+  "instrumentation": {
+    "hooks_valid": true,
+    "notes": "evaluate_fused patched via SensorKernel.evaluate"
+  },
+  "debug_examples": {
+    "parity_cases": [
+      {
+        "case": 0,
+        "mismatches": 0,
+        "field_mismatches": {},
+        "ref_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "cand_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "ref_cloud_blocked_fraction": NaN,
+        "cand_cloud_blocked_fraction": NaN
+      },
+      {
+        "case": 1,
+        "mismatches": 0,
+        "field_mismatches": {},
+        "ref_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "cand_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "ref_cloud_blocked_fraction": NaN,
+        "cand_cloud_blocked_fraction": NaN
+      },
+      {
+        "case": 2,
+        "mismatches": 0,
+        "field_mismatches": {},
+        "ref_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "cand_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "ref_cloud_blocked_fraction": NaN,
+        "cand_cloud_blocked_fraction": NaN
+      },
+      {
+        "case": 3,
+        "mismatches": 0,
+        "field_mismatches": {},
+        "ref_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "cand_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "ref_cloud_blocked_fraction": NaN,
+        "cand_cloud_blocked_fraction": NaN
+      },
+      {
+        "case": 4,
+        "mismatches": 0,
+        "field_mismatches": {},
+        "ref_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "cand_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "ref_cloud_blocked_fraction": NaN,
+        "cand_cloud_blocked_fraction": NaN
+      },
+      {
+        "case": 5,
+        "mismatches": 0,
+        "field_mismatches": {},
+        "ref_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "cand_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "ref_cloud_blocked_fraction": NaN,
+        "cand_cloud_blocked_fraction": NaN
+      },
+      {
+        "case": 6,
+        "mismatches": 0,
+        "field_mismatches": {},
+        "ref_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "cand_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "ref_cloud_blocked_fraction": NaN,
+        "cand_cloud_blocked_fraction": NaN
+      },
+      {
+        "case": 7,
+        "mismatches": 0,
+        "field_mismatches": {},
+        "ref_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "cand_primary_ascii": "----------------------------------------------------------------------------------------------------",
+        "ref_cloud_blocked_fraction": NaN,
+        "cand_cloud_blocked_fraction": NaN
+      }
+    ],
+    "episode_samples": {
+      "observation_line_samples": [
+        {
+          "frame": 0,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.0
+        },
+        {
+          "frame": 213,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEECCCEEEEEEEECEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.02
+        },
+        {
+          "frame": 427,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "-----------EEEEEEEEEXXEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEECCCCCCCCCEEEEEEEEEEEEEEEEEEEEEEEECCCCCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.075
+        },
+        {
+          "frame": 641,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "---------------------------ECEEEEEEEEEEEEEEEEEEEEEEEEEEEEEXXXXXEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.005
+        },
+        {
+          "frame": 854,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "------------------------------------------EEEEEECEEEEEECCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEXXXXXXXXXXXXXXXXXEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.02
+        },
+        {
+          "frame": 1068,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "---------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEECCEEEEEEEEEEEEEEEEEEEEECCECCCCCCCCEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.06
+        },
+        {
+          "frame": 1282,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEECCCCCCCCCEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.045
+        },
+        {
+          "frame": 1495,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "----------------------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.0
+        },
+        {
+          "frame": 1709,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "-------------------------------------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.0
+        },
+        {
+          "frame": 1923,
+          "primary_ascii": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "secondary_ascii": "----------------------------------------------------------------------------------------------------------------------EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+          "cloud_blocked_fraction": 0.0,
+          "secondary_cloud_fraction": 0.0
+        }
+      ]
+    }
+  },
+  "files_changed": [
+    "c_fuse_cameras/sensor_kernel_fork.py"
+  ],
+  "verdict": "supported",
+  "closeout": "promote"
+}

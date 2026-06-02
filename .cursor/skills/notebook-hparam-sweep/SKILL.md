@@ -1,13 +1,11 @@
 ---
 name: notebook-hparam-sweep
 description: >-
-  Run a hyperparameter calibration sweep for an LRF extraction notebook (FibTunables
-  or any dataclass tunables) without nbconvert overhead. Writes a disposable Python
-  sweep script, executes it via `conda activate LRF`, reads the JSON results, updates
-  the notebook tunables cell with the winning config, and produces a structured
-  accuracy-vs-recall report. Use when the user asks to tune, calibrate, sweep, or
-  benchmark hyperparameters in a notebook extraction pipeline; or says "run configs",
-  "find best config", or "hyperparameter tuning".
+  Run a hyperparameter calibration sweep for a notebook pipeline (dataclass tunables)
+  without nbconvert overhead. Writes a disposable Python sweep script, executes it
+  via conda env ASC (see python-runtime-environment), reads JSON results, updates
+  the notebook tunables cell, and produces a structured report. Use when the user
+  asks to tune, calibrate, sweep, or benchmark hyperparameters in a notebook pipeline.
 disable-model-invocation: true
 ---
 
@@ -18,7 +16,7 @@ disable-model-invocation: true
 - **Tunables dataclass**: `FibTunables` in `backend/notebooks/eliott_wave_extractor/v2_config.py`
 - **Metrics**: `aggregate_staged_metrics`, `pipeline_throughput_kpis`, `validation_dataframe` in `fib_v2_metrics.py`
 - **Sweep harness already exists**: `v2_param_sweep.run_v2_param_sweep` + grids in `v2_param_sweep.py` — use it for grid sweeps; write a bespoke script for targeted rounds
-- **Shell**: PowerShell on Windows — use `;` not `&&`; run as `conda activate LRF; cd backend; python ...`
+- **Shell**: PowerShell on Windows — use `;` not `&&`; run as `conda activate ASC; cd backend; python ...` (see `python-runtime-environment`)
 
 ## Clarifying questions (ask before starting)
 
@@ -53,7 +51,7 @@ Always set `ocr_debug_print=False` in sweep configs for speed and clean logs.
 ### 2. Execution (PowerShell)
 
 ```powershell
-conda activate LRF; cd c:\Users\cedri\code\LRF\backend; python notebooks/eliott_wave_extractor/_tune_sweep_run.py
+conda activate ASC; cd backend; python path/to/_tune_sweep_run.py
 ```
 
 `block_until_ms` ≈ `n_configs × ~45s × 1.15` — set enough buffer.

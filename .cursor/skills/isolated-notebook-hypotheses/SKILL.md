@@ -1,16 +1,15 @@
 ---
 name: isolated-notebook-hypotheses
 description: >-
-  Runs isolated logic-hypothesis experiments for LRF notebook pipelines by
-  forking production code under hypotheses/, freezing tunables, capturing real
-  evidence in JSON outputs, and synthesizing supported/falsified verdicts. Use
-  when testing logic hypotheses rather than tunables, setting up forked notebook
-  experiments, running one or more hypothesis branches, or deciding what
-  instrumentation or logic is safe to promote.
+  DEPRECATED alias — use hypothesis-experiment-cycle skill instead. Runs isolated
+  logic-hypothesis experiments by forking production code, freezing tunables,
+  writing fixed-contract JSON, and filling analysis cards before promotion.
 disable-model-invocation: true
 ---
 
 # Isolated Notebook Hypotheses
+
+> **Superseded by [`hypothesis-experiment-cycle`](../hypothesis-experiment-cycle/SKILL.md)** — same workflow, generalized for `backend/scripts/experiments/<slug>/` and notebook hypotheses folders.
 
 ## Use When
 
@@ -60,8 +59,9 @@ If a branch needs parser or regex changes, fork the helper too, e.g. `fib_ocr_pa
 - Use a **frozen baseline** tunable set in `_frozen_baseline.py`.
 - For multi-branch cycles, run the **shared baseline once in the parent/orchestrator path** unless the user explicitly wants per-branch baselines.
 - Keep each experiment to **one logical code change** and **at most 3 full runs** after the baseline.
-- Require machine-readable output in `results/<experiment_id>.json`.
-- On Windows PowerShell, use `;` not `&&` when chaining `conda activate LRF` and `python ...`.
+- Require machine-readable output in `results/<experiment_id>.json` using the **fixed result contract** below.
+- After each run, fill the **per-hypothesis analysis card** from that JSON before closing the slice.
+- On Windows PowerShell, use `;` not `&&` when chaining `conda activate ASC` and `python ...`.
 
 ## Evidence-first rule
 
@@ -77,16 +77,14 @@ If the hypothesis could fail in a way that needs inspection, add bounded debug c
 - a few “good” baseline accepts for contrast
 - enough token/line context to explain why the line was accepted or rejected
 
-Persist these under a dedicated JSON key such as:
+Persist these under `debug_examples` in the fixed result contract:
 
 ```json
 {
-  "stats": {
-    "debug_examples": {
-      "reject_no_regex_examples": [...],
-      "paired_accept_examples": [...],
-      "accepted_on_zero_label_examples": [...]
-    }
+  "debug_examples": {
+    "reject_no_regex_examples": [],
+    "paired_accept_examples": [],
+    "accepted_on_zero_label_examples": []
   }
 }
 ```
@@ -182,6 +180,138 @@ For single-hypothesis work, skip the parallel branch setup and keep the same evi
 
 For parallel work, branches should normally start from implementation immediately and compare against the already-published shared baseline instead of each rerunning the same baseline.
 
+## Fixed result contract
+
+Every runner **must** write JSON that matches this shape so the orchestrator can analyze without re-deriving context. Put domain-specific numbers under `kpis` and `debug_examples`; keep the top-level keys stable.
+
+```json
+{
+  "experiment_id": "b1_fov_cull",
+  "hypothesis_id": "fov_cull_speed",
+  "phase": "X1",
+  "run_at_utc": "2026-06-02T12:00:00Z",
+  "frozen_input": {
+    "description": "One sentence: what was held constant",
+    "scenario": "s01 coast / chart date / dataset id",
+    "seed": 42,
+    "tunables": {},
+    "n_items": null
+  },
+  "control": {
+    "label": "baseline",
+    "variant": "production | X0 | shared_baseline",
+    "kpis": {},
+    "result_path": "results/baseline.json"
+  },
+  "treatment": {
+    "label": "X1",
+    "variant": "what changed in one phrase",
+    "kpis": {},
+    "result_path": "results/X1.json"
+  },
+  "delta": {
+    "primary_kpi": "name of the decision KPI",
+    "baseline_value": null,
+    "treatment_value": null,
+    "direction": "better | worse | flat",
+    "relative_change_pct": null,
+    "within_noise": true
+  },
+  "parity": {
+    "required": true,
+    "passed": true,
+    "notes": ""
+  },
+  "instrumentation": {
+    "hooks_valid": true,
+    "notes": "e.g. patched import binding, not module attribute"
+  },
+  "debug_examples": {},
+  "files_changed": [],
+  "verdict": "supported | falsified | inconclusive",
+  "closeout": "promote | keep_as_idea | delete"
+}
+```
+
+### Runner obligations
+
+- **`frozen_input`**: record the exact frozen dataset / cloud list / chart / tunable set so A/B comparisons reuse the same input (never regenerate stochastic fixtures between control and treatment unless that is the hypothesis).
+- **`control` / `treatment`**: always present for logic hypotheses; for a lone baseline run, set `treatment` to `null` and `phase` to `baseline`.
+- **`delta`**: precompute baseline → treatment on the **one primary KPI** named in `<hypothesis>.md`; mark `within_noise` when jitter dominates (typical: <5% on wall-clock runs).
+- **`instrumentation`**: if telemetry reads 0 but logic clearly ran, set `hooks_valid: false` and name the bad hook (e.g. monkeypatched module but not the import site in the consumer).
+- **`debug_examples`**: bounded real evidence (see Evidence-first rule); empty `{}` only when the hypothesis is purely timing and parity passed.
+- **`verdict` / `closeout`**: branch sets a **hint**; orchestrator confirms or overrides after artifact review.
+
+Shared helper `_runner_common.py` should expose `write_hypothesis_result(...)` that fills this contract and writes `results/<experiment_id>.json`.
+
+### Fair A/B comparisons
+
+When comparing ON/OFF or baseline/treatment:
+
+1. Freeze stochastic inputs once (`FROZEN_*` tuple, saved fixture, or `frozen_input` blob).
+2. Run control then treatment (or interleave if thermal bias matters); max **3** full runs after baseline.
+3. Write **one** comparison JSON (e.g. `frozen_cull_comparison.json`) with both arms under `control.kpis` / `treatment.kpis`, not two incomparable files.
+
+## Per-hypothesis analysis card (required)
+
+After reading the result JSON and changed files, the orchestrator **must** produce one analysis card **per hypothesis** using this fixed template. Copy it verbatim, fill every section, and persist as `results/<hypothesis_id>_analysis.md` **and** return it to the user.
+
+```markdown
+# Hypothesis analysis: <hypothesis_id>
+
+## 1. Question
+<one sentence from <hypothesis>.md>
+
+## 2. Frozen input
+| Field | Value |
+|-------|-------|
+| Scenario | |
+| Seed / fixture | |
+| Key tunables | |
+| N (items/clouds/charts/rows) | |
+
+## 3. KPI table
+| Arm | <primary_kpi> | <guardrail_kpi> | <progress_kpi_if_any> |
+|-----|---------------|-----------------|------------------------|
+| Control (<label>) | | | |
+| Treatment (<label>) | | | |
+| Delta | | | |
+
+## 4. Evidence (real examples)
+- <3–10 bullets or short blocks pulled from debug_examples JSON — not paraphrased>
+- If timing-only: state parity outcome and instrumentation validity.
+
+## 5. Interpretation
+- **Primary KPI:** baseline → treatment = <values>; direction = <better/worse/flat>; within noise = <yes/no>.
+- **Guardrails:** <wrong_data_rate, parity, etc. — pass/fail>.
+- **Why:** <2–4 sentences tying evidence to outcome>.
+
+## 6. Verdict
+**<supported | falsified | inconclusive>** — <one-line justification>.
+
+## 7. Closeout
+| Action | Item |
+|--------|------|
+| Promote now | |
+| Keep as idea | |
+| Delete / archive | |
+| Test next | |
+| Stack with | <other hypothesis or "none"> |
+
+## 8. Path parity / caveats
+<notebook vs runner path, bad telemetry, confounded runs, or "none">
+```
+
+Do **not** close a hypothesis slice until every section is filled. If a field is unknown, write `TBD` and fix the runner before claiming a verdict.
+
+### Multi-hypothesis cycles
+
+When several branches ran in parallel:
+
+1. Write one card per `hypothesis_id`.
+2. Add a **combined summary** table (all primary KPIs, all verdicts) at the top of the user reply.
+3. Cross-check cards against JSON — verdict in the card must match `verdict` in JSON unless the orchestrator documents an override in §8.
+
 ## Branch prompt template
 
 Each branch prompt should include:
@@ -194,7 +324,8 @@ Each branch prompt should include:
 - max 3 runs after baseline
 - required KPI table
 - required verdict: `supported`, `falsified`, or `inconclusive`
-- required evidence payload
+- required evidence payload in `debug_examples`
+- output must follow the **fixed result contract**; orchestrator fills the **analysis card** afterward
 - promotion note for production
 - exact label-scope contract the branch must respect
 
@@ -207,7 +338,7 @@ Read README.md, B-ocr-pairing.md, SUBAGENT_CHARTER.md.
 Run baseline, then B0 instrumentation if needed, then B1.
 Persist real accepted/rejected examples into results/B1.json.
 Do not edit production fib_extraction.py.
-Return KPI table, verdict, files changed, JSON result paths, and 5-10 real examples.
+Return KPI table, verdict, files changed, JSON result paths, 5-10 real examples, and path to results/<hypothesis_id>_analysis.md once the orchestrator writes it.
 ```
 
 ## KPI expectations
@@ -227,49 +358,28 @@ Interpretation:
 
 ## Report requirements
 
-Every hypothesis report must include **actual run data**:
+The user-facing report **is** the per-hypothesis analysis card(s) from the section above. Do not substitute a free-form summary.
 
-1. KPI table
-2. a short KPI summary with the **most decision-relevant numbers** (`baseline -> treatment`, direction, and why they matter)
-3. verdict
-4. real accepted/rejected examples from the result JSON
-5. which patterns seem valid vs invalid
-6. what to promote now
-7. what to test next
-8. whether stacking is justified
+Additionally:
 
-Also include these checks when relevant:
-
-- **Path parity:** say whether the reported KPIs come from the same path the human reviewed (for example, pre-hardening runner output vs post-hardening notebook output).
-- **Human-review mismatch:** if notebook / overlay review looks better or worse than the KPI/bin summary, explain the mismatch before giving the final verdict.
-- **Closeout decision:** at the end of a hypothesis cycle, explicitly separate:
-  - keep/promote
-  - keep as idea only
-  - delete/archive
+- **Combined summary** (multi-branch only): one table of all `hypothesis_id`, primary KPI delta, verdict.
+- **Real examples**: §4 of each card must cite JSON `debug_examples` (or state timing-only + parity).
+- **Path parity / caveats**: always fill §8 when notebook, runner, or telemetry paths differ.
 
 Do **not** present only aggregate metrics if the user is likely to ask “what was actually parsed?”
 
 ## Post-run orchestrator review
 
-After any hypothesis branch or subagent finishes, the parent/orchestrator must
-do a quick artifact review before closing the slice:
+After any hypothesis branch or subagent finishes, the parent/orchestrator must do a quick artifact review **before** closing the slice:
 
 1. read the branch's key changed files
 2. read at least the main result JSON for the finished run
 3. check that the claimed verdict matches the recorded KPIs and examples
-4. return a **short findings report** to the user unless the user explicitly
-   asked not to receive one
+4. **write and return the per-hypothesis analysis card** (persist `results/<hypothesis_id>_analysis.md`)
 
-The short findings report should cover:
+Skip the card only if the user explicitly asked not to receive a findings report.
 
-- what changed in the branch
-- whether the control matched baseline
-- whether the treatment improved, regressed, or stayed flat
-- 3-5 real examples or pattern findings
-- the closeout decision: promote / keep as idea / delete
-
-Do not rely only on the subagent's prose summary when the artifacts are
-available; review the actual files first.
+The card replaces the old informal “short findings report” — same content, fixed sections 1–8.
 
 ## Promotion rules
 
@@ -312,6 +422,9 @@ If the notebook mutates `v2_rows` after extraction (for example via hardening), 
 - Treating a failed `X1` as stackable
 - Reporting only summary KPIs without real examples
 - Realizing after the run that the JSON does not contain enough evidence for human review
+- Skipping the analysis card or leaving sections blank / “TBD” at closeout
+- JSON that omits `frozen_input` so the next run cannot reproduce the comparison
+- Instrumentation hooks that patch the wrong import site (`hooks_valid: false` undetected)
 - Launching branches before the fib-label contract is explicit
 - Promoting logic without verifying the notebook uses the promoted production path
 - Comparing pre-hardening KPIs to post-hardening notebook visuals without naming the mismatch
@@ -320,11 +433,9 @@ If the notebook mutates `v2_rows` after extraction (for example via hardening), 
 
 The orchestrator should return:
 
-1. One combined KPI table across active hypotheses
-2. A short KPI summary with the most important numbers
-3. A short verdict per hypothesis
-4. A compact “real examples” section with actual run data
-5. What to promote now
-6. What to test next
-7. Whether stacking is justified
-8. Whether notebook wiring / path parity still needs a follow-up before calling the cycle complete
+1. **Combined summary table** (multi-branch) or single card header (solo)
+2. **One filled analysis card per `hypothesis_id`** (sections 1–8)
+3. Paths to `results/<experiment_id>.json` and `results/<hypothesis_id>_analysis.md`
+4. Whether notebook wiring / path parity still needs a follow-up before calling the cycle complete
+
+Verdict, closeout, promote/test-next, and stacking decisions live in §6–§7 of each card — do not duplicate them in a separate prose list unless the user asked for a shorter recap.
