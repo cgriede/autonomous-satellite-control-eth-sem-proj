@@ -10,6 +10,15 @@ from environment_definition.constants.SIMULATION import SIMULATION
 from simulation.camera_optics import pinhole_full_fov_rad
 
 
+def _target_arc_world_xy(R_earth: float, phi_lo_deg: float, phi_hi_deg: float) -> tuple[np.ndarray, np.ndarray]:
+    th0 = np.deg2rad(phi_lo_deg)
+    th1 = np.deg2rad(phi_hi_deg)
+    n_arc = max(16, int(min(256, 4 * abs(float(phi_hi_deg - phi_lo_deg)) + 8)))
+    theta_tgt = np.linspace(th0, th1, n_arc, dtype=float)
+    tx = R_earth * np.cos(theta_tgt)
+    ty = R_earth * np.sin(theta_tgt)
+    return tx, ty
+
 
 def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     ax = fig.add_axes(RENDER.main_axes_rect)
@@ -22,11 +31,12 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     theta_center = scene["theta_center"]
     start_angle_deg = scene["start_angle_deg"]
     end_angle_deg = scene["end_angle_deg"]
-    observer_x = scene["observer_x"]
-    observer_y = scene["observer_y"]
     cloud_models = scene["cloud_models"]
     tgt_a_deg = float(scene["target_region_start_angle_deg"])
     tgt_b_deg = float(scene["target_region_end_angle_deg"])
+    target_regions_deg = scene.get("target_region_bounds_deg")
+    if not target_regions_deg:
+        target_regions_deg = [(tgt_a_deg, tgt_b_deg)]
 
     # framing (orbit-plane cross-section; matches simulation ``camera_2d`` disk XY)
     theta_window = np.linspace(
@@ -130,29 +140,25 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         zorder=RENDER.zorder_earth_outline
     ))
 
-    # Reward-aligned observation target band on Earth rim (single φ derivation vs MISSION stripe LLA).
-    th0 = np.deg2rad(tgt_a_deg)
-    th1 = np.deg2rad(tgt_b_deg)
-    n_arc = max(16, int(min(256, 4 * abs(float(tgt_b_deg - tgt_a_deg)) + 8)))
-    theta_tgt = np.linspace(th0, th1, n_arc, dtype=float)
-    tx = R_earth * np.cos(theta_tgt)
-    ty = R_earth * np.sin(theta_tgt)
-    ax.plot(
-        tx,
-        ty,
-        color=RENDER.observer_color,
-        linewidth=max(1.8, float(RENDER.observer_marker_edge_width)),
-        solid_capstyle="round",
-        zorder=RENDER.zorder_observer,
-    )
+    # Reward-aligned observation target segments on Earth rim.
+    for phi_lo_deg, phi_hi_deg in target_regions_deg:
+        tx, ty = _target_arc_world_xy(R_earth, float(phi_lo_deg), float(phi_hi_deg))
+        ax.plot(
+            tx,
+            ty,
+            color=RENDER.target_band_color,
+            linewidth=max(1.8, float(RENDER.target_band_linewidth)),
+            solid_capstyle="round",
+            zorder=RENDER.zorder_target_band,
+        )
 
     # --- dynamic artists (returned) ---
     artists["sat"], = ax.plot([], [], RENDER.sat_marker_style,
                             markersize=RENDER.sat_marker_size, label="Satellite")
 
-    artists["obs_to_sat"], = ax.plot([], [], linestyle="--", color=RENDER.los_color,
-                                    linewidth=RENDER.los_linewidth, alpha=RENDER.los_alpha,
-                                    zorder=RENDER.zorder_los)
+    artists["anchor_to_sat"], = ax.plot([], [], linestyle="--", color=RENDER.los_color,
+                                        linewidth=RENDER.los_linewidth, alpha=RENDER.los_alpha,
+                                        zorder=RENDER.zorder_los)
 
     artists["trail"], = ax.plot([], [], RENDER.trail_style,
                                 linewidth=RENDER.trail_linewidth, alpha=RENDER.trail_alpha)
@@ -179,11 +185,13 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
                                             linewidth=RENDER.z_arrow_linewidth,
                                             color=RENDER.z_arrow_color, alpha=RENDER.z_arrow_alpha,
                                             zorder=RENDER.zorder_z_axis)
+    artists["z_axis_arrow"].set_visible(False)
     ax.add_patch(artists["z_axis_arrow"])
 
     artists["z_axis_label"] = ax.text(0, 0, RENDER.z_label_text,
                                     color=RENDER.z_label_color, fontsize=RENDER.z_label_fontsize,
-                                    weight=RENDER.z_label_weight, zorder=RENDER.zorder_z_label)
+                                    weight=RENDER.z_label_weight, zorder=RENDER.zorder_z_label,
+                                    visible=False)
 
     # clouds (dynamic lines)
     artists["cloud_glow"] = []
@@ -212,9 +220,9 @@ def update_main_panel(artists: dict, scene: dict) -> None:
     edge_r = np.asarray(scene["edge_r"], dtype=float)
 
     artists["sat"].set_data([sat_pos[0]], [sat_pos[1]])
-    artists["obs_to_sat"].set_data(
-        [scene["observer_x"], sat_pos[0]],
-        [scene["observer_y"], sat_pos[1]],
+    artists["anchor_to_sat"].set_data(
+        [scene["view_anchor_x"], sat_pos[0]],
+        [scene["view_anchor_y"], sat_pos[1]],
     )
 
     x, y = scene["trail_xy"]
@@ -228,6 +236,12 @@ def update_main_panel(artists: dict, scene: dict) -> None:
     artists["z_axis_arrow"].set_positions((sat_pos[0], sat_pos[1]), (tip[0], tip[1]))
     label_pos = tip + float(RENDER.z_label_offset.to(ureg.km).magnitude) * z_axis_dir
     artists["z_axis_label"].set_position((label_pos[0], label_pos[1]))
+    ax = artists["sat"].axes
+    x_min, x_max = ax.get_xlim()
+    y_min, y_max = ax.get_ylim()
+    in_frame = (x_min <= float(label_pos[0]) <= x_max) and (y_min <= float(label_pos[1]) <= y_max)
+    artists["z_axis_arrow"].set_visible(in_frame)
+    artists["z_axis_label"].set_visible(in_frame)
 
     for i, spec in enumerate(scene["cloud_world"]):
         artists["cloud_glow"][i].set_data(spec["x"], spec["y"])

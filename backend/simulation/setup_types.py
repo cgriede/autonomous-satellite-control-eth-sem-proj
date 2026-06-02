@@ -1,4 +1,4 @@
-"""Configuration model for simulation setup: OrbitConfig, SimulationSetupConfig, ResolvedSimulationSetup.
+"""Configuration model for simulation setup: OrbitConfig, EnvironmentSetup, ResolvedSimulationSetup.
 
 resolve() is the sole validation owner — no parallel validation paths elsewhere.
 """
@@ -9,7 +9,7 @@ from typing import Any
 
 
 class SimulationSetupError(ValueError):
-    """Raised by SimulationSetupConfig.resolve() for invalid or incomplete configurations."""
+    """Raised by EnvironmentSetup.resolve() for invalid or incomplete configurations."""
 
 
 @dataclass(frozen=True)
@@ -58,7 +58,7 @@ class ResolvedSimulationSetup:
 
 
 @dataclass(frozen=True)
-class SimulationSetupConfig:
+class EnvironmentSetup:
     """
     Declarative simulation setup config.
 
@@ -101,13 +101,13 @@ class SimulationSetupConfig:
 
         if self.satellite is None:
             raise SimulationSetupError(
-                "satellite must be set in SimulationSetupConfig before calling resolve()."
+                "satellite must be set in EnvironmentSetup before calling resolve()."
             )
 
         orbit = self.orbit if self.orbit is not None else OrbitConfig()
         if orbit.altitude is None:
             raise SimulationSetupError(
-                "orbit.altitude must be set in SimulationSetupConfig before calling resolve()."
+                "orbit.altitude must be set in EnvironmentSetup before calling resolve()."
             )
 
         if require_camera and len(self.cameras) == 0:

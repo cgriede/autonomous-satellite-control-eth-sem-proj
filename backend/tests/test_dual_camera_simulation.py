@@ -22,7 +22,7 @@ from simulation.camera_image import CameraImage, CameraMount, DEFAULT_NADIR_CAME
 from simulation.setup_types import (
     OrbitConfig,
     SimulationOverrides,
-    SimulationSetupConfig,
+    EnvironmentSetup,
 )
 from simulation.stepper_factory import build_stepper
 from simulation.run_simulation import run_simulation
@@ -46,7 +46,7 @@ def _minimal_dual_camera_config(**kwargs):
         simulation_overrides=SimulationOverrides(secondary_camera_observation_line_n_bins=200),
     )
     defaults.update(kwargs)
-    return SimulationSetupConfig(**defaults)
+    return EnvironmentSetup(**defaults)
 
 
 class CloudArcShapeTest(unittest.TestCase):
@@ -54,7 +54,7 @@ class CloudArcShapeTest(unittest.TestCase):
 
     def test_stepper_cloud_arc_shape_matches_setup(self):
         """2-cloud setup overrides 1-cloud SIMULATION.clouds → finalized series has 2 cloud columns."""
-        cfg = SimulationSetupConfig(
+        cfg = EnvironmentSetup(
             satellite=SATELLITE,
             orbit=OrbitConfig(altitude=_ALTITUDE),
             clouds=S01_CLOUDS,  # 2 clouds
@@ -70,7 +70,7 @@ class CloudArcShapeTest(unittest.TestCase):
     def test_single_cloud_setup_gives_one_column(self):
         """A single-cloud setup yields shape (..., 1) in the series."""
         one_cloud = (Cloud(height=10.0 * ureg.km, start_location=89.8 * ureg.deg, end_location=90.1 * ureg.deg),)
-        cfg = SimulationSetupConfig(
+        cfg = EnvironmentSetup(
             satellite=SATELLITE,
             orbit=OrbitConfig(altitude=_ALTITUDE),
             clouds=one_cloud,
@@ -112,7 +112,7 @@ class SingleCameraSecondaryGuardTest(unittest.TestCase):
     def test_single_camera_ignores_secondary_bin_override(self):
         """One mount + override=200 → resolved secondary_bins=0, series shape (n, 0)."""
         nadir_mount = CameraMount(camera=DEFAULT_NADIR_CAMERA, tilt_off_nadir=0 * ureg.deg)
-        cfg = SimulationSetupConfig(
+        cfg = EnvironmentSetup(
             satellite=SATELLITE,
             orbit=OrbitConfig(altitude=_ALTITUDE),
             cameras=(nadir_mount,),
@@ -127,7 +127,7 @@ class SingleCameraSecondaryGuardTest(unittest.TestCase):
 
     def test_no_cameras_gives_secondary_shape_n_0(self):
         """Bus-only setup (no cameras) → series secondary shape (n, 0)."""
-        cfg = SimulationSetupConfig(
+        cfg = EnvironmentSetup(
             satellite=SATELLITE,
             orbit=OrbitConfig(altitude=_ALTITUDE),
         )
@@ -177,7 +177,7 @@ class CoastControllerTest(unittest.TestCase):
 
     def test_coast_controller_zero_torque(self):
         """Coast mode: all wheel_torque_cmd_nm entries are 0.0."""
-        cfg = SimulationSetupConfig(
+        cfg = EnvironmentSetup(
             satellite=SATELLITE,
             orbit=OrbitConfig(altitude=_ALTITUDE),
         )

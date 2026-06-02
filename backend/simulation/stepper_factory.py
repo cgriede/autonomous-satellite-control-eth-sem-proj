@@ -21,7 +21,7 @@ def build_stepper(
     """Construct a SimulationStepper from a ResolvedSimulationSetup.
 
     Args:
-        resolved: Fully-populated setup from SimulationSetupConfig.resolve().
+        resolved: Fully-populated setup from EnvironmentSetup.resolve().
         simulation_config: Controls render_mode, controller_mode metadata and seed.
         require_camera: When True, raises SimulationSetupError if resolved.cameras is empty.
 

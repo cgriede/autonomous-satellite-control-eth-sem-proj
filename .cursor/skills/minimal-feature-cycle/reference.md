@@ -6,6 +6,8 @@ Deep dive on the patterns named in SKILL.md. Read when the high-level rule isn't
 
 The notebook is a controller, not a library. Every cell either drives a function call into production code or describes intent.
 
+For simulator-facing work, the notebook is also an inspection surface for the real outputs that matter later: actual numbers, actual produced artifacts, and the same output path the simulator or renderer will use when the feature is integrated.
+
 Standard cell shape after the cwd setup:
 
 ```python
@@ -26,6 +28,37 @@ Anti-patterns:
 - Defining the function you're testing inside the notebook. It diverges from production silently.
 - Copy-pasting "just for this cell". The diverged copy will outlive the cell.
 - Keeping plotting helpers in the notebook. Promote them to `backend/notebooks/utils/`.
+- Verifying with generic plots that do not resemble the real simulator or renderer output.
+- Printing convenience numbers that are not the actual runtime-facing values the operator will care about later.
+
+## What verification means here
+
+Verification in this skill is not generic "does the cell run?" validation.
+
+It means:
+
+- the real output that will be produced when we plug the thing into the simulator,
+- the actual numbers the runtime path produces,
+- the actual artifact a human will inspect.
+
+Before implementing a slice, write down:
+
+1. the exact integration seam being exercised,
+2. the exact numbers that will be printed,
+3. the exact artifact that will be inspected,
+4. the explicit non-goals for this slice.
+
+Examples of good verification:
+
+- Inspecting the actual reward values produced by the canonical simulation path.
+- Inspecting the same render panel style the integrated feature will later use.
+- Printing the exact physical quantities the operator cares about, with units.
+
+Examples of bad verification:
+
+- A generic debug plot that looks nothing like the real render output.
+- A helper-local number dump when the integrated path computes a different quantity later.
+- A notebook-only visualization that cannot catch simulator wiring mistakes.
 
 ## Notebook simplify (subskill)
 
@@ -53,9 +86,11 @@ Symptom that this rule was broken: pytest passes, but a human looking at the out
 |------|----------------|----------------------|
 | Unit | A pure function maps inputs to outputs as specified | The function is wired into the right caller |
 | End-to-end with fixtures | Real inputs produce expected outputs end-to-end | Outputs look right to an operator |
-| Human visual / artifact review | The artifact matches operator intent | Nothing — but it's the only gate that catches semantic drift |
+| Human visual / artifact review | The actual produced artifact and actual produced numbers match operator intent | Nothing — but it's the only gate that catches semantic drift |
 
 Place each behaviour in exactly one home. Duplicated coverage wastes maintenance; a missing home is a regression waiting to ship.
+
+For simulator-facing slices, the human review gate should default to the actual runtime-facing artifact, not a convenience plot. If you choose a reduced probe instead, label it explicitly as a temporary probe and state what it cannot prove.
 
 ## Instrumentation
 
@@ -104,3 +139,4 @@ Human UX review section 4b:
 - **Self-referential fixtures**: expected values were copied from `cal.resolve(target)` or a similar call into the code under test. Catch by asking "where did this number come from?" for each fixture value.
 - **Symptom patches**: a tolerance was widened, an exception was caught, a log was silenced. Catch by reading the diff with the question "what is this defending against?".
 - **Plan files frozen in `01-building`**: the work is done but the file never moved. Catch at archive time; the plan stage should always reflect current activity.
+- **Fake verification**: the notebook shows generic plots or secondary numbers that look plausible, but they are not the actual outputs the integrated simulator path will produce. Catch by asking "if we plugged this in today, would these be the same numbers and the same artifact?"

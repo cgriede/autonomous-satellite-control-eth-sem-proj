@@ -68,8 +68,6 @@ class SimulationStateSeries:
     camera_cloud_blocked_fraction : np.ndarray # per-frame fraction of pixel-strip rays blocked by clouds
     # Per-bin codes from simulate_camera_observation_line_1d (shape n_frames x n_bins); -99 = not computed
     camera_observation_line_codes : np.ndarray
-    # Per-bin fixed-ground line codes (shape n_frames x n_bins), including cone-hit marker code.
-    fixed_ground_line_codes : np.ndarray
     # Geodetic support fields (deg for compact storage in episode arrays).
     sat_subpoint_lat_deg : np.ndarray
     sat_subpoint_lon_deg : np.ndarray
@@ -148,14 +146,6 @@ class SimulationStateSeries:
             raise ValueError("camera_observation_line_codes must have length n along axis 0.")
         if self.camera_observation_line_codes.dtype != np.int8:
             raise ValueError("camera_observation_line_codes must have dtype int8.")
-        if len(self.fixed_ground_line_codes.shape) != 2:
-            raise ValueError("fixed_ground_line_codes must be 2D (n_frames, n_bins).")
-        if self.fixed_ground_line_codes.shape[0] != n:
-            raise ValueError("fixed_ground_line_codes must have length n along axis 0.")
-        if self.fixed_ground_line_codes.dtype != np.int8:
-            raise ValueError("fixed_ground_line_codes must have dtype int8.")
-        if self.fixed_ground_line_codes.shape[1] != self.camera_observation_line_codes.shape[1]:
-            raise ValueError("fixed_ground_line_codes bin count must match camera_observation_line_codes.")
         if self.sat_subpoint_lat_deg.shape[0] != n:
             raise ValueError("sat_subpoint_lat_deg must have length n.")
         if self.sat_subpoint_lon_deg.shape[0] != n:

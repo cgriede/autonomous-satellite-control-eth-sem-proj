@@ -9,7 +9,7 @@ Run with current working directory set to ``backend/`` (see VS Code launch
     python scripts/print_camera_observation_line.py
 
 Each timestep prints ``ts <1-based index>:`` then one character per bin:
-``-`` space, ``E`` earth, ``C`` cloud, ``X`` target (observer direction).
+``-`` space, ``E`` earth, ``C`` cloud, ``X`` target (target-stripe direction).
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Print camera observation line (ASCII) per strided timestep. "
-            "Observer target angle matches the renderer (north pole, pi/2 rad). "
+            "Target-stripe anchor angle matches the renderer (north pole, pi/2 rad). "
             "Requires current working directory to be backend/ for imports."
         )
     )

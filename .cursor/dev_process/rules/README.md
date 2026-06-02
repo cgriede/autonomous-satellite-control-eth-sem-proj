@@ -1,16 +1,12 @@
 # Dev Process Rules Library
 
-This folder stores process rule definitions for the 4-step development workflow.
+Generic development workflow guidance now lives in project skills instead of mirrored runtime rules.
 
-## Sync Policy
+## Current Homes
 
-- The runtime-enforced copies live in `.cursor/rules/`.
-- Files in this folder are maintained as mirrored sources for process portability.
-- Keep filenames and content aligned between both locations.
+- Scope, TDD, naming, and constant-handling discipline: `.cursor/skills/implementation-discipline/`
+- Planning and structural guidance: `.cursor/skills/architecture-planning/`
+- Python execution environment selection: `.cursor/skills/python-runtime-environment/`
+- Visual artifact verification: `.cursor/skills/visual-output-verification/`
 
-## Rule Set
-
-- `dev-shared-understanding-grill-me.mdc`
-- `dev-ubiquitous-language.mdc`
-- `dev-tdd-small-verifiable-steps.mdc`
-- `dev-ai-friendly-architecture.mdc`
+Use `.cursor/rules/` for the surviving runtime-enforced domain rules.

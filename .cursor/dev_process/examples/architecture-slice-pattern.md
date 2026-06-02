@@ -1,6 +1,6 @@
 # Architecture Slice Pattern (Project-Specific)
 
-Feature slices align with [.cursor/rules/dev-ai-friendly-architecture.mdc](../../rules/dev-ai-friendly-architecture.mdc) **and** the charter invariants in [docs/project-charter.md](../../../docs/project-charter.md).
+Feature slices align with [.cursor/skills/architecture-planning/SKILL.md](../../skills/architecture-planning/SKILL.md) **and** the charter invariants in [docs/project-charter.md](../../../docs/project-charter.md).
 
 ## Principles
 

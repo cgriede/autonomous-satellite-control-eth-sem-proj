@@ -33,7 +33,6 @@ def _make_trivial_series(n_bins: int = 4, n_frames: int = 2) -> SimulationStateS
     obs_line = np.zeros((n_frames, n_bins), dtype=np.int8)
     # Mark one bin as target in frame 1 to exercise target_visible path.
     obs_line[1, 2] = np.int8(OBSERVATION_TARGET)
-    fixed_ground = np.zeros((n_frames, n_bins), dtype=np.int8)
     sat_subpoint_lat_deg = np.zeros(n_frames, dtype=float)
     sat_subpoint_lon_deg = np.zeros(n_frames, dtype=float)
     sat_altitude_m = np.full(n_frames, 500000.0, dtype=float)
@@ -79,7 +78,6 @@ def _make_trivial_series(n_bins: int = 4, n_frames: int = 2) -> SimulationStateS
         camera_center_ray_observation_code=center_code,
         camera_cloud_blocked_fraction=blocked,
         camera_observation_line_codes=obs_line,
-        fixed_ground_line_codes=fixed_ground,
         sat_subpoint_lat_deg=sat_subpoint_lat_deg,
         sat_subpoint_lon_deg=sat_subpoint_lon_deg,
         sat_altitude_m=sat_altitude_m,

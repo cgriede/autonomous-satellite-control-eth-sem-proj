@@ -215,14 +215,14 @@ def run_episode(
     satellite_altitude: Any | None = None,
     np_rng: np.random.Generator | None = None,
     verbose_print: int = 0,
-    setup=None,  # SimulationSetupConfig | None
+    setup=None,  # EnvironmentSetup | None
 ) -> EpisodeResult:
     """Backward-compatible wrapper — delegates to EpisodeRunner.run_serial.
 
     When `setup` is provided it is used directly. Otherwise a default s01 setup is
     constructed from `satellite_altitude` (or the s00 module-level constant).
     """
-    from simulation.setup_types import OrbitConfig, SimulationSetupConfig
+    from simulation.setup_types import OrbitConfig, EnvironmentSetup
     from .episode_runner import EpisodeRunner
 
     # Compatibility shim: canonical episode length is owned by SimulationStepper.
@@ -232,7 +232,7 @@ def run_episode(
         effective_setup = setup
     else:
         run_altitude = satellite_altitude if satellite_altitude is not None else SATELLITE_ALTITUDE
-        effective_setup = SimulationSetupConfig(
+        effective_setup = EnvironmentSetup(
             satellite=SATELLITE,
             orbit=OrbitConfig(altitude=run_altitude),
         )

@@ -4,8 +4,6 @@ import numpy as np
 
 from environment_definition.constants.SIMULATION import (
     DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS,
-    FIXED_GROUND_CONE_HIT_EARTH,
-    OBSERVATION_EARTH,
     OBSERVATION_LINE_NOT_COMPUTED,
 )
 from utils.geometry.orbit_disk_wgs84 import satellite_disk_xy_rows_km_to_geodetic_deg
@@ -91,12 +89,6 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
     camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
     n_bins = int(DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS)
     camera_observation_line_codes = np.full((n, n_bins), OBSERVATION_LINE_NOT_COMPUTED, dtype=np.int8)
-    fixed_ground_line_codes = np.full((n, n_bins), OBSERVATION_LINE_NOT_COMPUTED, dtype=np.int8)
-    # Keep kinematic helper consistent with render expectations: fixed-ground view maps space->earth
-    # and marks the center cone-hit bin.
-    fixed_ground_line_codes[:, :] = np.int8(OBSERVATION_EARTH)
-    center_idx = int(n_bins // 2)
-    fixed_ground_line_codes[:, center_idx] = np.int8(FIXED_GROUND_CONE_HIT_EARTH)
     sat_xy_n2 = np.stack(
         [radius_km * np.cos(theta_orbit_rad), radius_km * np.sin(theta_orbit_rad)],
         axis=1,
@@ -133,7 +125,6 @@ def simulate_kinematic_trajectory(config: KinematicSimulationConfig) -> Simulati
         camera_center_ray_observation_code=camera_center_ray_observation_code,
         camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
         camera_observation_line_codes=camera_observation_line_codes,
-        fixed_ground_line_codes=fixed_ground_line_codes,
         sat_subpoint_lat_deg=sat_subpoint_lat_deg,
         sat_subpoint_lon_deg=sat_subpoint_lon_deg,
         sat_altitude_m=sat_altitude_m,

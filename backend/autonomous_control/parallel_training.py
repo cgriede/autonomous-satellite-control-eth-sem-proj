@@ -19,7 +19,7 @@ from environment_definition.constants import (
     UREG as ureg,
 )
 from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
-from simulation.setup_types import OrbitConfig, SimulationSetupConfig
+from simulation.setup_types import OrbitConfig, EnvironmentSetup
 from simulation.stepper_factory import build_stepper
 from utils.ml_training.ml_training_utils import RunTelemetryWriter
 
@@ -51,7 +51,7 @@ class WorkerResult:
 
 
 def _build_stepper(*, satellite_altitude: Any):
-    setup = SimulationSetupConfig(
+    setup = EnvironmentSetup(
         satellite=SATELLITE,
         orbit=OrbitConfig(altitude=satellite_altitude),
     )

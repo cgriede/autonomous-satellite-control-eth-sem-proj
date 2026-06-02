@@ -48,9 +48,9 @@ def primary_stripe_disk_phi_bounds_deg(*, ell: Ellipsoid | None = None) -> tuple
     return min(phi_a, phi_b), max(phi_a, phi_b)
 
 
-def stripe_mid_observer_disk_xy_km_on_sphere(*, earth_radius_km: float, ell: Ellipsoid | None = None) -> np.ndarray:
+def primary_stripe_midpoint_disk_xy_km_on_sphere(*, earth_radius_km: float, ell: Ellipsoid | None = None) -> np.ndarray:
     """
-    Reference rim observer on the **mean rendering sphere** toward ``SIMULATION`` LOS art.
+    Primary target-stripe midpoint on the **mean rendering sphere** for render anchoring.
 
     LLA uses stripe midpoint latitude on ``LON_GLOBAL``, ECEF projection, then radial normalization
     to ``earth_radius_km`` so overlays stay consistent with circular Earth artwork.

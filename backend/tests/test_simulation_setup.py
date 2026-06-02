@@ -1,4 +1,4 @@
-"""TDD: SimulationSetupConfig.resolve() — validation, defaults, camera opt-in."""
+"""TDD: EnvironmentSetup.resolve() — validation, defaults, camera opt-in."""
 from __future__ import annotations
 
 import unittest
@@ -14,7 +14,7 @@ from simulation.setup_types import (
     OrbitConfig,
     ResolvedSimulationSetup,
     SimulationOverrides,
-    SimulationSetupConfig,
+    EnvironmentSetup,
     SimulationSetupError,
 )
 
@@ -22,14 +22,14 @@ from simulation.setup_types import (
 _ALTITUDE = sample_satellite_altitude(seed=42)
 
 
-def _minimal_config(**kwargs) -> SimulationSetupConfig:
+def _minimal_config(**kwargs) -> EnvironmentSetup:
     """Smallest valid config: satellite + altitude."""
     defaults = dict(
         satellite=SATELLITE,
         orbit=OrbitConfig(altitude=_ALTITUDE),
     )
     defaults.update(kwargs)
-    return SimulationSetupConfig(**defaults)
+    return EnvironmentSetup(**defaults)
 
 
 class ResolveDefaultsTest(unittest.TestCase):
@@ -98,17 +98,17 @@ class ResolveDefaultsTest(unittest.TestCase):
 
 class ResolveValidationTest(unittest.TestCase):
     def test_missing_satellite_raises_setup_error(self):
-        cfg = SimulationSetupConfig(orbit=OrbitConfig(altitude=_ALTITUDE))
+        cfg = EnvironmentSetup(orbit=OrbitConfig(altitude=_ALTITUDE))
         with self.assertRaises(SimulationSetupError):
             cfg.resolve()
 
     def test_missing_altitude_raises_setup_error(self):
-        cfg = SimulationSetupConfig(satellite=SATELLITE, orbit=OrbitConfig())
+        cfg = EnvironmentSetup(satellite=SATELLITE, orbit=OrbitConfig())
         with self.assertRaises(SimulationSetupError):
             cfg.resolve()
 
     def test_missing_orbit_entirely_raises_setup_error(self):
-        cfg = SimulationSetupConfig(satellite=SATELLITE)
+        cfg = EnvironmentSetup(satellite=SATELLITE)
         with self.assertRaises(SimulationSetupError):
             cfg.resolve()
 

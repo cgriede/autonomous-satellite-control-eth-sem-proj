@@ -25,7 +25,6 @@ def _build_valid_series(n: int = 3) -> SimulationStateSeries:
         camera_center_ray_observation_code=np.zeros(n, dtype=np.int8),
         camera_cloud_blocked_fraction=np.zeros(n, dtype=float),
         camera_observation_line_codes=np.zeros((n, n_bins), dtype=np.int8),
-        fixed_ground_line_codes=np.zeros((n, n_bins), dtype=np.int8),
         sat_subpoint_lat_deg=np.zeros(n, dtype=float),
         sat_subpoint_lon_deg=np.zeros(n, dtype=float),
         sat_altitude_m=np.full(n, 500000.0, dtype=float),

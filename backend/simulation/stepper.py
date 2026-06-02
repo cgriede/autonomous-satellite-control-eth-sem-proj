@@ -11,7 +11,6 @@ from autonomous_control.reward import RewardConfig
 from environment_definition.constants.EARTH import WGS84_ELLIPSOID
 from environment_definition.constants.MISSION import OBSERVATION_TARGET_AREAS
 from environment_definition.constants.SIMULATION import (
-    OBSERVATION_LINE_NOT_COMPUTED,
     RenderMode,
     SIMULATION,
     SimulationConfig,
@@ -181,7 +180,6 @@ class SimulationStepper:
         self._camera_center_ray_observation_code = np.zeros(n, dtype=np.int8)
         self._camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
         self._camera_observation_line_codes = np.empty((n, n_bins), dtype=np.int8)
-        self._fixed_ground_line_codes = np.full((n, n_bins), OBSERVATION_LINE_NOT_COMPUTED, dtype=np.int8)
         self._sat_subpoint_lat_deg = np.full(n, np.nan, dtype=float)
         self._sat_subpoint_lon_deg = np.full(n, np.nan, dtype=float)
         self._sat_altitude_m = np.full(n, np.nan, dtype=float)
@@ -333,7 +331,6 @@ class SimulationStepper:
             camera_center_ray_observation_code=self._camera_center_ray_observation_code,
             camera_cloud_blocked_fraction=self._camera_cloud_blocked_fraction,
             camera_observation_line_codes=self._camera_observation_line_codes,
-            fixed_ground_line_codes=self._fixed_ground_line_codes,
             sat_subpoint_lat_deg=self._sat_subpoint_lat_deg,
             sat_subpoint_lon_deg=self._sat_subpoint_lon_deg,
             sat_altitude_m=self._sat_altitude_m,
@@ -408,7 +405,6 @@ class SimulationStepper:
         self._camera_center_first_hit_is_cloud[k] = sensor.camera_center_first_hit_is_cloud
         self._camera_center_first_hit_xy_km[k, :] = sensor.camera_center_first_hit_xy_km
         self._camera_observation_line_codes[k, :] = sensor.camera_observation_line_codes
-        self._fixed_ground_line_codes[k, :] = sensor.fixed_ground_line_codes
         self._cloud_arc_radius_km[k, :] = sensor.cloud_arc_radius_km
         self._cloud_arc_start_rad[k, :] = sensor.cloud_arc_start_rad
         self._cloud_arc_end_rad[k, :] = sensor.cloud_arc_end_rad

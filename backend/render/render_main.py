@@ -18,8 +18,8 @@ from environment_definition.mission_profiles.s00_simulation_build_sample_fl impo
 from simulation.camera_2d import boresight_dir_for_mount
 from simulation.state_types import SimulationStateSeries
 from utils.geometry.mission_stripe_disk import (
+    primary_stripe_midpoint_disk_xy_km_on_sphere,
     primary_stripe_disk_phi_bounds_deg,
-    stripe_mid_observer_disk_xy_km_on_sphere,
 )
 
 if __package__:
@@ -94,7 +94,7 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
     frame_lo_deg = min(START_ANGLE_DEG, END_ANGLE_DEG, traj_off_deg_lo, traj_off_deg_hi)
     frame_hi_deg = max(START_ANGLE_DEG, END_ANGLE_DEG, traj_off_deg_lo, traj_off_deg_hi)
     tgt_lo_deg, tgt_hi_deg = primary_stripe_disk_phi_bounds_deg()
-    obs_xy = stripe_mid_observer_disk_xy_km_on_sphere(earth_radius_km=R_EARTH_KM)
+    view_anchor_xy = primary_stripe_midpoint_disk_xy_km_on_sphere(earth_radius_km=R_EARTH_KM)
     STATIC_SCENE = {
         "R_earth": R_EARTH_KM,
         "R_orbit": R_ORBIT_KM,
@@ -103,9 +103,9 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
         "end_angle_deg": frame_hi_deg,
         "target_region_start_angle_deg": float(tgt_lo_deg),
         "target_region_end_angle_deg": float(tgt_hi_deg),
-        "observer_x": float(obs_xy[0]),
-        "observer_y": float(obs_xy[1]),
-        "observer_pos": np.asarray(obs_xy, dtype=float),
+        "view_anchor_x": float(view_anchor_xy[0]),
+        "view_anchor_y": float(view_anchor_xy[1]),
+        "view_anchor_pos": np.asarray(view_anchor_xy, dtype=float),
         "cloud_models": [None] * N_CLOUDS,
         "n_clouds": N_CLOUDS,
         "n_bins": N_BINS,
@@ -216,8 +216,8 @@ def sample_scene(sim_idx: int) -> dict:
 
     nadir_angle = float(sim_series.theta_orbit_rad[sim_idx]) + np.pi
     z_angle_rel_nadir_rad = np.arctan2(np.sin(z_angle - nadir_angle), np.cos(z_angle - nadir_angle))
-    sat_to_observer = STATIC_SCENE["observer_pos"] - sat_pos
-    los_angle = float(np.arctan2(sat_to_observer[1], sat_to_observer[0]))
+    sat_to_view_anchor = STATIC_SCENE["view_anchor_pos"] - sat_pos
+    los_angle = float(np.arctan2(sat_to_view_anchor[1], sat_to_view_anchor[0]))
     los_rel_nadir_rad = np.arctan2(np.sin(los_angle - nadir_angle), np.cos(los_angle - nadir_angle))
 
     if np.isnan(center_first_hit_xy_km).any():
@@ -266,8 +266,8 @@ def sample_scene(sim_idx: int) -> dict:
         "sat_pos": sat_pos,
         "z_axis_dir": z_axis_dir,
         "trail_xy": trail_xy,
-        "observer_x": STATIC_SCENE["observer_x"],
-        "observer_y": STATIC_SCENE["observer_y"],
+        "view_anchor_x": STATIC_SCENE["view_anchor_x"],
+        "view_anchor_y": STATIC_SCENE["view_anchor_y"],
         "orbit_altitude_km": SAT_ALTITUDE_KM,
         "sim_speed_multiplier": CONTROLS.sim_speed_multiplier,
         "edge_l": edge_l,
@@ -305,12 +305,14 @@ def init() -> list:
     if "main" in PANELS:
         a = PANELS["main"]["artists"]
         a["sat"].set_data([], [])
-        a["obs_to_sat"].set_data([], [])
+        a["anchor_to_sat"].set_data([], [])
         a["trail"].set_data([], [])
         a["cone"].set_xy([[0, 0], [0, 0], [0, 0]])
         a["secondary_cone"].set_xy([[0, 0], [0, 0], [0, 0]])
         a["z_axis_arrow"].set_positions((0, 0), (0, 0))
+        a["z_axis_arrow"].set_visible(False)
         a["z_axis_label"].set_position((0, 0))
+        a["z_axis_label"].set_visible(False)
         for g, c in zip(a["cloud_glow"], a["cloud_core"]):
             g.set_data([], [])
             c.set_data([], [])
@@ -320,7 +322,7 @@ def init() -> list:
         a["cone"].set_xy([[0, 0], [0, 0], [0, 0]])
         a["secondary_cone"].set_xy([[0, 0], [0, 0], [0, 0]])
         a["hit"].set_data([], [])
-        a["obs_to_hit"].set_data([], [])
+        a["anchor_to_sat"].set_data([], [])
         for g, c in zip(a["cloud_glow"], a["cloud_core"]):
             g.set_data([], [])
             c.set_data([], [])

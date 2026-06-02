@@ -1,9 +1,9 @@
 ---
 name: SimulationRunner v1
-overview: Introduce SimulationSetupConfig with single-owner resolve(), a shared stepper factory in simulation/, and a slim EpisodeRunner in autonomous_control/ for run_serial — eliminating duplicated stepper construction without cross-layer dependency inversion, optional cameras (never auto-inserted), or render concerns on the runner.
+overview: Introduce EnvironmentSetup with single-owner resolve(), a shared stepper factory in simulation/, and a slim EpisodeRunner in autonomous_control/ for run_serial — eliminating duplicated stepper construction without cross-layer dependency inversion, optional cameras (never auto-inserted), or render concerns on the runner.
 todos:
   - id: setup-types
-    content: Add simulation/setup_types.py (OrbitConfig, SimulationSetupConfig, ResolvedSimulationSetup) with resolve() as sole validation owner; optional cameras on config; no setup_defaults.py
+    content: Add simulation/setup_types.py (OrbitConfig, EnvironmentSetup, ResolvedSimulationSetup) with resolve() as sole validation owner; optional cameras on config; no setup_defaults.py
     status: pending
   - id: stepper-factory
     content: Add simulation/stepper_factory.py with build_stepper(resolved, controller_mode) — internal shared factory, not public runner API
@@ -47,7 +47,7 @@ Profile mismatch: [`s01_run.ipynb`](backend/notebooks/experiments/s01_run.ipynb)
 
 | Risk | Resolution |
 |---|---|
-| Dual validation ownership | **`SimulationSetupConfig.resolve()` is the only owner.** Runner/callers call `setup.resolve()`. No parallel `_ensure_configured()` logic. |
+| Dual validation ownership | **`EnvironmentSetup.resolve()` is the only owner.** Runner/callers call `setup.resolve()`. No parallel `_ensure_configured()` logic. |
 | Public `build_stepper` on runner | **Module-level factory** in `simulation/stepper_factory.py`. Not a public method on a runner class. Workers receive `ResolvedSimulationSetup`, call factory internally. |
 | `run_parallel` cross-layer dependency | **Dropped from v1.** `parallel_training` calls the same stepper factory directly. No `simulation/` → `autonomous_control/` wrap. |
 | `export_video` on runner | **Dropped.** Notebook/scripts call [`utils.notebook.video._export_render_video`](backend/utils/notebook/video.py) directly (render-is-view-only). |
@@ -58,7 +58,7 @@ Profile mismatch: [`s01_run.ipynb`](backend/notebooks/experiments/s01_run.ipynb)
 | Merge/delete | Resolution |
 |---|---|
 | `setup_defaults.py` | **Delete.** Defaults applied inside `resolve()` by referencing `environment_definition.constants` directly. |
-| `SatelliteModule` wrapper | **Delete.** Flat `SimulationSetupConfig`: `satellite: Satellite`, `cameras: tuple[CameraMount, ...] = ()`. |
+| `SatelliteModule` wrapper | **Delete.** Flat `EnvironmentSetup`: `satellite: Satellite`, `cameras: tuple[CameraMount, ...] = ()`. |
 | `run_parallel` on runner | **Deferred** (see above). |
 | `export_video` on runner | **Deleted** (see above). |
 | `simulation_setups/` subdirectory | **Deferred** until a second setup file exists. |
@@ -74,7 +74,7 @@ flowchart TB
     build_setup["build_setup() in s01 profile"]
   end
   subgraph sim [simulation]
-    setup_types[SimulationSetupConfig.resolve]
+    setup_types[EnvironmentSetup.resolve]
     factory[stepper_factory.build_stepper]
     stepper[SimulationStepper]
   end
@@ -104,7 +104,7 @@ flowchart TB
 ## Design principles
 
 - **Python setup module** as config file (pint-safe; extend existing mission profile for v1)
-- **Cameras optional** on `SimulationSetupConfig.cameras` — never auto-inserted; default `()`
+- **Cameras optional** on `EnvironmentSetup.cameras` — never auto-inserted; default `()`
 - **Payload-agnostic defaults** in `resolve()` only (earth, clouds, orbit margins, targets) — not cameras
 - **One episode = one `SimulationStateSeries`** from `SimulationStepper`
 - **Imaging rollout with empty cameras** → error only when caller passes `resolve(require_camera=True)` (tested, not default in v1 runner/factory)
@@ -132,7 +132,7 @@ class SimulationOverrides:
     reward_config: RewardConfig | None = None  # typed; wired through factory when set
 
 @dataclass(frozen=True)
-class SimulationSetupConfig:
+class EnvironmentSetup:
     satellite: Satellite | None = None
     orbit: OrbitConfig | None = None
     cameras: tuple[CameraMount, ...] = ()          # explicit opt-in only
@@ -152,13 +152,13 @@ class SimulationSetupConfig:
 Add to [`mission_profiles/s01_multiple_targets_fwd_fish.py`](backend/environment_definition/mission_profiles/s01_multiple_targets_fwd_fish.py):
 
 ```python
-def build_setup(*, seed: int | None = None, include_cameras: bool = True) -> SimulationSetupConfig:
+def build_setup(*, seed: int | None = None, include_cameras: bool = True) -> EnvironmentSetup:
     altitude = sample_satellite_altitude(seed=seed)
     cameras = ()
     if include_cameras:
         scnd = CameraImage.from_fov(...)
         cameras = (DEFAULT_NADIR_MOUNT, CameraMount(scnd, tilt_off_nadir=0 * ureg.deg))
-    return SimulationSetupConfig(
+    return EnvironmentSetup(
         satellite=SATELLITE,
         orbit=OrbitConfig(altitude=altitude),
         cameras=cameras,
@@ -173,7 +173,7 @@ When `include_cameras=False`, bus-only or other-payload experiments leave `camer
 
 ## 2. Validation — single owner: `resolve()`
 
-All logic in `SimulationSetupConfig.resolve()`:
+All logic in `EnvironmentSetup.resolve()`:
 
 **Required after resolve:**
 - `satellite`, `orbit.altitude`
@@ -224,7 +224,7 @@ def build_stepper(
 
 ```python
 class EpisodeRunner:
-    def __init__(self, setup: SimulationSetupConfig): ...
+    def __init__(self, setup: EnvironmentSetup): ...
     def run_serial(self, agent, *, mode: str, ...) -> EpisodeResult: ...
 ```
 
@@ -238,12 +238,12 @@ class EpisodeRunner:
 Thin backward-compat wrapper:
 
 ```python
-def run_episode(..., setup: SimulationSetupConfig | None = None) -> EpisodeResult:
+def run_episode(..., setup: EnvironmentSetup | None = None) -> EpisodeResult:
     effective_setup = setup or build_setup(seed=0)  # explicit nadir camera in build_setup
     return EpisodeRunner(effective_setup).run_serial(agent, mode=mode, ...)
 ```
 
-(`effective_setup` is an unresolved `SimulationSetupConfig`; `EpisodeRunner` calls `.resolve()` internally.)
+(`effective_setup` is an unresolved `EnvironmentSetup`; `EpisodeRunner` calls `.resolve()` internally.)
 
 ---
 
@@ -282,7 +282,7 @@ def run_baseline_rollout(...) -> SimulationStateSeries:
 
 **`run_simulation` migration path (explicit, no fork):**
 
-1. Accept optional `setup: SimulationSetupConfig | None` (+ keep legacy flat kwargs temporarily if needed for tests).
+1. Accept optional `setup: EnvironmentSetup | None` (+ keep legacy flat kwargs temporarily if needed for tests).
 2. `resolved = setup.resolve(require_camera=False)` when setup provided.
 3. `stepper = build_stepper(resolved, simulation_config=sim_config)`.
 4. `return run_baseline_rollout_from_stepper(stepper, simulation_config=sim_config, ...)`.
@@ -332,7 +332,7 @@ Cell 4 (play from disk) unchanged.
 
 **What scales without code changes:**
 - Each new scenario = new `build_setup()` in its mission profile module (or later `simulation_setups/s0N_*.py`)
-- `SimulationSetupConfig` + `resolve()` + factory unchanged
+- `EnvironmentSetup` + `resolve()` + factory unchanged
 - Per-config variation via `simulation_overrides` (timestep, kernel backend, ray samples, **`reward_config`**)
 
 **Risks when adding 3+ configs:**
@@ -371,7 +371,7 @@ Cell 4 (play from disk) unchanged.
 **Touched**
 - `environment_definition/mission_profiles/s01_multiple_targets_fwd_fish.py` — add `build_setup()`
 - `simulation/stepper.py` — extract `run_baseline_rollout_from_stepper`; retire inline `SimulationStepper(...)` construction from `run_baseline_rollout` at migrated call sites
-- `simulation/run_simulation.py` — accept `SimulationSetupConfig`, factory + `run_baseline_rollout_from_stepper`
+- `simulation/run_simulation.py` — accept `EnvironmentSetup`, factory + `run_baseline_rollout_from_stepper`
 - `autonomous_control/training_runtime.py`
 - `autonomous_control/parallel_training.py`
 - `scripts/simulation_runner.py` — pass setup into refactored `run_simulation()`

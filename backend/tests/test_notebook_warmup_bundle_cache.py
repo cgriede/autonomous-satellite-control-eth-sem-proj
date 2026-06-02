@@ -53,7 +53,6 @@ def _minimal_state_series(*, n_frames: int, n_bins: int) -> SimulationStateSerie
     torque = np.zeros(n, dtype=float)
     torque[1:] = np.linspace(0.1, 0.1 * (n - 1), n - 1)
     line_codes = np.zeros((n, n_bins), dtype=np.int8)
-    fixed_ground = np.full((n, n_bins), np.int8(-99), dtype=np.int8)
     return SimulationStateSeries(
         t_s=t_s,
         theta_orbit_rad=np.zeros(n, dtype=float),
@@ -71,7 +70,6 @@ def _minimal_state_series(*, n_frames: int, n_bins: int) -> SimulationStateSerie
         camera_center_ray_observation_code=np.zeros(n, dtype=np.int8),
         camera_cloud_blocked_fraction=np.zeros(n, dtype=float),
         camera_observation_line_codes=line_codes,
-        fixed_ground_line_codes=fixed_ground,
         sat_subpoint_lat_deg=np.zeros(n, dtype=float),
         sat_subpoint_lon_deg=np.zeros(n, dtype=float),
         sat_altitude_m=np.ones(n, dtype=float) * 400_000.0,

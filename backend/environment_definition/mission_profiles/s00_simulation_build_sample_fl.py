@@ -1,7 +1,7 @@
 """
 This mission (M1) is specified as follows:
 - Satellite altitude is sampled within configured bounds.
-- Satellite should maximize time where camera faces observer directly.
+- Satellite should maximize time where the camera covers the target stripe directly.
 """
 
 from __future__ import annotations

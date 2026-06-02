@@ -12,7 +12,7 @@ from environment_definition.mission_profiles.s01_multiple_targets_fwd_fish impor
     build_setup,
     sample_satellite_altitude,
 )
-from simulation.setup_types import OrbitConfig, SimulationSetupConfig
+from simulation.setup_types import OrbitConfig, EnvironmentSetup
 from simulation.state_types import SimulationStateSeries
 from autonomous_control.training_runtime import EpisodeResult
 
@@ -70,7 +70,7 @@ class EpisodeRunnerStepperParityTest(unittest.TestCase):
 
     def test_factory_stepper_total_steps_matches_direct_construction(self):
         altitude = sample_satellite_altitude(seed=0)
-        cfg = SimulationSetupConfig(
+        cfg = EnvironmentSetup(
             satellite=SATELLITE,
             orbit=OrbitConfig(altitude=altitude),
         )
@@ -94,7 +94,7 @@ class EpisodeRunnerStepperParityTest(unittest.TestCase):
 class EpisodeRunnerRunSerialTest(unittest.TestCase):
     def setUp(self):
         altitude = sample_satellite_altitude(seed=1)
-        self.cfg = SimulationSetupConfig(
+        self.cfg = EnvironmentSetup(
             satellite=SATELLITE,
             orbit=OrbitConfig(altitude=altitude),
         )

@@ -1,6 +1,6 @@
 # Ubiquitous Language Seed
 
-Starter glossary for prompts, commits, PRs, code, and tests. Extend with [.cursor/rules/dev-ubiquitous-language.mdc](../../rules/dev-ubiquitous-language.mdc) discipline.
+Starter glossary for prompts, commits, PRs, code, and tests. Extend with the naming discipline in [.cursor/skills/implementation-discipline/SKILL.md](../../skills/implementation-discipline/SKILL.md).
 
 ## Core Terms
 

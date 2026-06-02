@@ -45,7 +45,7 @@ isProject: false
 
 ## Goal
 
-Finish the s01 simulation environment and reward layer on top of [`SimulationSetupConfig`](backend/simulation/setup_types.py) / [`EpisodeRunner`](backend/autonomous_control/episode_runner.py), per [user-manual Simulation Setup API](docs/user-manual.md). Deliver a **visible demo video** (notebook export) showing enlarged clouds + dual-camera strips. Mark anything that cannot be passed as setup objects (or needs new state machines) as **`TODO(s01-background)`** in code and a short registry in the notebook constraints cell.
+Finish the s01 simulation environment and reward layer on top of [`EnvironmentSetup`](backend/simulation/setup_types.py) / [`EpisodeRunner`](backend/autonomous_control/episode_runner.py), per [user-manual Simulation Setup API](docs/user-manual.md). Deliver a **visible demo video** (notebook export) showing enlarged clouds + dual-camera strips. Mark anything that cannot be passed as setup objects (or needs new state machines) as **`TODO(s01-background)`** in code and a short registry in the notebook constraints cell.
 
 ## Scope (confirmed)
 

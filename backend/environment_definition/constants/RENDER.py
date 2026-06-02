@@ -22,7 +22,7 @@ class RenderConstants:
     earth_res                   : int
     earth_dark_rgb              : tuple[float, float, float]
     earth_bright_rgb            : tuple[float, float, float]
-    # Shared top-down / strip styling (observer-local 500 km bird panel + 1d_sat_view earth code)
+    # Shared strip styling.
     earth_green_rgb             : tuple[float, float, float]
     fov_turquoise_rgba          : tuple[float, float, float, float]
     cloud_grey_rgb              : tuple[float, float, float]
@@ -30,10 +30,10 @@ class RenderConstants:
     earth_outline_color         : str
     earth_outline_linewidth     : float
     earth_outline_alpha         : float
-    observer_color              : str
-    observer_marker_size        : float
-    observer_marker_edge_width  : float
-    observer_marker_render_scale: float
+    target_band_color           : str
+    target_band_marker_size     : float
+    target_band_linewidth       : float
+    target_band_render_scale    : float
     cloud_color                 : str
     cloud_linewidth             : float
     cloud_alpha                 : float
@@ -90,25 +90,16 @@ class RenderConstants:
     zorder_los                  : int
     zorder_z_axis               : int
     zorder_z_label              : int
-    zorder_observer             : int
+    zorder_target_band          : int
     zorder_cloud                : int
     zorder_info                 : int
-    # 1D bird-view inset panel (bottom → top: footprint, centerline, observer, hit, clouds)
-    zorder_inset_footprint        : int
-    zorder_inset_centerline       : int
-    zorder_inset_observer         : int
-    zorder_inset_hit              : int
-    zorder_inset_cloud_glow       : int
-    zorder_inset_cloud_core       : int
-    inset_footprint_fill_alpha    : float
-    inset_footprint_edge_linewidth: float
     # Observer + cloud close-up YZ panel
     zorder_closeup_ground        : int
     zorder_closeup_cone          : int
     zorder_closeup_cloud_glow    : int
     zorder_closeup_cloud_core    : int
     zorder_closeup_hit           : int
-    zorder_closeup_observer      : int
+    zorder_closeup_target_band   : int
     closeup_ground_line_color    : str
     closeup_ground_line_linewidth: float
     export_fps                   : int
@@ -123,22 +114,15 @@ class RenderConstants:
     telemetry_axes_rect        : tuple[float, float, float, float]
     reward_axes_rect           : tuple[float, float, float, float]
     torque_axes_rect           : tuple[float, float, float, float]
-    bird_view_1d_axes_rect     : tuple[float, float, float, float]
-    # 1D camera observation strip (per-bin codes from SimulationStateSeries), below bird view.
+    # 1D primary camera observation strip (per-bin codes from SimulationStateSeries).
     sat_view_1d_axes_rect      : tuple[float, float, float, float]
-    # 1D secondary camera observation strip (above primary sat view, reuses former fixed-bird slot).
+    # 1D secondary camera observation strip above the primary strip.
     sat_view_1d_secondary_axes_rect: tuple[float, float, float, float]
     closeup_axes_rect          : tuple[float, float, float, float]
-    # Observer-centered ±fixed_bird_view_half_extent_km 1D fixed-bird strip coverage.
-    fixed_bird_view_half_extent_km: object
-    # Observer-centered ±bird_view_1d_half_extent_km top-down 2D panel (legacy naming kept for compatibility).
-    fixed_bird_view_axes_rect  : tuple[float, float, float, float]
     transport_bar_rect         : tuple[float, float, float, float]
     interactive_start_maximized: bool
     closeup_half_window_km     : object
     closeup_cloud_height_scale : float
-    # 1D bird-view XY: square window [-half, +half] km each axis (full width = 2 * half).
-    bird_view_1d_half_extent_km: object
 
 
 RENDER = RenderConstants(
@@ -172,10 +156,10 @@ RENDER = RenderConstants(
     earth_outline_linewidth      = 2.0,
     earth_outline_alpha          = 0.9,
 
-    observer_color               = "red",
-    observer_marker_size         = 8.0,
-    observer_marker_edge_width   = 3.0,
-    observer_marker_render_scale = 1.8,
+    target_band_color            = "red",
+    target_band_marker_size      = 8.0,
+    target_band_linewidth        = 3.0,
+    target_band_render_scale     = 1.8,
 
     cloud_color                  = "white",
     cloud_linewidth              = 3.0,
@@ -247,23 +231,15 @@ RENDER = RenderConstants(
     zorder_los                     = 5,
     zorder_z_axis                  = 6,
     zorder_z_label                 = 7,
-    zorder_observer                = 8,
+    zorder_target_band             = 8,
     zorder_cloud                   = 9,
     zorder_info                    = 20,
-    zorder_inset_footprint         = 2,
-    zorder_inset_centerline        = 3,
-    zorder_inset_observer          = 4,
-    zorder_inset_hit               = 5,
-    zorder_inset_cloud_glow        = 6,
-    zorder_inset_cloud_core        = 7,
-    inset_footprint_fill_alpha     = 0.28,
-    inset_footprint_edge_linewidth = 1.8,
     zorder_closeup_ground          = 1,
     zorder_closeup_cone            = 2,
     zorder_closeup_hit             = 3,
     zorder_closeup_cloud_glow      = 4,
     zorder_closeup_cloud_core      = 5,
-    zorder_closeup_observer        = 8,
+    zorder_closeup_target_band     = 8,
 
     closeup_ground_line_color     = "#8B4513",
     closeup_ground_line_linewidth = 2.0,
@@ -278,16 +254,12 @@ RENDER = RenderConstants(
     reward_axes_rect            = (0.02, 0.168, 0.19, 0.085),
     main_axes_rect              = (0.222, 0.280, 0.758, 0.70),
     closeup_axes_rect           = (0.606, 0.068, 0.374, 0.192),
-    fixed_bird_view_axes_rect   = (0.222, 0.125, 0.374, 0.055),
     transport_bar_rect          = (0.02, 0.02, 0.96, 0.048),
     interactive_start_maximized = True,
     
     # Stacked left column: secondary-cam strip above primary sat observation strip.
     sat_view_1d_axes_rect=(0.222, 0.068, 0.374, 0.055),
     sat_view_1d_secondary_axes_rect=(0.222, 0.125, 0.374, 0.055),
-    bird_view_1d_axes_rect=(0.222, 0.125, 0.374, 0.055),
-    fixed_bird_view_half_extent_km=500.0 * ureg.km,
-    bird_view_1d_half_extent_km=500.0 * ureg.km,
 
     export_filename = "satellite_orbit_one_pass_30x.mp4",
     export_fps      = 20,

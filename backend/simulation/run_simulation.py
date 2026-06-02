@@ -11,7 +11,7 @@ from .stepper import run_baseline_rollout
 
 def run_simulation(
     *,
-    setup=None,  # SimulationSetupConfig | None
+    setup=None,  # EnvironmentSetup | None
     simulation_config: SimulationConfig | None = None,
     earth_radius: Any | None = None,
     earth_gravitational_parameter: Any | None = None,
@@ -30,19 +30,19 @@ def run_simulation(
 ) -> SimulationStateSeries:
     """Run a baseline/random-controller simulation episode.
 
-    Accepts either a SimulationSetupConfig (new path) or the legacy flat kwargs.
+    Accepts either a EnvironmentSetup (new path) or the legacy flat kwargs.
     When `setup` is provided, all legacy flat kwargs are ignored.
     """
     _ = num_frames  # compatibility: simulation derives frame count from time-based config
 
     if setup is not None:
         from environment_definition.constants.SIMULATION import RenderMode, SimulationConfig as _SC
-        from .setup_types import SimulationSetupConfig
+        from .setup_types import EnvironmentSetup
         from .stepper import run_baseline_rollout_from_stepper
         from .stepper_factory import build_stepper
 
-        assert isinstance(setup, SimulationSetupConfig), (
-            f"run_simulation(setup=...) expects SimulationSetupConfig, got {type(setup)}"
+        assert isinstance(setup, EnvironmentSetup), (
+            f"run_simulation(setup=...) expects EnvironmentSetup, got {type(setup)}"
         )
         sim_cfg = simulation_config if simulation_config is not None else _SC(
             render_mode=RenderMode.HEADLESS,

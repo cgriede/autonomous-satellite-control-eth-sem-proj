@@ -1,7 +1,7 @@
 """
 This mission (M1) is specified as follows:
 - Satellite altitude is sampled within configured bounds.
-- Satellite should maximize time where camera faces observer directly.
+- Satellite should maximize time where the camera covers the target stripe directly.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from environment_definition.constants.SIMULATION import Cloud
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from utils.leo_adapter.orbit_geometry import circular_orbital_speed_from_altitude
 from environment_definition.runtime_types import Mission, MissionScenario, Satellite
-from simulation.setup_types import OrbitConfig, SimulationOverrides, SimulationSetupConfig
+from simulation.setup_types import OrbitConfig, SimulationOverrides, EnvironmentSetup
 
 _LOWER_MAG = SATELLITE_ALTITUDE_LOWER_BOUND.magnitude
 _UPPER_MAG = SATELLITE_ALTITUDE_UPPER_BOUND.to(SATELLITE_ALTITUDE_LOWER_BOUND.units).magnitude
@@ -85,8 +85,8 @@ def build_setup(
     *,
     seed: int | None = None,
     include_cameras: bool = True,
-) -> SimulationSetupConfig:
-    """Build a SimulationSetupConfig for the s01 mission profile.
+) -> EnvironmentSetup:
+    """Build a EnvironmentSetup for the s01 mission profile.
 
     Configures:
     - Exact nadir initial attitude via ``sat_z_offset=0°`` (§4.0).
@@ -102,7 +102,7 @@ def build_setup(
                          setup (cameras=()) for payload-agnostic experiments.
 
     Returns:
-        An unresolved SimulationSetupConfig; call .resolve() before use.
+        An unresolved EnvironmentSetup; call .resolve() before use.
     """
     from simulation.camera_image import CameraImage, CameraMount, DEFAULT_NADIR_CAMERA
 
@@ -125,7 +125,7 @@ def build_setup(
         cameras = (nadir_mount, scnd_mount)
         overrides = SimulationOverrides(secondary_camera_observation_line_n_bins=200)
 
-    return SimulationSetupConfig(
+    return EnvironmentSetup(
         satellite=SATELLITE,
         # sat_z_offset=0° → exact nadir initial attitude (§4.0): body +Z points at Earth center at orbit start.
         orbit=OrbitConfig(altitude=altitude, sat_z_offset=0 * ureg.deg),

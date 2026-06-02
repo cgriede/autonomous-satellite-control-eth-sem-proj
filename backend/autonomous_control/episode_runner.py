@@ -12,7 +12,7 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from environment_definition.constants.SIMULATION import RenderMode, SimulationConfig
-from simulation.setup_types import SimulationSetupConfig
+from simulation.setup_types import EnvironmentSetup
 from simulation.stepper_factory import build_stepper
 
 from .feature_selection import ControllerFeatureConfig
@@ -32,7 +32,7 @@ class EpisodeRunner:
         result = EpisodeRunner(setup).run_serial(agent, mode="warmup", warmup_controller="random")
     """
 
-    def __init__(self, setup: SimulationSetupConfig) -> None:
+    def __init__(self, setup: EnvironmentSetup) -> None:
         self._setup = setup
         # v1: cameras not yet wired into SensorKernel — require_camera stays False.
         self._resolved = setup.resolve(require_camera=False)
