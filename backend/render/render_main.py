@@ -503,7 +503,7 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
     )
 
     if mpl_ffmpeg_available:
-        writer = mpl_animation.FFMpegWriter(fps=export_fps, dpi=RENDER.export_dpi)
+        writer = mpl_animation.FFMpegWriter(fps=export_fps)
         with writer.saving(FIG, str(export_path), dpi=RENDER.export_dpi):
             for frame in frame_iter:
                 export_update(frame)

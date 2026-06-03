@@ -23,7 +23,7 @@ MOMENT_OF_INERTIA_2D        = Izz
 # - Pixel size: 3.2 µm
 # - Focal length: 1067 mm
 # - Nominal altitude: 500 km (mission reference; GSD/swath are computed vs. actual altitude in simulation)
-CAMERA_ALTITUDE = 500 * ureg.km
+CAMERA_ALTITUDE = 550 * ureg.km
 
 N_PIXELS_X = 9344
 N_PIXELS_Y = 7000

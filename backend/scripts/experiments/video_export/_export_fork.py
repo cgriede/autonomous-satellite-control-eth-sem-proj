@@ -59,7 +59,7 @@ def save_one_pass_video_fork(
     )
 
     if mpl_ffmpeg_available:
-        writer = mpl_animation.FFMpegWriter(fps=export_fps, dpi=RENDER.export_dpi)
+        writer = mpl_animation.FFMpegWriter(fps=export_fps)
         with writer.saving(rm.FIG, str(export_path), dpi=RENDER.export_dpi):
             for frame in frame_iter:
                 export_update(frame)
