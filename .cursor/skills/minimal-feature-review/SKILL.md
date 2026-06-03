@@ -62,12 +62,14 @@ Reuse [.cursor/skills/minimal-feature-cycle/SKILL.md](../minimal-feature-cycle/S
 
 Review-specific note: when a notebook crashes after you have edited code on disk, confirm with `git show HEAD:<path>` (or `git diff HEAD <path>`) that the file actually carries your change before suspecting the code. The most common false positive in this skill's loop is a stale Jupyter kernel holding the pre-edit module in `sys.modules`. The fix is kernel restart, not a code change.
 
-## Phase 5 — Validate, archive, ship
+## Phase 5 — Validate, human confirm, ship
 
-- Targeted pytest run: only the modules touched by the refactor. Reuse the existing test suites; do not invent new tests unless the review surfaced an uncovered failure mode.
-- Human UX walkthrough per [.cursor/rules/post-implementation-human-ux-review.mdc](../../rules/post-implementation-human-ux-review.mdc) where there is a visible surface (CLI output, notebook artefact, report). Otherwise record `Human UX review: N/A — <one-line reason>` in the plan.
-- Move plan and notebook through stages per [.cursor/rules/plans-lifecycle-workflow.mdc](../../rules/plans-lifecycle-workflow.mdc).
-- One production-ready commit staging only the focused files. Working-tree noise should already be on its own Phase 0 commit.
+**Order is fixed.** Do not skip or reorder steps 1–4.
+
+1. **Automated gate:** Targeted pytest on modules touched by the refactor. Reuse existing suites; do not invent new tests unless the review surfaced an uncovered failure mode. A green pytest run is necessary, not sufficient.
+2. **Human UX gate:** Where there is a visible surface (CLI output, notebook artefact, MP4, report), the **user** must verify — not only the agent. Follow [.cursor/rules/post-implementation-human-ux-review.mdc](../../rules/post-implementation-human-ux-review.mdc) and [visual-output-verification](../visual-output-verification/SKILL.md) when visuals are in scope. Otherwise record `Human UX review: N/A — <one-line reason>` in the plan.
+3. **Explicit confirmation (hard stop):** Ask the user whether the fix is good to ship. **Do not commit** until they confirm human verification passed. Never treat agent-run notebook output, regenerated MP4s, or passing tests as substitute approval. If the user has not re-run the notebook or watched the artefact, say so and wait.
+4. **Ship (only after step 3):** Move plan and notebook through stages per [.cursor/rules/plans-lifecycle-workflow.mdc](../../rules/plans-lifecycle-workflow.mdc). One production-ready commit staging only the focused files. Working-tree noise should already be on its own Phase 0 commit. **Do not commit unless the user explicitly asks** after confirming step 3.
 
 ## Flow
 
@@ -78,7 +80,9 @@ flowchart LR
   phase1 --> phase2["Phase 2: backward-compat and policy questions"]
   phase2 --> phase3["Phase 3: minimal refactor and caller updates"]
   phase3 --> phase4["Phase 4: debug with runtime evidence"]
-  phase4 --> phase5["Phase 5: validate, archive, ship"]
+  phase4 --> phase5["Phase 5: validate, human confirm, ship"]
+  phase5 --> humanGate["User confirms fix is good"]
+  humanGate --> commit["Focused commit only if user asked"]
 ```
 
 ## Pointers

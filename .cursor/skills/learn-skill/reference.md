@@ -29,7 +29,7 @@ When in doubt, **POINTER** at minimum: `See [learn-skill](../learn-skill/SKILL.m
 | `isolated-notebook-hypotheses` | notebook-only logic, reload |
 | `learn-skill` | meta — record format, sweep completeness |
 | `minimal-feature-cycle` | backlog uid, plan, promote, gates |
-| `minimal-feature-review` | cleanup, commits |
+| `minimal-feature-review` | cleanup, commits, **human confirm before ship** |
 | `new-skill-integration` | rules vs skills overlap; check before duplicate skill |
 | `notebook-hparam-sweep` | notebook experiments |
 | `performance-optimization` | profiling, bottlenecks |

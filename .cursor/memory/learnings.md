@@ -34,3 +34,13 @@ Invoke **`/learn-skill`** (see [`.cursor/commands/learn-skill.md`](../commands/l
 - **Evidence:** User asked to add learn-skill; workflow already existed under `.cursor/skills/learn-skill/` and needed refinement only.
 - **Applied to:** learn-skill, new-skill-integration
 - **Status:** applied
+
+---
+
+### 2026-06-03 — human-confirm-before-review-ship
+
+- **Type:** anti-pattern
+- **Learning:** After a review fix, never commit or treat the slice as shipped until the user explicitly confirms human verification passed — passing pytest or agent-run notebook output is not sufficient.
+- **Evidence:** Safe-mode movement-constraints review: agent attempted a production commit immediately after tests passed; user rejected because they had not re-verified notebook/MP4 behavior.
+- **Applied to:** minimal-feature-review, minimal-feature-cycle (POINTER), bulk-change-triage-commit (POINTER), visual-output-verification (POINTER), learn-skill (POINTER), all other skills (N/A), all rules (N/A)
+- **Status:** applied

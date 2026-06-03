@@ -121,6 +121,7 @@ Priority when multiple surfaces match:
 - **Do not** only update `backlog.md` or chat — `learnings.md` + skills/rules are the durable output.
 - **Do not** mark `applied` without reading every `.cursor/skills/**/SKILL.md`.
 - **Do not** commit unless the user asked.
+- **Do not** treat pytest green or agent-regenerated artefacts as user approval to ship — see learnings.md `human-confirm-before-review-ship` and [minimal-feature-review](../minimal-feature-review/SKILL.md) Phase 5.
 - If a learning contradicts a skill bullet, **fix the skill** and note the conflict in the summary.
 
 ## Related skills

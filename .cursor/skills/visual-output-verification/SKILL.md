@@ -18,3 +18,5 @@ Use this skill whenever the task changes what a human will see.
 ## Done criterion
 
 Do not mark the task complete based only on code inspection when the requested outcome is visual.
+
+**User approval:** Agent-side OCR/CV or regenerated MP4 is pre-check only. The **user** must confirm the artefact before commit or ship — see [minimal-feature-review](../minimal-feature-review/SKILL.md) Phase 5 and learnings.md `human-confirm-before-review-ship`.

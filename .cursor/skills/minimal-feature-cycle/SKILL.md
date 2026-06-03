@@ -75,7 +75,7 @@ Required loop:
 4. Complete the human UX walkthrough required by [.cursor/rules/post-implementation-human-ux-review.mdc](../../rules/post-implementation-human-ux-review.mdc), or write `Human UX review: N/A — <one-line reason>` in section 4b.
 5. Archive the plan when the done checklist is satisfied.
 6. **Update backlog:** set matching `backlog.xlsx` row to `status=done` (see [pm-backlog-review](../pm-backlog-review/SKILL.md)); do not update only `backlog.md`.
-7. **Review handoff (required):** Before treating the cycle as finished, ask the user whether to run [.cursor/skills/minimal-feature-review/SKILL.md](../minimal-feature-review/SKILL.md) (`/minimal-feature-review`). Offer a one-line summary of what changed (commits, branch, or plan name) so they can say yes with context. Do not start the review yourself unless they agree — the review skill begins with working-tree hygiene and framed cleanup targets.
+7. **Review handoff (required):** Before treating the cycle as finished, ask the user whether to run [.cursor/skills/minimal-feature-review/SKILL.md](../minimal-feature-review/SKILL.md) (`/minimal-feature-review`). Offer a one-line summary of what changed (commits, branch, or plan name) so they can say yes with context. Do not start the review yourself unless they agree — the review skill begins with working-tree hygiene and framed cleanup targets. If review runs and applies a fix, **human confirmation before commit** is mandatory per that skill's Phase 5 (see learnings.md `human-confirm-before-review-ship`).
 
 ## Phase flow
 
