@@ -145,6 +145,7 @@ class SimulationStepper:
         sat_theta_start_rad = 0.5 * (theta_start_rad + theta_end_rad) - 0.5 * sat_theta_span_rad
         r_orbit_km = r_earth_km + sat_altitude_km
         omega_rad_s = float(np.sqrt(mu_earth_km3_s2 / (r_orbit_km**3)))
+        self._omega_orbit_rad_s = omega_rad_s
         sim_total_s = float(sat_theta_span_rad / omega_rad_s)
         orbit_period_s = float(2.0 * np.pi / omega_rad_s)
 
@@ -367,6 +368,7 @@ class SimulationStepper:
                 state=self._state,
                 sat_pos_xy_km=sat_xy,
                 theta_orbit_rad=float(self._theta_orbit_rad[self._index]),
+                omega_orbit_rad_s=float(self._omega_orbit_rad_s),
                 dt_s=float(self._sim_dt_s),
             )
             for ev in result.events:

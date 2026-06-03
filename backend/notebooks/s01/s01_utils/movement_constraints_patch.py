@@ -11,6 +11,7 @@ import numpy as np
 from gymnasium import spaces
 
 from autonomous_control.controller_baselines import DelayedMaxTorquePolicy
+from environment_definition.constants.ATTITUDE_SAFETY import NADIR_RECOVERY_TOLERANCE_DEG
 from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
 from environment_definition.constants.SIMULATION import RenderMode, SimulationConfig
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
@@ -165,36 +166,57 @@ def print_movement_verification_summary(
     warnings = [e for e in events if e["event"] == "SAFETY_WARNING"]
     takeovers = [e for e in events if e["event"] == "SAFE_MODE_TAKEOVER"]
     lockouts = [e for e in events if e["event"] == "LOCKOUT_ACTIVE"]
+    exits = [e for e in events if e["event"] == "SAFE_MODE_EXIT"]
     sim_total = float(series.metadata.sim_total_s)
+    final_off = float(off_deg[-1]) if off_deg.size else 0.0
+    tol_deg = float(NADIR_RECOVERY_TOLERANCE_DEG.to(ureg.deg).magnitude)
+    lockout_off = float(lockouts[0]["off_nadir_deg"]) if lockouts else final_off
 
     print("Movement verification summary")
     print(f"  sim_total_s:     {sim_total:.1f}")
     print(f"  t_coast_end:     {delay_s:.1f}s")
     print(f"  max_off_nadir:   {max_off:.2f} deg")
+    print(f"  final_off_nadir: {final_off:.2f} deg")
+    print(f"  lockout_off_nadir: {lockout_off:.2f} deg")
     print(f"  n_warnings:      {len(warnings)}")
     print(f"  n_takeover:      {len(takeovers)}")
     print(f"  n_lockout_steps: {len(lockouts)}")
+    print(f"  n_safe_exit:     {len(exits)}")
     if warnings:
         w0 = warnings[0]
         print(f"  first_warning:   step={w0['step']} t={w0['t_s']:.1f}s")
     if takeovers:
         t0 = takeovers[0]
         print(f"  takeover:        step={t0['step']} t={t0['t_s']:.1f}s")
+    if lockouts:
+        l0 = lockouts[0]
+        print(f"  lockout_start:   step={l0['step']} t={l0['t_s']:.1f}s")
 
     envelope_ok = max_off <= 45.0 + 0.5
     takeover_ok = len(takeovers) >= 1
-    if envelope_ok and takeover_ok:
-        print("PASS: envelope + safe-mode takeover")
+    lockout_ok = len(lockouts) >= 1
+    recovery_ok = lockout_off <= tol_deg + 0.5
+    if envelope_ok and takeover_ok and lockout_ok and recovery_ok:
+        print("PASS: envelope + takeover + lockout + recovery")
     else:
-        print(f"FAIL: envelope_ok={envelope_ok} takeover_ok={takeover_ok}")
+        print(
+            f"FAIL: envelope_ok={envelope_ok} takeover_ok={takeover_ok} "
+            f"lockout_ok={lockout_ok} recovery_ok={recovery_ok}"
+        )
 
     return {
         "max_off_nadir_deg": max_off,
+        "final_off_nadir_deg": final_off,
+        "lockout_off_nadir_deg": lockout_off,
         "n_warnings": len(warnings),
         "n_takeover": len(takeovers),
+        "n_lockout": len(lockouts),
         "takeover_step": takeovers[0]["step"] if takeovers else None,
+        "lockout_step": lockouts[0]["step"] if lockouts else None,
         "envelope_ok": envelope_ok,
         "takeover_ok": takeover_ok,
+        "lockout_ok": lockout_ok,
+        "recovery_ok": recovery_ok,
     }
 
 

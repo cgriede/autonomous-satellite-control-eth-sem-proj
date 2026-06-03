@@ -9,7 +9,6 @@ from pathlib import Path
 
 import numpy as np
 
-from environment_definition.constants.SIMULATION import RenderMode, SimulationConfig
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 
 _S01_DIR = Path(__file__).resolve().parents[1] / "notebooks" / "s01"
@@ -23,6 +22,7 @@ from s01_utils.movement_constraints_patch import (  # noqa: E402
     export_movement_verification_video,
     make_delayed_max_policy,
     max_off_nadir_deg_series,
+    movement_simulation_config,
     print_movement_verification_summary,
     run_policy_rollout,
 )
@@ -31,11 +31,7 @@ from s01_utils.movement_constraints_patch import (  # noqa: E402
 class MovementConstraintsSimIntegrationTest(unittest.TestCase):
     def _run_delayed_max(self, *, tau_scale: float = 1.0):
         setup = build_fast_movement_setup(seed=0, include_cameras=False)
-        sim_cfg = SimulationConfig(
-            render_mode=RenderMode.HEADLESS,
-            controller_mode="coast",
-            attitude_safety_enabled=True,
-        )
+        sim_cfg = movement_simulation_config(attitude_controller_enabled=True)
         stepper, _ = build_movement_stepper(setup, simulation_config=sim_cfg, patch=True)
         policy = make_delayed_max_policy(stepper, delay_s=5.0, tau_scale=tau_scale)
         series, events = run_policy_rollout(stepper, policy, print_events=False)
@@ -46,6 +42,8 @@ class MovementConstraintsSimIntegrationTest(unittest.TestCase):
         summary = print_movement_verification_summary(series, events, delay_s=5.0)
         self.assertTrue(summary["envelope_ok"])
         self.assertTrue(summary["takeover_ok"])
+        self.assertTrue(summary["lockout_ok"])
+        self.assertTrue(summary["recovery_ok"])
         self.assertGreaterEqual(summary["n_warnings"], 0)
 
     def test_delayed_max_deterministic_takeover_step(self):
@@ -66,11 +64,7 @@ class MovementConstraintsSimIntegrationTest(unittest.TestCase):
 
     def test_delayed_max_exports_required_mp4(self) -> None:
         setup = build_movement_video_setup(seed=0)
-        sim_cfg = SimulationConfig(
-            render_mode=RenderMode.HEADLESS,
-            controller_mode="coast",
-            attitude_safety_enabled=True,
-        )
+        sim_cfg = movement_simulation_config(attitude_controller_enabled=True)
         stepper, _ = build_movement_stepper(setup, simulation_config=sim_cfg, patch=True)
         policy = make_delayed_max_policy(stepper, delay_s=5.0, tau_scale=1.0)
         series, _ = run_policy_rollout(stepper, policy, print_events=False)
