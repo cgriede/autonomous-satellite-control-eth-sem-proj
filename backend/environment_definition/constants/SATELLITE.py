@@ -31,8 +31,10 @@ N_PIXELS_Y = 7000
 PIXEL_SIZE = 3.2 * ureg.um  # pixel pitch
 FOCAL_LENGTH = 1067 * ureg.mm
 
+CAMERA_EXPOSURE_TIME = 100 * ureg.microsecond  # for GSD-based motion blur estimation
+
 # Physical sensor dimensions (rectangle in the focal plane)
-SENSOR_WIDTH = (N_PIXELS_X * PIXEL_SIZE).to(ureg.m)  # cross-track dimension
-SENSOR_HEIGHT = (N_PIXELS_Y * PIXEL_SIZE).to(ureg.m)  # along-track dimension
+SENSOR_WIDTH = N_PIXELS_X * PIXEL_SIZE  # cross-track dimension
+SENSOR_HEIGHT = N_PIXELS_Y * PIXEL_SIZE # along-track dimension
 
 ####################################

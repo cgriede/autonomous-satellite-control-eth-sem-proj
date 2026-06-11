@@ -68,6 +68,7 @@ After notable process mistakes or breakthroughs, run **`/learn-skill`** to updat
 - reduce mission/global constant coupling in `training_runtime` by passing scenario/config explicitly
 - simplify/rename env adapter API to reflect non-Gym-physics behavior
 - remove deprecated compatibility args in `run_simulation` once call sites are migrated
+- add a strict JSON-driven simulation configuration loader that validates the full runtime config and throws hard errors for ill-defined inputs, including nested satellite, torque policy, and camera specs; do not rely on scattered constants
 - commit and split today's uncommitted WIP (notebooks, experiments, sim/render, cursor skills)
 
 ## Features

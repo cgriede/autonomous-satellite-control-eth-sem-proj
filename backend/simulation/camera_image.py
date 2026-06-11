@@ -11,6 +11,7 @@ from environment_definition.constants.SATELLITE import (
     N_PIXELS_X,
     N_PIXELS_Y,
     PIXEL_SIZE,
+    CAMERA_EXPOSURE_TIME,
 )
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from simulation.camera_optics import nadir_ground_sample_distance, pinhole_full_fov_rad
@@ -22,6 +23,7 @@ class CameraImage:
     pixel_size: Any
     n_pixels_x: int
     n_pixels_y: int
+    exposure_time: float
 
     def sensor_width(self) -> Any:
         return (self.n_pixels_x * self.pixel_size).to(ureg.m)
@@ -58,12 +60,14 @@ class CameraImage:
         pixel_size: Any,
         n_pixels_x: int,
         n_pixels_y: int,
+        exposure_time: float
     ) -> CameraImage:
         return cls(
             focal_length=focal_length,
             pixel_size=pixel_size,
             n_pixels_x=int(n_pixels_x),
             n_pixels_y=int(n_pixels_y),
+            exposure_time=exposure_time
         )
 
     @classmethod
@@ -74,6 +78,7 @@ class CameraImage:
         pixel_size: Any,
         n_pixels_x: int,
         n_pixels_y: int,
+        exposure_time: float,
         axis: Literal["x", "y"] = "y",
     ) -> CameraImage:
         n_x = int(n_pixels_x)
@@ -89,6 +94,7 @@ class CameraImage:
             pixel_size=pixel_size,
             n_pixels_x=n_x,
             n_pixels_y=n_y,
+            exposure_time=exposure_time,
         )
 
 
@@ -103,4 +109,5 @@ DEFAULT_NADIR_CAMERA = CameraImage.from_hardware(
     pixel_size=PIXEL_SIZE,
     n_pixels_x=N_PIXELS_X,
     n_pixels_y=N_PIXELS_Y,
+    exposure_time=CAMERA_EXPOSURE_TIME,
 )

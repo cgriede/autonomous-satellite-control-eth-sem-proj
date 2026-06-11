@@ -470,6 +470,13 @@ def _try_reencode_mp4_h264_for_web(path: Path) -> tuple[bool, str]:
 
 
 def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
+    """
+    Export video by rendering frames in a single pass at 30x real-time speed,
+    writing directly to an MP4 file with ffmpeg via matplotlib's FFMpegWriter.
+    """
+    if not bool(mpl_animation.writers.is_available("ffmpeg")):
+        raise SystemError("FFMPEG writer is not available in matplotlib; cannot export video. Install ffmpeg and the Python package 'imageio-ffmpeg' for best results.")
+    
     sim_series = _require_runtime()
     if FIG is None:
         raise RuntimeError("Figure has not been initialized.")
@@ -493,7 +500,6 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
         update_panels(scene)
         return []
 
-    mpl_ffmpeg_available = bool(mpl_animation.writers.is_available("ffmpeg"))
     init()
 
     frame_iter = tqdm(
@@ -502,37 +508,15 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
         unit="frame",
     )
 
-    if mpl_ffmpeg_available:
-        writer = mpl_animation.FFMpegWriter(fps=export_fps)
-        with writer.saving(FIG, str(export_path), dpi=RENDER.export_dpi):
-            for frame in frame_iter:
-                export_update(frame)
-                writer.grab_frame()
-        reencode_ok, reencode_detail = False, "skipped_mpl_ffmpeg_path"
-    else:
-        from matplotlib.backends.backend_agg import FigureCanvasAgg
-        import cv2  # type: ignore[reportMissingImports]
-
-        canvas = FigureCanvasAgg(FIG)
-        canvas.draw()
-        width, height = canvas.get_width_height()
-        writer = cv2.VideoWriter(
-            str(export_path),
-            cv2.VideoWriter_fourcc(*"mp4v"),
-            export_fps,
-            (width, height),
-        )
-        if not writer.isOpened():
-            raise RuntimeError("Could not open MP4 writer (OpenCV fallback).")
+    writer = mpl_animation.FFMpegWriter(
+        fps=export_fps,                                        
+        codec="libx264",
+        extra_args=["-pix_fmt", "yuv420p"],
+    )
+    with writer.saving(FIG, str(export_path), dpi=RENDER.export_dpi):
         for frame in frame_iter:
             export_update(frame)
-            canvas.draw()
-            rgba = np.asarray(canvas.buffer_rgba())
-            bgr = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
-            writer.write(bgr)
-        writer.release()
-        reencode_ok, reencode_detail = _try_reencode_mp4_h264_for_web(export_path)
-
+            writer.grab_frame()
     return export_path
 
 
