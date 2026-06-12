@@ -220,6 +220,8 @@ def sample_scene(sim_idx: int) -> dict:
     edge_r = sat_pos + cone_len * (rot_r @ z_axis_dir)
 
     camera_gsd_m = float(sim_series.camera_gsd_m[sim_idx])
+    camera_image_smear_px = float(sim_series.camera_image_smear_px[sim_idx])
+    camera_image_quality = float(sim_series.camera_image_quality[sim_idx])
     camera_swath_height_km = (N_PIXELS_Y * camera_gsd_m) / 1000.0 if np.isfinite(camera_gsd_m) else float("nan")
     blocked_fraction = float(sim_series.camera_cloud_blocked_fraction[sim_idx])
     center_first_hit_xy_km = np.asarray(sim_series.camera_center_first_hit_xy_km[sim_idx], dtype=float)
@@ -295,6 +297,8 @@ def sample_scene(sim_idx: int) -> dict:
         "secondary_camera_codes": secondary_codes,
         "center_hit_cloud": bool(sim_series.camera_center_first_hit_is_cloud[sim_idx]),
         "camera_gsd_m": camera_gsd_m,
+        "camera_image_smear_px": camera_image_smear_px,
+        "camera_image_quality": camera_image_quality,
         "camera_vfov_deg": float(np.rad2deg(sim_series.camera_vertical_fov_rad)),
         "camera_swath_height_km": camera_swath_height_km,
         "cloud_blocked_pct": 100.0 * blocked_fraction if np.isfinite(blocked_fraction) else float("nan"),

@@ -4,6 +4,7 @@ Reward components and combiner used by simulation + RL env.
 Public API:
 - :func:`distance_band_reward` (distance/visibility term)
 - :func:`energy_reward` (energy penalty term)
+- :func:`image_quality_capture_reward` (take-picture shutter term)
 - :func:`compute_reward` (combines enabled components from :class:`RewardConfig`)
 """
 
@@ -20,6 +21,7 @@ from environment_definition.constants.AUTONOMOUS_CONTROL_REWARD import (
     REWARD_AREA_INTERSECTION_WEIGHT,
     REWARD_AREA_NOVELTY_WEIGHT,
     REWARD_ENERGY_LINEAR_COEFFICIENT,
+    REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT,
 )
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 
@@ -51,6 +53,9 @@ class RewardConfig:
     k_area_novelty: float = float(REWARD_AREA_NOVELTY_WEIGHT)
     # Penalty weight: reward multiplier reduction per unit cloud-blocked fraction.
     k_cloud_penalty: float = 1.0
+    # Take-picture mode: reward scales with camera_image_quality at shutter instant.
+    enable_image_quality_capture: bool = False
+    k_image_quality_capture: float = float(REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT)
 
 
 @dataclass(frozen=True)
@@ -65,6 +70,8 @@ class RewardSignals:
     distance_to_target: Any  # pint Quantity (length)
     picture_taken: bool
     target_visible: bool
+    # Primary-camera normalized quality [0, 1] at capture frame (take-picture mode).
+    camera_image_quality: float = 0.0
     target_area_intersection_ratio: float = 0.0
     target_area_novelty_ratio: float = 0.0
     # Cloud signals (§H): fraction of primary/secondary strip blocked by clouds [0, 1].
@@ -149,6 +156,28 @@ def distance_band_reward(
     return -100.0 + 100.0 * scalar
 
 
+def image_quality_capture_reward(
+    *,
+    picture_taken: bool,
+    camera_image_quality: float,
+    camera_cloud_blocked_fraction: float = 0.0,
+    k_capture: float,
+) -> float:
+    """
+    Shutter reward from image quality at the capture instant.
+
+    Returns ``k_capture * quality * (1 - cloud_frac)`` when ``picture_taken``;
+    otherwise ``0``. Cloud-blocked pixels reduce credit; full block → zero.
+    """
+    if not picture_taken:
+        return 0.0
+    q = float(np.clip(camera_image_quality, 0.0, 1.0))
+    if not np.isfinite(q):
+        return 0.0
+    cloud = float(np.clip(camera_cloud_blocked_fraction, 0.0, 1.0))
+    return k_capture * q * (1.0 - cloud)
+
+
 def energy_reward(
     *,
     wheel_inertia: "Quantity",
@@ -193,6 +222,7 @@ def compute_reward(
         "energy_reward": 0.0,
         "cloud_penalty": 0.0,
         "secondary_cloud_penalty": 0.0,
+        "image_quality_capture_reward": 0.0,
     }
 
     if cfg.enable_distance_reward:
@@ -235,6 +265,14 @@ def compute_reward(
         scnd_frac = float(np.clip(signals.secondary_camera_cloud_blocked_fraction, 0.0, 1.0))
         components["secondary_cloud_penalty"] = -cfg.k_cloud_penalty * scnd_frac
 
+    if cfg.enable_image_quality_capture:
+        components["image_quality_capture_reward"] = image_quality_capture_reward(
+            picture_taken=signals.picture_taken,
+            camera_image_quality=signals.camera_image_quality,
+            camera_cloud_blocked_fraction=signals.camera_cloud_blocked_fraction,
+            k_capture=cfg.k_image_quality_capture,
+        )
+
     total = (
         components["distance_reward"]
         + components["area_intersection_reward"]
@@ -242,6 +280,7 @@ def compute_reward(
         + components["energy_reward"]
         + components["cloud_penalty"]
         + components["secondary_cloud_penalty"]
+        + components["image_quality_capture_reward"]
     )
     return total, components
 
@@ -252,4 +291,5 @@ __all__ = [
     "distance_band_reward",
     "energy_reward",
     "energy_from_wheel_momentum_change",
+    "image_quality_capture_reward",
 ]

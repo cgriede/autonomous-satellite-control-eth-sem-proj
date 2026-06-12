@@ -86,6 +86,7 @@ class RenderMode(str, Enum):
 
 BuiltinTorquePolicy = Literal["baseline", "random", "coast"]
 TorqueCommandSource = Literal["builtin", "external"]
+ObcPointingMode = Literal["none", "nadir", "target"]
 
 BASELINE_TORQUE_POLICIES: frozenset[str] = frozenset({"baseline", "random", "coast"})
 
@@ -96,12 +97,18 @@ def control_stack_display_label(
     builtin_torque_policy: str | None = None,
     torque_policy_label: str | None = None,
     attitude_controller_enabled: bool = False,
+    obc_pointing_mode: ObcPointingMode = "none",
 ) -> str:
     """Human-readable control stack for metadata / render telemetry."""
     if str(torque_command_source).lower() == "external":
         label = str(torque_policy_label or "external_policy")
     else:
         label = f"builtin:{builtin_torque_policy or 'coast'}"
+    pointing = str(obc_pointing_mode).lower()
+    if pointing == "nadir":
+        label = f"{label} · obc_nadir"
+    elif pointing == "target":
+        label = f"{label} · obc_target"
     if attitude_controller_enabled:
         label = f"{label} · attitude_controller"
     return label
@@ -127,6 +134,8 @@ class SimulationConfig:
     torque_policy_label: str | None = None
     controller_seed: int | None = None
     attitude_controller_enabled: bool = False
+    # OBC body pointing: overrides agent torque with nadir or ground-target tracking PD.
+    obc_pointing_mode: ObcPointingMode = "none"
 
 
 SIMULATION = SimulationConstants(

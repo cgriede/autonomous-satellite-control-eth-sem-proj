@@ -18,6 +18,8 @@ class SimulationTimestepState:
     camera_center_ray_observation_code: np.int8
     # Secondary camera (§B/§E): shape (n_bins_secondary,) or (0,) when no secondary camera.
     secondary_camera_observation_line_codes: np.ndarray = None  # type: ignore[assignment]
+    primary_camera_image_smear_px: float = float("nan")
+    primary_camera_image_quality: float = float("nan")
 
     def __post_init__(self) -> None:
         if self.secondary_camera_observation_line_codes is None:
@@ -110,6 +112,9 @@ class SimulationStateSeries:
     # Both default to 0.0 when no secondary camera is configured.
     secondary_camera_vertical_fov_rad: float = 0.0
     secondary_camera_tilt_off_nadir_rad: float = 0.0
+    # Primary-camera motion blur during exposure (dimensionless smear in GSD units; quality in [0,1]).
+    camera_image_smear_px: np.ndarray = None  # type: ignore[assignment]
+    camera_image_quality: np.ndarray = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         n = self.t_s.shape[0]
@@ -122,6 +127,10 @@ class SimulationStateSeries:
             object.__setattr__(
                 self, "secondary_camera_cloud_blocked_fraction", np.zeros(n, dtype=float)
             )
+        if self.camera_image_smear_px is None:
+            object.__setattr__(self, "camera_image_smear_px", np.full(n, np.nan, dtype=float))
+        if self.camera_image_quality is None:
+            object.__setattr__(self, "camera_image_quality", np.full(n, np.nan, dtype=float))
         if n == 0:
             raise ValueError("SimulationStateSeries cannot be empty.")
         if (
@@ -161,6 +170,10 @@ class SimulationStateSeries:
             raise ValueError("camera_observation_line_codes must have length n along axis 0.")
         if self.camera_observation_line_codes.dtype != np.int8:
             raise ValueError("camera_observation_line_codes must have dtype int8.")
+        if self.camera_image_smear_px.shape[0] != n:
+            raise ValueError("camera_image_smear_px must have the same length as t_s.")
+        if self.camera_image_quality.shape[0] != n:
+            raise ValueError("camera_image_quality must have the same length as t_s.")
         if self.sat_subpoint_lat_deg.shape[0] != n:
             raise ValueError("sat_subpoint_lat_deg must have length n.")
         if self.sat_subpoint_lon_deg.shape[0] != n:

@@ -15,10 +15,10 @@ from utils.geometry.mission_stripe_disk import (
     target_areas_envelope_disk_phi_bounds_deg,
     target_areas_midpoint_disk_xy_km_on_sphere,
 )
-from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
+from environment_definition.constants.SATELLITE import CAMERA_EXPOSURE_TIME, REACTION_WHEEL_MAX_TORQUE
 from environment_definition.constants.SIMULATION import RenderMode, SIMULATION, SimulationConfig
 
-from .attitude_controller import AttitudeSafetyConfig, AttitudeSafetyController
+from .attitude_controller import AttitudePointingController, AttitudeSafetyConfig, AttitudeSafetyController, target_boresight_angle_rad
 
 from .attitude_dynamics import AttitudeState2D
 from .camera_2d import (
@@ -32,6 +32,7 @@ from .reaction_wheel import ReactionWheel
 from .reward_kernel import RewardKernel
 from .scheduler import resolve_controller_interval_steps
 from .sensor_kernel import SensorKernel
+from .image_quality import evaluate_primary_image_quality
 from .state_types import SimulationMetadata, SimulationStateSeries, SimulationTimestepState
 from utils.geodesics.geodesic_helpers import circle_stripe_footprint_overlap_ratio
 from utils.geometry.orbit_disk_wgs84 import disk_xy_km_to_geodetic_deg
@@ -119,11 +120,15 @@ class SimulationStepper:
         self._builtin_torque_policy = str(simulation_config.builtin_torque_policy).lower()
         self._torque_policy_label = simulation_config.torque_policy_label
         self._attitude_controller_enabled = bool(simulation_config.attitude_controller_enabled)
+        self._obc_pointing_mode = str(getattr(simulation_config, "obc_pointing_mode", "none") or "none").lower()
+        if self._obc_pointing_mode not in ("none", "nadir", "target"):
+            raise ValueError(f"Unsupported obc_pointing_mode: {self._obc_pointing_mode!r}")
         self._control_stack_label = control_stack_display_label(
             torque_command_source=self._torque_command_source,
             builtin_torque_policy=self._builtin_torque_policy,
             torque_policy_label=self._torque_policy_label,
             attitude_controller_enabled=self._attitude_controller_enabled,
+            obc_pointing_mode=self._obc_pointing_mode,  # type: ignore[arg-type]
         )
         self._ureg = ureg
 
@@ -181,10 +186,24 @@ class SimulationStepper:
         )
         self._satellite = satellite
         self._attitude_safety: AttitudeSafetyController | None = None
+        self._attitude_pointing: AttitudePointingController | None = None
         self.attitude_safety_events: list[dict[str, Any]] = []
         if self._attitude_controller_enabled:
             self.enable_attitude_safety()
+        view_anchor_xy = target_areas_midpoint_disk_xy_km_on_sphere(
+            self._target_areas,
+            earth_radius_km=float(r_earth_km),
+        )
         sat_z_initial_angle_rad = sat_theta_start_rad + np.pi + np.deg2rad(float(sat_z_offset_deg))
+        if self._obc_pointing_mode == "target":
+            sat_xy0 = np.array(
+                [
+                    r_orbit_km * np.cos(sat_theta_start_rad),
+                    r_orbit_km * np.sin(sat_theta_start_rad),
+                ],
+                dtype=float,
+            )
+            sat_z_initial_angle_rad = target_boresight_angle_rad(sat_xy0, np.asarray(view_anchor_xy, dtype=float))
         self._state = AttitudeState2D(
             theta=float(sat_z_initial_angle_rad) * ureg.rad,
             omega_sat=0.0 * ureg.rad / ureg.s,
@@ -209,6 +228,8 @@ class SimulationStepper:
         self._camera_center_ray_observation_code = np.zeros(n, dtype=np.int8)
         self._camera_cloud_blocked_fraction = np.full(n, np.nan, dtype=float)
         self._camera_observation_line_codes = np.empty((n, n_bins), dtype=np.int8)
+        self._camera_image_smear_px = np.full(n, np.nan, dtype=float)
+        self._camera_image_quality = np.full(n, np.nan, dtype=float)
         self._sat_subpoint_lat_deg = np.full(n, np.nan, dtype=float)
         self._sat_subpoint_lon_deg = np.full(n, np.nan, dtype=float)
         self._sat_altitude_m = np.full(n, np.nan, dtype=float)
@@ -258,10 +279,6 @@ class SimulationStepper:
         phi_lo_deg, phi_hi_deg = target_areas_envelope_disk_phi_bounds_deg(self._target_areas)
         self._stripe_phi_min_deg = float(phi_lo_deg)
         self._stripe_phi_max_deg = float(phi_hi_deg)
-        view_anchor_xy = target_areas_midpoint_disk_xy_km_on_sphere(
-            self._target_areas,
-            earth_radius_km=float(r_earth_km),
-        )
         self._target_area_visited_cells: set[tuple[int, int]] = set()
         self._earth_radius_km = float(r_earth_km)
         self._satellite_altitude = satellite_altitude
@@ -291,6 +308,20 @@ class SimulationStepper:
             target_region_bounds_deg=self._target_region_bounds_deg,
             view_anchor_xy_km=(float(view_anchor_xy[0]), float(view_anchor_xy[1])),
         )
+        if self._obc_pointing_mode != "none":
+            self._attitude_pointing = AttitudePointingController(
+                mode=self._obc_pointing_mode,
+                sat_inertia=self._sat_inertia,
+                tau_max_nm=float(
+                    satellite.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude
+                ),
+                ground_target_xy_km=(
+                    self._metadata.view_anchor_xy_km
+                    if self._obc_pointing_mode == "target"
+                    else None
+                ),
+            )
+            self._attitude_pointing.reset_episode()
         self._index = 0
         self._done = False
         self._last_torque_nm = 0.0
@@ -337,6 +368,8 @@ class SimulationStepper:
                 self._camera_center_ray_observation_code[self._index]
             ),
             secondary_camera_observation_line_codes=secondary_codes,
+            primary_camera_image_smear_px=float(self._camera_image_smear_px[self._index]),
+            primary_camera_image_quality=float(self._camera_image_quality[self._index]),
         )
 
     def enable_attitude_safety(
@@ -361,7 +394,19 @@ class SimulationStepper:
             raise RuntimeError("Cannot step a completed SimulationStepper.")
         agent_nm = float(wheel_torque_cmd_nm)
         cmd_nm = agent_nm
-        if self._attitude_safety is not None:
+        if self._attitude_pointing is not None:
+            agent_nm = 0.0
+            sat_xy = self._satellite_xy_km(self._index)
+            body_z = float(self._state.theta.to(self._ureg.rad).magnitude)
+            omega_sat = float(self._state.omega_sat.to(self._ureg.rad / self._ureg.s).magnitude)
+            cmd_nm = self._attitude_pointing.compute_torque_nm(
+                body_z_rad=body_z,
+                omega_sat_rad_s=omega_sat,
+                sat_pos_xy_km=sat_xy,
+                theta_orbit_rad=float(self._theta_orbit_rad[self._index]),
+                omega_orbit_rad_s=float(self._omega_orbit_rad_s),
+            )
+        elif self._attitude_safety is not None:
             sat_xy = self._satellite_xy_km(self._index)
             result = self._attitude_safety.arbitrate(
                 tau_cmd_nm=agent_nm,
@@ -427,6 +472,8 @@ class SimulationStepper:
             camera_center_ray_observation_code=self._camera_center_ray_observation_code,
             camera_cloud_blocked_fraction=self._camera_cloud_blocked_fraction,
             camera_observation_line_codes=self._camera_observation_line_codes,
+            camera_image_smear_px=self._camera_image_smear_px,
+            camera_image_quality=self._camera_image_quality,
             sat_subpoint_lat_deg=self._sat_subpoint_lat_deg,
             sat_subpoint_lon_deg=self._sat_subpoint_lon_deg,
             sat_altitude_m=self._sat_altitude_m,
@@ -512,6 +559,25 @@ class SimulationStepper:
         self._cloud_arc_radius_km[k, :] = sensor.cloud_arc_radius_km
         self._cloud_arc_start_rad[k, :] = sensor.cloud_arc_start_rad
         self._cloud_arc_end_rad[k, :] = sensor.cloud_arc_end_rad
+
+        primary_exposure = (
+            self._cameras[0].camera.exposure_time if len(self._cameras) >= 1 else CAMERA_EXPOSURE_TIME
+        )
+        smear_px, quality = evaluate_primary_image_quality(
+            sat_pos_xy_km=sat_pos_xy_km,
+            bore_ground_xy_km=sensor.camera_ground_center_xy_km,
+            boresight_dir_unit_xy=boresight_dir_unit_xy,
+            gsd_m=float(sensor.camera_gsd_m),
+            theta_orbit_rad=float(self._theta_orbit_rad[k]),
+            omega_orbit_rad_s=float(self._omega_orbit_rad_s),
+            orbit_radius_km=float(self._radius_km[k]),
+            omega_body_rad_s=float(
+                self._state.omega_sat.to(self._ureg.rad / self._ureg.s).magnitude
+            ),
+            exposure_time=primary_exposure,
+        )
+        self._camera_image_smear_px[k] = smear_px
+        self._camera_image_quality[k] = quality
 
         if self._has_secondary and self._n_bins_secondary > 0:
             self._secondary_camera_observation_line_codes[k, :] = sensor.secondary_camera_observation_line_codes

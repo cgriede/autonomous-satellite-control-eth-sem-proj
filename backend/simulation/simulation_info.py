@@ -6,7 +6,22 @@ from typing import Any
 
 import numpy as np
 
+from environment_definition.constants.SATELLITE import CAMERA_EXPOSURE_TIME
+from utils.units.require_compatible_unit import require_compatible_units
+
 from .stepper import SimulationStepper
+
+
+def _format_exposure_for_display(exposure_time: Any, ureg: Any) -> str:
+    """Format pint exposure for simulation info (image-smear model)."""
+    require_compatible_units(exposure_time, "second", "exposure_time")
+    us = float(exposure_time.to(ureg.us).magnitude)
+    if us < 1000.0:
+        return f"{us:g} us (image smear)"
+    ms = float(exposure_time.to(ureg.ms).magnitude)
+    if ms < 1000.0:
+        return f"{ms:g} ms (image smear)"
+    return f"{float(exposure_time.to(ureg.s).magnitude):g} s (image smear)"
 
 
 def _in_notebook() -> bool:
@@ -85,7 +100,7 @@ def _camera_mount_lines(
             ("sim vertical FOV", f"{np.rad2deg(vertical_fov_rad):.3f} deg"),
         )
     if include_exposure:
-        rows.append(("exposure time", "not modeled"))
+        rows.append(("exposure time", _format_exposure_for_display(cam.exposure_time, ureg)))
     return [(f"{label} - {k}", v) for k, v in rows]
 
 
@@ -177,7 +192,7 @@ def build_simulation_info_rows(
                     "Camera 1 · sim vertical FOV",
                     f"{np.rad2deg(stepper._camera_vertical_fov_rad):.3f} deg",
                 ),
-                ("Camera 1 · exposure time", "not modeled"),
+                ("Camera 1 · exposure time", _format_exposure_for_display(CAMERA_EXPOSURE_TIME, ureg)),
             ]
         )
 

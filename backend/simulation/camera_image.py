@@ -7,11 +7,11 @@ from typing import Any, Literal
 import numpy as np
 
 from environment_definition.constants.SATELLITE import (
+    CAMERA_EXPOSURE_TIME,
     FOCAL_LENGTH,
     N_PIXELS_X,
     N_PIXELS_Y,
     PIXEL_SIZE,
-    CAMERA_EXPOSURE_TIME,
 )
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from simulation.camera_optics import nadir_ground_sample_distance, pinhole_full_fov_rad
@@ -60,14 +60,14 @@ class CameraImage:
         pixel_size: Any,
         n_pixels_x: int,
         n_pixels_y: int,
-        exposure_time: float
+        exposure_time: Any = CAMERA_EXPOSURE_TIME,
     ) -> CameraImage:
         return cls(
             focal_length=focal_length,
             pixel_size=pixel_size,
             n_pixels_x=int(n_pixels_x),
             n_pixels_y=int(n_pixels_y),
-            exposure_time=exposure_time
+            exposure_time=exposure_time,
         )
 
     @classmethod
@@ -78,7 +78,7 @@ class CameraImage:
         pixel_size: Any,
         n_pixels_x: int,
         n_pixels_y: int,
-        exposure_time: float,
+        exposure_time: Any = CAMERA_EXPOSURE_TIME,
         axis: Literal["x", "y"] = "y",
     ) -> CameraImage:
         n_x = int(n_pixels_x)

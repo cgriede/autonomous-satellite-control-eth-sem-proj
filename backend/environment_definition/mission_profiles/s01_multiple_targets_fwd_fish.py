@@ -27,7 +27,21 @@ from environment_definition.constants.SIMULATION import Cloud, GeodeticLonLat
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from utils.leo_adapter.orbit_geometry import circular_orbital_speed_from_altitude
 from environment_definition.runtime_types import Mission, MissionScenario, Satellite
+from simulation.camera_image import CameraImage, CameraMount, DEFAULT_NADIR_CAMERA
 from simulation.setup_types import OrbitConfig, SimulationOverrides, EnvironmentSetup
+
+# s01 secondary camera (GoPro 4K+ mental model; datasheet TBD).
+S01_SECONDARY_FOV_Y = 70 * ureg.deg
+S01_SECONDARY_TILT = 25 * ureg.deg
+S01_SECONDARY_EXPOSURE = 100 * ureg.millisecond
+S01_SECONDARY_CAMERA = CameraImage.from_fov(
+    fov_y=S01_SECONDARY_FOV_Y,
+    pixel_size=1.55 * ureg.um,
+    n_pixels_x=5312,
+    n_pixels_y=2988,
+    exposure_time=S01_SECONDARY_EXPOSURE,
+)
+S01_SECONDARY_MOUNT = CameraMount(camera=S01_SECONDARY_CAMERA, tilt_off_nadir=S01_SECONDARY_TILT)
 
 _LOWER_MAG = SATELLITE_ALTITUDE_LOWER_BOUND.magnitude
 _UPPER_MAG = SATELLITE_ALTITUDE_UPPER_BOUND.to(SATELLITE_ALTITUDE_LOWER_BOUND.units).magnitude
@@ -114,25 +128,13 @@ def build_setup(
     Returns:
         An unresolved EnvironmentSetup; call .resolve() before use.
     """
-    from simulation.camera_image import CameraImage, CameraMount, DEFAULT_NADIR_CAMERA
-
     altitude = sample_satellite_altitude(seed=seed)
 
     cameras: tuple = ()
     overrides: SimulationOverrides | None = None
     if include_cameras:
-        # Primary nadir camera using hardware constants.
         nadir_mount = CameraMount(camera=DEFAULT_NADIR_CAMERA, tilt_off_nadir=0 * ureg.deg)
-        # Secondary forward-looking camera (GoPro 4K+ mental model; TBD from datasheet).
-        # Tilt = 25° prograde (§A): along-track lookahead for forward-looking coverage.
-        scnd_camera = CameraImage.from_fov(
-            fov_y=70 * ureg.deg,
-            pixel_size=1.55 * ureg.um,
-            n_pixels_x=5312,
-            n_pixels_y=2988,
-        )
-        scnd_mount = CameraMount(camera=scnd_camera, tilt_off_nadir=25 * ureg.deg)
-        cameras = (nadir_mount, scnd_mount)
+        cameras = (nadir_mount, S01_SECONDARY_MOUNT)
         overrides = SimulationOverrides(secondary_camera_observation_line_n_bins=200)
 
     return EnvironmentSetup(

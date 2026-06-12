@@ -22,6 +22,8 @@ from simulation.attitude_controller import (
     nadir_pointing_torque_nm,
     nadir_target_angle_rad,
     safe_mode_activation_angle_rad,
+    target_boresight_angle_rad,
+    target_boresight_rate_rad_s,
     torque_taper_scale,
 )
 from simulation.attitude_dynamics import AttitudeState2D, propagate_reaction_wheel_attitude_2d
@@ -63,6 +65,22 @@ class AttitudeControllerKinematicsTest(unittest.TestCase):
         scale = torque_taper_scale(off_nadir_rad=off_mid, arm_rad=arm, hard_rad=hard)
         self.assertGreater(scale, 0.0)
         self.assertLess(scale, 1.0)
+
+    def test_target_boresight_rate_matches_orbit_at_nadir(self):
+        theta = 0.3
+        omega = 0.0012
+        r_km = 6878.0
+        sat = np.array([r_km * math.cos(theta), r_km * math.sin(theta)])
+        tgt = np.array([0.0, 0.0])
+        bore = target_boresight_angle_rad(sat, tgt)
+        nadir = nadir_target_angle_rad(theta)
+        self.assertAlmostEqual(bore, nadir, places=6)
+        rate = target_boresight_rate_rad_s(
+            sat_pos_xy_km=sat,
+            omega_orbit_rad_s=omega,
+            ground_target_xy_km=tgt,
+        )
+        self.assertAlmostEqual(rate, omega, places=9)
 
     def test_passthrough_constant_agent_below_arm(self):
         ctrl = AttitudeSafetyController(

@@ -23,6 +23,12 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
 - Geodetic area-target terms (simulation path):  
   - `area_intersection_reward = REWARD_AREA_INTERSECTION_WEIGHT * target_area_intersection_ratio`  
   - `area_novelty_reward = REWARD_AREA_NOVELTY_WEIGHT * target_area_novelty_ratio`
+- **Take-picture capture term** (`autonomous_control/reward.py`, `simulation/take_picture.py`):
+  - `MAX_PRIMARY_CAPTURES_PER_ORBIT = 10` in `SATELLITE.py` (arbitrary memory / downlink budget per orbit; alias `MAX_PICTURES_PER_EPISODE`)
+  - When `RewardConfig.enable_image_quality_capture`:  
+    `image_quality_capture_reward = REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT * quality * (1 - cloud_frac)`  
+    at the shutter frame (`camera_image_quality` from canonical sim series)
+  - Cloud-blocked fraction scales down capture credit; full block → zero
 
 **Episode end conditions:**
 

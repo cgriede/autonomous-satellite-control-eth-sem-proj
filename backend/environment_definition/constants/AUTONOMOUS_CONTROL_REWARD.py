@@ -5,6 +5,7 @@ Distance quantities are ground-range / slant-range proxies in kilometers unless
 callers convert; keep consistent with reward helpers (Pint).
 """
 
+from .SATELLITE import MAX_PRIMARY_CAPTURES_PER_ORBIT
 from .UNIT_REGISTRY import UREG as ureg
 
 # Outer gate: beyond this distance to target, reward is 0 (no distance-band penalty, no energy term).
@@ -20,3 +21,9 @@ REWARD_ENERGY_LINEAR_COEFFICIENT = 10.0
 # Positive reward scales for geodetic area-target mapping.
 REWARD_AREA_INTERSECTION_WEIGHT = 100.0
 REWARD_AREA_NOVELTY_WEIGHT = 25.0
+
+# Take-picture mode: alias of SATELLITE.MAX_PRIMARY_CAPTURES_PER_ORBIT (reward / env code).
+MAX_PICTURES_PER_EPISODE = MAX_PRIMARY_CAPTURES_PER_ORBIT
+
+# Positive scale for image-quality capture reward: k * quality * (1 - cloud_frac).
+REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT = 100.0
