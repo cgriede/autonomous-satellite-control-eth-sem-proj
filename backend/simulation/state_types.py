@@ -52,6 +52,8 @@ class SimulationMetadata :
     # Optional render framing for multi-band target grids (φ bounds on orbit disk, degrees).
     target_region_bounds_deg: tuple[tuple[float, float], ...] | None = None
     view_anchor_xy_km: tuple[float, float] | None = None
+    # Sim-step indices where a take-picture command fires (render shutter bands / applied reward).
+    take_picture_cmd_steps: tuple[int, ...] | None = None
 
 
 @dataclass(frozen=True)

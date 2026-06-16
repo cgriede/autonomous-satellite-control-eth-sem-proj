@@ -55,7 +55,7 @@ def run_s01_coast_benchmark(
         ``kpis`` holds the computed benchmark metrics.
     """
     from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
-    from environment_definition.constants.SIMULATION import OBSERVATION_TARGET
+    from environment_definition.constants.observation_codes import is_observation_target_code
 
     setup = build_setup(seed=seed, include_cameras=True)
     resolved = setup.resolve(require_camera=True)
@@ -84,11 +84,14 @@ def run_s01_coast_benchmark(
     mean_cloud_secondary = float(np.mean(series.secondary_camera_cloud_blocked_fraction))
 
     from environment_definition.constants.SIMULATION import OBSERVATION_EARTH
+
     center_codes = series.camera_center_ray_observation_code
-    target_visible_frames = np.sum(
-        (center_codes == int(OBSERVATION_TARGET)) |
-        np.any(series.camera_observation_line_codes == np.int8(OBSERVATION_TARGET), axis=1)
+    line_any_target = np.any(
+        np.vectorize(is_observation_target_code)(series.camera_observation_line_codes),
+        axis=1,
     )
+    center_is_target = np.vectorize(is_observation_target_code)(center_codes)
+    target_visible_frames = int(np.sum(center_is_target | line_any_target))
     target_visibility_rate = float(target_visible_frames / max(n, 1))
 
     k0_code = int(series.camera_center_ray_observation_code[0])

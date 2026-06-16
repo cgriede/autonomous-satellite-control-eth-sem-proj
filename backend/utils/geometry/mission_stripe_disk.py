@@ -79,11 +79,28 @@ def geodetic_deg_in_target_areas(
     offset_ranges: tuple[tuple[float, float], ...],
 ) -> bool:
     """True when geodetic (lon, lat) lies in any target area on the meridian model."""
+    return geodetic_target_area_index(
+        lon_deg=lon_deg,
+        lat_deg=lat_deg,
+        offset_ranges=offset_ranges,
+    ) is not None
+
+
+def geodetic_target_area_index(
+    *,
+    lon_deg: float,
+    lat_deg: float,
+    offset_ranges: tuple[tuple[float, float], ...],
+) -> int | None:
+    """Index of the first target area containing ``(lon, lat)``, or ``None``."""
     try:
         off = track_offset_deg_from_geodetic_deg(lat_deg, lon_deg)
     except ValueError:
-        return False
-    return any(lo <= off <= hi for lo, hi in offset_ranges)
+        return None
+    for i, (lo, hi) in enumerate(offset_ranges):
+        if lo <= off <= hi:
+            return int(i)
+    return None
 
 
 def classify_earth_hit_observation_code(
@@ -91,15 +108,18 @@ def classify_earth_hit_observation_code(
     *,
     target_areas: tuple,
     earth_code: int,
-    target_code: int,
+    target_code: int | None = None,
 ) -> int:
-    """Earth-hit code for a ground point: target when δ is inside any configured area."""
+    """Earth-hit code: indexed target T0..Tn when inside a configured area, else earth."""
+    from environment_definition.constants.observation_codes import observation_target_code_for_index
     from utils.geometry.orbit_disk_wgs84 import disk_xy_km_to_geodetic_deg
 
+    _ = target_code  # legacy callers passed OBSERVATION_TARGET (= T0 base); index selects code.
     ranges = target_areas_track_offset_ranges_deg(target_areas)
     lon_deg, lat_deg = disk_xy_km_to_geodetic_deg(np.asarray(hit_xy_km, dtype=float))
-    if geodetic_deg_in_target_areas(lon_deg=lon_deg, lat_deg=lat_deg, offset_ranges=ranges):
-        return int(target_code)
+    idx = geodetic_target_area_index(lon_deg=lon_deg, lat_deg=lat_deg, offset_ranges=ranges)
+    if idx is not None:
+        return int(observation_target_code_for_index(idx))
     return int(earth_code)
 
 

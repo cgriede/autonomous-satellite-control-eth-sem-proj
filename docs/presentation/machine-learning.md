@@ -24,11 +24,16 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
   - `area_intersection_reward = REWARD_AREA_INTERSECTION_WEIGHT * target_area_intersection_ratio`  
   - `area_novelty_reward = REWARD_AREA_NOVELTY_WEIGHT * target_area_novelty_ratio`
 - **Take-picture capture term** (`autonomous_control/reward.py`, `simulation/take_picture.py`):
-  - `MAX_PRIMARY_CAPTURES_PER_ORBIT = 10` in `SATELLITE.py` (arbitrary memory / downlink budget per orbit; alias `MAX_PICTURES_PER_EPISODE`)
-  - When `RewardConfig.enable_image_quality_capture`:  
-    `image_quality_capture_reward = REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT * quality * (1 - cloud_frac)`  
-    at the shutter frame (`camera_image_quality` from canonical sim series)
-  - Cloud-blocked fraction scales down capture credit; full block → zero
+  - `MAX_PRIMARY_CAPTURES_PER_ORBIT = 10` in `SATELLITE.py` (arbitrary OBC memory / downlink budget per orbit; alias `MAX_PICTURES_PER_EPISODE`)
+  - Motivation: agent cannot downlink unlimited HQ frames; credit is paid only on discrete shutter events within budget
+  - When `RewardConfig.enable_image_quality_capture`:
+    - **Latent** (every step, for policy diagnostics / critic shaping):  
+      `latent_capture_reward = REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT * coverage * quality * (1 - cloud_frac)`
+    - **Applied** (MPO agent credit): same formula **only** when `picture_taken` and `capture_target_novel` at a budgeted shutter frame
+    - `coverage` = primary-camera bins on the **dominant** target index at shutter time / total bins
+    - `quality` = normalized primary `camera_image_quality` from canonical sim series
+    - **Target novelty:** observation-line codes are indexed `T0`, `T1`, … (`OBSERVATION_TARGET` = 3 = T0, then 4 = T1, …). ASCII line uses `0`, `1`, … for T0, T1. Repeat shutter on an already-captured target index consumes budget but `capture_target_novel = false` → applied reward `0`.
+  - Cloud-blocked fraction scales down both latent and applied credit; full block → zero
 
 **Episode end conditions:**
 

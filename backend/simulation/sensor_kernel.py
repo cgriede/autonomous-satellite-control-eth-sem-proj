@@ -97,23 +97,24 @@ def _classify_line_from_hits(
     observation_types[earth_mask] = np.int8(earth_code)
 
     areas = target_areas if target_areas is not None else OBSERVATION_TARGET_AREAS
-    from utils.geometry.mission_stripe_disk import (
-        geodetic_deg_in_target_areas,
-        target_areas_track_offset_ranges_deg,
-    )
+    from utils.geometry.mission_stripe_disk import target_areas_track_offset_ranges_deg
 
     target_offset_ranges = target_areas_track_offset_ranges_deg(areas)
+    from environment_definition.constants.observation_codes import observation_target_code_for_index
+    from utils.geometry.mission_stripe_disk import geodetic_target_area_index
+
     if np.any(earth_mask):
         earth_pts = hit_xy[earth_mask]
         _lon_deg, lat_deg = batch_disk_xy_rows_km_to_geodetic_deg(earth_pts, ell=WGS84_ELLIPSOID)
         earth_indices = np.nonzero(earth_mask)[0]
         for j, idx in enumerate(earth_indices):
-            if geodetic_deg_in_target_areas(
+            t_idx = geodetic_target_area_index(
                 lon_deg=float(_lon_deg[j]),
                 lat_deg=float(lat_deg[j]),
                 offset_ranges=target_offset_ranges,
-            ):
-                observation_types[int(idx)] = np.int8(target_code)
+            )
+            if t_idx is not None:
+                observation_types[int(idx)] = observation_target_code_for_index(t_idx)
     return observation_types
 
 

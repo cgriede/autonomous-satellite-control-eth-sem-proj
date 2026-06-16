@@ -119,7 +119,7 @@ class CameraObservationLine1DTest(unittest.TestCase):
 
     def test_observation_codes_to_ascii_line(self):
         arr = np.array([0, 1, 2, 3, OBSERVATION_LINE_NOT_COMPUTED], dtype=np.int8)
-        self.assertEqual(observation_codes_to_ascii_line(arr), "-ECX?")
+        self.assertEqual(observation_codes_to_ascii_line(arr), "-EC0?")
 
     def test_observation_codes_to_ascii_line_unknown_raises(self):
         with self.assertRaises(ValueError):

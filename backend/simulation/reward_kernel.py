@@ -14,7 +14,7 @@ from autonomous_control.reward import RewardConfig, RewardSignals, compute_rewar
 
 from environment_definition.constants.MISSION import OBSERVATION_TARGET_AREAS
 
-from environment_definition.constants.SIMULATION import OBSERVATION_TARGET
+from environment_definition.constants.observation_codes import is_observation_target_code
 
 from utils.geodesics.geodesic_helpers import geodesic_distance
 
@@ -77,7 +77,7 @@ class RewardKernel:
         codes = np.asarray(camera_observation_line_codes, dtype=np.int8)
 
         # Primary-camera strip is the 1D observation line; reward aligns with any target bin.
-        target_visible = bool(np.any(codes == np.int8(OBSERVATION_TARGET)))
+        target_visible = bool(np.any([is_observation_target_code(int(c)) for c in codes]))
 
         areas = tuple(target_areas) if target_areas is not None else OBSERVATION_TARGET_AREAS
 

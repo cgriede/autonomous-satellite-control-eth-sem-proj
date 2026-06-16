@@ -17,6 +17,11 @@ from environment_definition.constants import (
 from environment_definition.constants.MISSION import los_theta_offsets_deg
 from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.camera_2d import boresight_dir_for_mount
+from simulation.capture_reward import (
+    applied_capture_reward_series,
+    capture_time_windows_s,
+    latent_capture_reward_series,
+)
 from simulation.state_types import SimulationStateSeries
 from utils.geometry.mission_stripe_disk import (
     primary_stripe_midpoint_disk_xy_km_on_sphere,
@@ -358,7 +363,8 @@ def init() -> list:
         PANELS["telemetry"]["artists"]["text"].set_text("")
     if "reward" in PANELS:
         a = PANELS["reward"]["artists"]
-        a["line"].set_data([], [])
+        a["latent_line"].set_data([], [])
+        a["applied_line"].set_data([], [])
         a["cursor"].set_data([], [])
     if "torque" in PANELS:
         a = PANELS["torque"]["artists"]
@@ -557,8 +563,16 @@ def _build_panels() -> None:
         axes, artists = build_telemetry_panel(FIG, STATIC_SCENE)
         PANELS["telemetry"] = {"axes": axes, "artists": artists}
     if SHOW_REWARD_PLOT:
+        cmd_steps = tuple(sim_series.metadata.take_picture_cmd_steps or ())
+        latent = latent_capture_reward_series(sim_series)
+        applied = applied_capture_reward_series(sim_series, cmd_steps=cmd_steps)
+        windows = capture_time_windows_s(sim_series, cmd_steps) if cmd_steps else []
         axes, artists = build_reward_panel(
-            FIG, sim_series.t_s, sim_series.simulation_reward
+            FIG,
+            sim_series.t_s,
+            latent,
+            applied,
+            capture_windows_s=windows,
         )
         PANELS["reward"] = {"axes": axes, "artists": artists}
     if SHOW_TORQUE_PLOT:

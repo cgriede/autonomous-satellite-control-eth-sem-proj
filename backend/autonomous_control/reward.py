@@ -4,7 +4,8 @@ Reward components and combiner used by simulation + RL env.
 Public API:
 - :func:`distance_band_reward` (distance/visibility term)
 - :func:`energy_reward` (energy penalty term)
-- :func:`image_quality_capture_reward` (take-picture shutter term)
+- :func:`latent_capture_reward` (hypothetical shutter credit: coverage × quality)
+- :func:`applied_capture_reward` (latent credit only when a picture is taken)
 - :func:`compute_reward` (combines enabled components from :class:`RewardConfig`)
 """
 
@@ -53,7 +54,7 @@ class RewardConfig:
     k_area_novelty: float = float(REWARD_AREA_NOVELTY_WEIGHT)
     # Penalty weight: reward multiplier reduction per unit cloud-blocked fraction.
     k_cloud_penalty: float = 1.0
-    # Take-picture mode: reward scales with camera_image_quality at shutter instant.
+    # Take-picture mode: latent = coverage × quality; applied only on shutter (budget-limited).
     enable_image_quality_capture: bool = False
     k_image_quality_capture: float = float(REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT)
 
@@ -72,6 +73,10 @@ class RewardSignals:
     target_visible: bool
     # Primary-camera normalized quality [0, 1] at capture frame (take-picture mode).
     camera_image_quality: float = 0.0
+    # Primary 1D observation line: fraction of bins on the dominant target (take-picture coverage).
+    primary_target_pixel_coverage: float = 0.0
+    # Applied capture credit only when the shutter fires on a not-yet-downlinked target index.
+    capture_target_novel: bool = True
     target_area_intersection_ratio: float = 0.0
     target_area_novelty_ratio: float = 0.0
     # Cloud signals (§H): fraction of primary/secondary strip blocked by clouds [0, 1].
@@ -156,26 +161,73 @@ def distance_band_reward(
     return -100.0 + 100.0 * scalar
 
 
+def latent_capture_reward(
+    *,
+    target_visible: bool,
+    primary_target_pixel_coverage: float,
+    camera_image_quality: float,
+    camera_cloud_blocked_fraction: float = 0.0,
+    k_capture: float,
+) -> float:
+    """
+    Hypothetical shutter credit if the agent took a picture at this instant.
+
+    Extends the legacy area-coverage term with normalized image quality::
+
+        latent = k_capture * coverage * quality * (1 - cloud_frac)
+
+    where ``coverage`` is the primary-camera target pixel fraction [0, 1].
+    """
+    if not target_visible:
+        return 0.0
+    coverage = float(np.clip(primary_target_pixel_coverage, 0.0, 1.0))
+    q = float(np.clip(camera_image_quality, 0.0, 1.0))
+    if not np.isfinite(q):
+        return 0.0
+    cloud = float(np.clip(camera_cloud_blocked_fraction, 0.0, 1.0))
+    return k_capture * coverage * q * (1.0 - cloud)
+
+
+def applied_capture_reward(
+    *,
+    picture_taken: bool,
+    target_visible: bool,
+    primary_target_pixel_coverage: float,
+    camera_image_quality: float,
+    camera_cloud_blocked_fraction: float = 0.0,
+    k_capture: float,
+    capture_target_novel: bool = True,
+) -> float:
+    """Agent credit on shutter when ``picture_taken`` and ``capture_target_novel``."""
+    if not picture_taken or not capture_target_novel:
+        return 0.0
+    return latent_capture_reward(
+        target_visible=target_visible,
+        primary_target_pixel_coverage=primary_target_pixel_coverage,
+        camera_image_quality=camera_image_quality,
+        camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
+        k_capture=k_capture,
+    )
+
+
 def image_quality_capture_reward(
     *,
     picture_taken: bool,
     camera_image_quality: float,
     camera_cloud_blocked_fraction: float = 0.0,
     k_capture: float,
+    target_visible: bool = True,
+    primary_target_pixel_coverage: float = 1.0,
 ) -> float:
-    """
-    Shutter reward from image quality at the capture instant.
-
-    Returns ``k_capture * quality * (1 - cloud_frac)`` when ``picture_taken``;
-    otherwise ``0``. Cloud-blocked pixels reduce credit; full block → zero.
-    """
-    if not picture_taken:
-        return 0.0
-    q = float(np.clip(camera_image_quality, 0.0, 1.0))
-    if not np.isfinite(q):
-        return 0.0
-    cloud = float(np.clip(camera_cloud_blocked_fraction, 0.0, 1.0))
-    return k_capture * q * (1.0 - cloud)
+    """Backward-compatible alias for :func:`applied_capture_reward` (full coverage assumed by default)."""
+    return applied_capture_reward(
+        picture_taken=picture_taken,
+        target_visible=target_visible,
+        primary_target_pixel_coverage=primary_target_pixel_coverage,
+        camera_image_quality=camera_image_quality,
+        camera_cloud_blocked_fraction=camera_cloud_blocked_fraction,
+        k_capture=k_capture,
+    )
 
 
 def energy_reward(
@@ -222,6 +274,7 @@ def compute_reward(
         "energy_reward": 0.0,
         "cloud_penalty": 0.0,
         "secondary_cloud_penalty": 0.0,
+        "latent_capture_reward": 0.0,
         "image_quality_capture_reward": 0.0,
     }
 
@@ -266,8 +319,21 @@ def compute_reward(
         components["secondary_cloud_penalty"] = -cfg.k_cloud_penalty * scnd_frac
 
     if cfg.enable_image_quality_capture:
-        components["image_quality_capture_reward"] = image_quality_capture_reward(
+        coverage = float(np.clip(signals.primary_target_pixel_coverage, 0.0, 1.0))
+        if coverage <= 0.0 and signals.target_visible:
+            coverage = float(np.clip(signals.target_area_intersection_ratio, 0.0, 1.0))
+        components["latent_capture_reward"] = latent_capture_reward(
+            target_visible=signals.target_visible,
+            primary_target_pixel_coverage=coverage,
+            camera_image_quality=signals.camera_image_quality,
+            camera_cloud_blocked_fraction=signals.camera_cloud_blocked_fraction,
+            k_capture=cfg.k_image_quality_capture,
+        )
+        components["image_quality_capture_reward"] = applied_capture_reward(
             picture_taken=signals.picture_taken,
+            capture_target_novel=signals.capture_target_novel,
+            target_visible=signals.target_visible,
+            primary_target_pixel_coverage=coverage,
             camera_image_quality=signals.camera_image_quality,
             camera_cloud_blocked_fraction=signals.camera_cloud_blocked_fraction,
             k_capture=cfg.k_image_quality_capture,
@@ -287,9 +353,11 @@ def compute_reward(
 __all__ = [
     "RewardConfig",
     "RewardSignals",
+    "applied_capture_reward",
     "compute_reward",
     "distance_band_reward",
     "energy_reward",
     "energy_from_wheel_momentum_change",
     "image_quality_capture_reward",
+    "latent_capture_reward",
 ]

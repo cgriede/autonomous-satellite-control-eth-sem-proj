@@ -250,8 +250,9 @@ RENDER = RenderConstants(
     # Left column: compact telemetry (top) + reward/torque plots; right: main + enlarged closeup.
     figure_inset_gutter_frac    = 0.012,
     telemetry_axes_rect         = (0.02, 0.720, 0.19, 0.260),
-    torque_axes_rect            = (0.02, 0.078, 0.19, 0.305),
-    reward_axes_rect            = (0.02, 0.375, 0.19, 0.305),
+    # Stacked with gap so torque title does not sit in the reward panel (was overlapping at y≈0.38).
+    torque_axes_rect            = (0.02, 0.055, 0.19, 0.278),
+    reward_axes_rect            = (0.02, 0.358, 0.19, 0.278),
     main_axes_rect              = (0.222, 0.280, 0.758, 0.70),
     closeup_axes_rect           = (0.478, 0.048, 0.502, 0.318),
     transport_bar_rect          = (0.02, 0.02, 0.96, 0.048),

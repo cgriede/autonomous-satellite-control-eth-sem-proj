@@ -526,31 +526,17 @@ def _first_hit_point_ray_earth_or_clouds(
     return best_type, best_t, best_point
 
 
-_ASCII_BY_CODE = {
-    int(OBSERVATION_SPACE): "-",
-    int(OBSERVATION_EARTH): "E",
-    int(OBSERVATION_CLOUD): "C",
-    int(OBSERVATION_TARGET): "X",
-    int(OBSERVATION_LINE_NOT_COMPUTED): "?",
-}
-
-
 def observation_codes_to_ascii_line(codes: np.ndarray) -> str:
     """
     Map per-bin observation codes to a single ASCII string.
 
-    Codes follow ``CameraObservationLine1DResult`` (0–3). ``OBSERVATION_LINE_NOT_COMPUTED``
-    is rendered as ``?``.
+    Space ``-``, earth ``E``, cloud ``C``, targets ``0``–``9`` / ``A``–``Z`` for T0–T35,
+    not computed ``?``.
     """
+    from environment_definition.constants.observation_codes import observation_code_to_ascii
+
     codes = np.asarray(codes, dtype=np.int8).ravel()
-    parts: list[str] = []
-    for c in codes:
-        ci = int(c)
-        ch = _ASCII_BY_CODE.get(ci)
-        if ch is None:
-            raise ValueError(f"Unknown observation code: {ci}")
-        parts.append(ch)
-    return "".join(parts)
+    return "".join(observation_code_to_ascii(int(c)) for c in codes)
 
 
 @dataclass(frozen=True)
@@ -757,7 +743,7 @@ class CameraObservationLine1DResult:
       - space: 0
       - earth: 1
       - cloud: 2
-      - target: 3
+      - targets: 3 + index (T0 = 3, T1 = 4, …)
     """
 
     # Shape (n_bins,). dtype int8 for compact storage/plotting.
@@ -837,16 +823,17 @@ def simulate_camera_observation_line_1d(
 
     # Target direction unit vector from the satellite to the target Earth point.
     areas = target_areas if target_areas is not None else OBSERVATION_TARGET_AREAS
+    from environment_definition.constants.observation_codes import observation_target_code_for_index
     from utils.geometry.mission_stripe_disk import (
-        geodetic_deg_in_target_areas,
+        geodetic_target_area_index,
         target_areas_track_offset_ranges_deg,
     )
 
     target_offset_ranges = target_areas_track_offset_ranges_deg(areas)
 
-    def _hit_point_is_target(hit_point_xy_km: np.ndarray) -> bool:
+    def _target_index_for_hit(hit_point_xy_km: np.ndarray) -> int | None:
         lon_deg, lat_deg = disk_xy_km_to_geodetic_deg(hit_point_xy_km, ell=WGS84_ELLIPSOID)
-        return geodetic_deg_in_target_areas(
+        return geodetic_target_area_index(
             lon_deg=lon_deg,
             lat_deg=lat_deg,
             offset_ranges=target_offset_ranges,
@@ -873,12 +860,13 @@ def simulate_camera_observation_line_1d(
             for j, idx in enumerate(earth_indices):
                 lon = float(_lon_deg[j])
                 lat = float(lat_deg[j])
-                if geodetic_deg_in_target_areas(
+                t_idx = geodetic_target_area_index(
                     lon_deg=lon,
                     lat_deg=lat,
                     offset_ranges=target_offset_ranges,
-                ):
-                    observation_types[int(idx)] = np.int8(target_code)
+                )
+                if t_idx is not None:
+                    observation_types[int(idx)] = observation_target_code_for_index(t_idx)
     else:
         for i, ray_dir_unit_xy in enumerate(ray_dirs):
 
@@ -896,8 +884,12 @@ def simulate_camera_observation_line_1d(
                 observation_types[i] = int(cloud_code)
                 continue
             if hit_type == "earth":
-                if _hit_xy_km is not None and _hit_point_is_target(_hit_xy_km):
-                    observation_types[i] = int(target_code)
+                if _hit_xy_km is not None:
+                    t_idx = _target_index_for_hit(_hit_xy_km)
+                    if t_idx is not None:
+                        observation_types[i] = int(observation_target_code_for_index(t_idx))
+                    else:
+                        observation_types[i] = int(earth_code)
                 else:
                     observation_types[i] = int(earth_code)
                 continue
