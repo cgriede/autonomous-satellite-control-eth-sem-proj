@@ -1,0 +1,81 @@
+\documentclass{ifd-miniposter}
+\usepackage{amsmath}
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{comment}
+\usepackage{listings}
+\usepackage{xcolor} 
+\usepackage{colortbl}
+\usepackage{subcaption}
+
+\usepackage{microtype}
+
+\usepackage[T1]{fontenc} % Ensure proper encoding
+\usepackage[utf8]{inputenc} % Ensure proper input encoding
+
+%Setting up bibliography with natbib
+\usepackage[numbers, authoryear]{natbib} % Use natbib for author-year citations
+\bibliographystyle{plainnat} % Choose the bibliography style (authoryear)
+
+% Hyperlinks settings
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+
+% Settings
+\lstset{ 
+  language=Python, % specify the language
+  frame=single, % adds a frame around the code
+  backgroundcolor=\color{lightgray!20}, % set background color
+  keywordstyle=\color{green}, % keyword style
+  commentstyle=\color{blue}, % comment style
+  stringstyle=\color{red}, % string literal style
+  numbers=left, % where to put the line-numbers
+  numberstyle=\tiny\color{gray}, % the style that is used for the line-numbers
+  basicstyle=\ttfamily\footnotesize, % the size of the fonts that are used for the code
+  breaklines=true, % automatic line breaking
+  showstringspaces=false % do not show spaces in strings
+}
+
+% Title parameters
+% title parameters
+\thesisTitle{Discovering the Hardening Response of Lithium-Ion Pouch Cells Using Deep Learning}
+
+\thesisStudent{Cédric Grieder}
+\thesisType{Bachelor Thesis}
+\thesisSupervisor{Dr. Xueyang Li, Dr. Thomas Tancogne-Dejean}
+
+% Document
+\begin{document}
+% Title
+
+\maketitle
+\newpage
+\thispagestyle{empty}
+\null
+\newpage
+\section*{Abstract}
+\input{Abstract}
+\newpage
+\tableofcontents
+\newpage
+\section{Introduction}
+\input{Introduction}
+\section{Methods}
+\input{Methods}
+\section{Results}
+\input{Results}
+\section{Discussion}
+\input{Discussion}
+\section{Conclusion}
+\input{Conclusion}
+\section{Outlook}
+\input{Outlook}
+\newpage
+\section*{Acknowledgements}
+\input{Acknowledgements}
+\newpage
+\bibliography{research_sources}
+
+\end{document}

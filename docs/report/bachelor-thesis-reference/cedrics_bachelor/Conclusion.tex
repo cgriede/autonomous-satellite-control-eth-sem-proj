@@ -1,0 +1,17 @@
+% Conclusion
+The main objective of this thesis was to investigate the use of deep learning models, specifically fully connected neural networks (FCNN), to predict the hardening law of lithium-ion batteries. The goal was to optimize force matching in simulations by predicting yield stress from plastic strain.
+
+This research demonstrated that:
+\begin{itemize}
+    \item The calibration process using DeepModel was feasible, achieving successful force and displacement matching.
+    \item Enforce direction outperformed other configurations, particularly in terms of accuracy in validation runs such as {C\_20} and {H\_50}, while  regularization showed better performance at lower displacements.
+    \item Challenges with convergence and oscillating loss curves were encountered, particularly in the no selector configuration.
+\end{itemize}
+
+This study contributes to the field of material science and battery technology by applying deep learning techniques to model complex material behavior. The successful application of FCNN models to simulate the hardening behavior of pouch cells presents a new approach to improving computational efficiency in simulation environments like \textit{Abaqus}. Furthermore, the framework developed in this work may be applied to any calibration process if an adequate loss function gradient is identified. Using more advanced yield surfaces beyond the \textit{von Mises criterion} could further enhance efficiency and reduce the need for manual calibration.
+
+Several limitations are identified, including unstable training behavior, lower accuracy at reduced displacements, and issues arising from mesh size and data density constraints. Additionally, the \textit{von Mises yield criterion} may limit the model’s ability to capture certain material behaviors, and future work should explore more advanced models like \textit{Deshpande-Fleck’s crushable foam} for improved results.
+
+In conclusion, this thesis lays a foundation for further exploration of deep learning models in material simulation. While challenges remain in achieving smooth and reliable training outcomes, the work opens new possibilities for improving the accuracy of battery simulations and extending the approach to other material systems.
+
+\newpage

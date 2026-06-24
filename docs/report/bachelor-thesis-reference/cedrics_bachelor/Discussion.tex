@@ -1,0 +1,10 @@
+% Discussion
+The calibration process using \textit{DeepModel} is feasible but highlights limitations when using configurations such as no selector, which yields no successful neural network calibration, particularly for deeper models. This is likely due to overfitting caused by unsmooth data or coarse meshing. The gradient 
+$\frac{\partial \sigma_{33}}{\partial \sigma_{\text{vM}}}$
+is also likely impacted by the unsmooth data, leading to poor results.
+
+In contrast, the enforce direction feature selector produces better results, achieving more accurate gradient representations when simplifying boundary conditions, such as uniaxial compression. However, it occasionally results in decreasing yield stress at higher strains. regularization shows merit in handling these issues, especially at lower displacements, where it provides a more stable force match.
+
+A key issue is the uneven force response at lower displacements, resulting in a high MAPE across the force-displacement curve. This is likely caused by the inclusion of more contact elements at higher displacements, leading to an uneven gradient distribution. If a smoother and evenly distributed gradient representation for the loss function could be achieved, convergence issues would likely be reduced, leading to stable and reliable training.
+
+The oscillating loss curves are concerning, likely due to large steps in the gradient descent or uneven feature distribution. A method to improve feature selection and machine learning hyperparameters could stabilize the optimization process, leading to a more accurate force response.

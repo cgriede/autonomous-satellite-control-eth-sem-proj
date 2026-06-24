@@ -1,0 +1,51 @@
+This section outlines six key strategies deemed most relevant and efficient for advancing the research. These methods focus on enhancing the model’s generalization, accuracy, and overall performance through the incorporation of experimental diversity, alternative loss function approaches, and optimized training strategies. By addressing current limitations and introducing more advanced techniques, these strategies aim to improve the model's predictive power and robustness for future applications.
+
+\begin{enumerate}
+
+    \item \textbf{Incorporate Multiple Experiments for Training}
+    \begin{itemize}
+        \item \textbf{Issue}: Using a single test size limits the model's ability to generalize across different scenarios. The physical relationships the model learns may be biased towards specific configurations, reducing its accuracy when applied to varying setups.
+        \item \textbf{Aim}: Incorporate data from multiple experiments with different test sizes and configurations. By training the model on diverse experiments, it can better capture the general relationships between strain, stress, and force, improving its ability to generalize to unseen cases.
+        \item \textbf{Expected Outcome}: The model will become more robust and versatile, capable of making accurate predictions across different test setups and sizes. This approach will reduce overfitting to a single test size and improve the model's overall performance, especially in scenarios with varying strain or displacement conditions.
+    \end{itemize}
+    
+    \item \textbf{Investigate Alternative Loss Functions}
+    \begin{itemize}
+        \item \textbf{Issue}: The current loss function, such as Mean Squared Error (MSE), may not provide optimal force matching at lower displacements.
+        \item \textbf{Aim}: Explore alternative loss functions, such as weighted loss functions or those that consider the Mean Absolute Percentage Error (MAPE), to improve force matching at lower displacements.
+        \item \textbf{Expected Outcome}: A more accurate force match across all displacements. Since force error at lower displacements is expected to propagate into higher displacements, weighted loss functions might help mitigate this by focusing on minimizing errors early on. As the number of elements grows with indenter displacement due to the geometry of the test, having more accurate strain predictions in early stages can prevent accumulation of errors at larger displacements.
+    \end{itemize}
+    
+
+    \item \textbf{Explore Framework Configuration for Monotonically Converging Training Behavior}
+    \begin{itemize}
+        \item \textbf{Issue}: Training configurations often oscillate or diverge after finding a local minimum, instead of adjusting slightly to further optimize it. This can be observed in the training behavior over all epochs, where the model tends to converge to a solution that provides an adequate force match at higher displacements. However, issues arise when the gradients from lower displacements start to influence the model more significantly.
+        
+        \item \textbf{Aim}: Identify a framework configuration that ensures monotonically converging training behavior by addressing the imbalance between gradients at lower and higher displacements. The goal is to manage how the gradient for input features (strains) at lower displacements affects model updates without disproportionately impacting the force error.
+        
+        \item \textbf{Expected Outcome}: Achieve stable and consistent training progress, reducing the risk of oscillation or divergence. By addressing the local minima issue and controlling how predicted yield stresses for lower strains are adjusted, the model can prevent disproportionate force errors. This is crucial since yield stress at lower strains has a more significant effect on force predictions when fewer elements are involved (lower displacements) and can cause cascading issues as the number of elements grows at higher displacements.
+    \end{itemize}
+    
+\newpage
+    \item \textbf{Investigate Increasing Element Number / Finer Mesh}
+    \begin{itemize}
+        \item \textbf{Issue}: The current element number and mesh size may not provide optimal resolution for the framework's performance.
+        \item \textbf{Aim}: Increase the element number for smoother optimization results. Sample gradients when the element count exceeds a threshold to ensure an even gradient distribution across displacements.
+        \item \textbf{Expected Outcome}: Achieve smoother edges, filters, and gradient distributions across plastic strains and displacements. Gradient sampling will help mitigate spikes and uneven distributions, though this approach may increase computational cost and slow down simulations.
+    \end{itemize}
+
+    \item \textbf{Explore Combination of Selection Methods: Regularization and Enforce Direction}
+    \begin{itemize}
+        \item \textbf{Issue}: The regularization selector adds features for 0 strain to ensure a constant number of features per displacement. While this approach leads to fast gradient convergence, it results in reduced accuracy compared to the enforce direction selector, which converges more slowly but provides better accuracy.
+        \item \textbf{Aim}: Combine the regularization selector, which maintains constant features per displacement, with the enforce direction method to balance fast convergence and accurate force predictions.
+        \item \textbf{Expected Outcome}: Achieve a balance between convergence speed and prediction accuracy. By using both methods, the model should converge faster than using enforce direction alone, while maintaining better accuracy than regularization alone. This ensures a stable number of features per displacement while improving overall performance.
+    \end{itemize}
+
+    \item \textbf{Learn Loss Gradient Using a Second Model Instead of an Analytical Solution}
+    \begin{itemize}
+        \item \textbf{Issue}: The gradient of the loss with respect to yield stress is typically dependent on the yield surface, making the analytical gradient description limited by the specific yield surface used. Further the analytical solution only gives an aproximation of the gradient which might be more complex.
+        
+        \item \textbf{Aim}: Use a machine learning (ML) model to describe the gradient, making the loss function independent of the yield surface. The model could learn the relationship between yield stress predictions and resulting force errors by running multiple simulations. All important metrics, such as the complete stress tensor and different equivalent stresses (\textit{vergleichsspannungen}), could be used as inputs to capture more complex relationships.
+        \item \textbf{Expected Outcome}: By using a machine learning-based approach, the model could find complex relationships between input features and the resulting gradients that are not captured by the filter mechanism or the analytical gradient description. This double ML approach (using ML for both predictions and gradient calculations) would enable the model to handle more complex optimization scenarios and potentially improve overall accuracy.
+    \end{itemize}
+\end{enumerate}

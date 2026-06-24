@@ -1,0 +1,149 @@
+\subsection{Mechanics}
+\textbf{What is hardening?}\\
+% Add definition and explanation
+\subsection{Hardening Laws}
+
+In the field of material science and engineering, a hardening law describes the behavior of materials under plastic deformation. Hardening refers to the phenomenon where a material becomes stronger and more resistant to further deformation as it undergoes plastic deformation. This characteristic is crucial in designing and analyzing the mechanical behavior of materials used in various applications, such as structural components and manufacturing processes.
+
+Hardening laws are used to model the stress-strain relationship in materials beyond the elastic limit. These laws help in predicting how materials will behave under different loading conditions, enabling engineers to design safer and more efficient structures. There are several types of hardening laws, including isotropic hardening, kinematic hardening, and combined hardening. Each of these laws captures different aspects of material behavior under plastic deformation.
+
+\subsubsection{Governing Equations}
+
+The governing equations for hardening laws typically involve the stress-strain relationship and the evolution of internal variables that characterize the state of the material. Below are the fundamental equations commonly used in hardening models.
+
+\paragraph{Isotropic Hardening}
+
+Isotropic hardening assumes that the yield surface expands uniformly with plastic deformation. The yield condition for isotropic hardening can be expressed as:
+
+\begin{equation}
+f(\sigma, \alpha) = \sigma_{\text{eq}} - \sigma_Y(\alpha) = 0
+\end{equation}
+
+where:
+\begin{itemize}
+    \item $\sigma_{\text{eq}}$ is the equivalent stress.
+    \item $\sigma_Y(\alpha)$ is the yield stress, which is a function of the internal hardening variable $\alpha$.
+\end{itemize}
+
+The evolution of the hardening variable $\alpha$ is given by:
+
+\begin{equation}
+\dot{\alpha} = h(\dot{\epsilon}^p)
+\end{equation}
+
+where $\dot{\epsilon}^p$ is the plastic strain rate, and $h(\dot{\epsilon}^p)$ is a hardening function.
+
+
+
+These equations provide the mathematical framework for understanding and predicting the plastic behavior of materials under various loading conditions.
+
+
+\subsection{Physical Experiment Data}
+The data from the indentation experiment is taken from \cite{Tancogne-Ind}. Indentations were performed on Lithium ion batteries of size:
+The experiment is performed under quasi-static conditions, this means independant of time, no kinematic effects.
+The battery has dimensions:
+
+\subsection{Data Preparation}
+The data was clipped to start from initial contact from the indentation tool to the battery cell where displacement $U = 0$. The data was further clipped at the force maximum where $F_{exp} = F_{max}$. Further, the time index was normalized after clipping to start at $t_0 = 0$.
+\textbf{What are indentation tests?}\\
+% Add definition and explanation
+
+
+
+\textbf{Calculations and Mechanics Involved}\\
+% Add explanations
+
+\subsubsection{Yield Surface}
+The yield surface is defined as ....
+
+Well-known yield surfaces are:
+\begin{itemize}
+    \item Von Mises
+    \item Tresca
+    \item Drucker-Prager, which was used in REF Thomas lithium ion indentation
+\end{itemize}
+
+I used Von Mises because....
+Other choices might be valid because....
+
+Influence of yield surface on stress predictions.
+
+\subsection{Machine Learning Techniques}
+PyTorch was chosen as a machine learning library to use in Python code. The machine learning model should predict Von Mises equivalent stress from equivalent plastic strain, describing the hardening response of the cell.
+\begin{equation}
+    \sigma_{vm} = k_{NN}(\epsilon_p)
+\end{equation}
+The model predicts $\sigma_{vm}$ values on a $\epsilon_p$ tensor. Both tensors are stacked and then fed into the Abaqus simulation by rewriting the input file in the plastic section of material definition using a custom written function.
+
+\subsubsection{Model Structure}
+A Feedfworward Neural Network (FNN) structure was chosen. FFNs are commonly used in regression task and are comparatively easy to understand and adapt.
+
+Selecting the correct model structure and activation functions may be challenging if the training algorithm is uncertain. The model was selected based on training results on the two stage hardening model from \cite{Tancogne-Ind}.
+
+The two stage hardening model is defined as:
+
+\begin{equation}
+    1+1
+\end{equation}
+
+All models were trained on 1000 epochs with a learn rate of 0.001.
+Different activation functions tested:
+Six different optimizers were tested:
+
+list of optimizers and short description
+
+Noticeable results were:
+
+Chosen Model
+
+Chosen Optimizer:
+
+Chosen activation functions:
+
+Different models were tested, yielding different results for loss minimization.
+
+\subsubsection{Tested Activation Functions}
+Before the output layer, a softplus layer was introduced to restrict the model to predict positive values only, which have a physical representation and are allowed by Abaqus.
+
+\begin{lstlisting}[language=Python]
+class Model(nn.Module):
+    def __init__(self):
+        super(Model, self).__init__()
+        self.softplus = nn.Softplus()
+        # Define other layers
+
+    def forward(self, x):
+        x = self.softplus(self.layer3(x))
+        return x
+\end{lstlisting}
+
+\subsubsection{Training}
+The loss is defined as the mean square error (MSE) from the experimental force and the simulated force.
+\begin{equation}
+\text{Loss} := \text{MSE}(F_{\text{sim}}, F_{\text{exp}}) = \frac{1}{T} \sum_{t = 0}^{T} \left( F_{\text{sim}, t} - F_{\text{exp}, t} \right)^2
+\end{equation}
+
+In contrast to usual machine learning tasks, there is no ground truth to compare the model prediction to and define the loss function. As the predicted value is a $\sigma_{vm}$ stress tensor and the loss is defined as the MSE of experimental and simulated force, these quantities are not directly linked. An alternative solution for adjusting the model weights is to be found.
+\begin{equation}
+\Delta W_{ij} = - \mu \frac{\partial \text{Loss}}{\partial W_{ij}} = - \mu \frac{\partial \text{Loss}}{\partial k_{NN}(\epsilon_p)} \frac{\partial k_{NN}(\epsilon_p)}{\partial W_{ij}}
+\end{equation}
+
+\begin{eqnarray}    
+\Delta \mathbf{W} &=& -\mu \frac{\partial \text{Err}}{\partial \mathbf{W}} \\
+\frac{\partial \text{Err}}{\partial \mathbf{W}} &=& \frac{\partial \text{Err}}{\partial F_{\text{sim}}} \frac{\partial F_{\text{sim}}}{\partial \mathbf{W}} \\
+\frac{\partial F_{\text{sim}}}{\partial \mathbf{W}} &=& \sum_{\text{elements}} \frac{\partial F_{\text{element}}}{\partial \mathbf{W}} \\
+\frac{\partial \sigma_{\text{vm}}}{\partial \mathbf{W}} &=& \frac{\partial \text{NN}(\epsilon_p)}{\partial \mathbf{W}} \\
+\Delta \mathbf{W} &=& -\mu \frac{\partial \text{Err}}{\partial F_{\text{sim}}} \sum_{\text{elements}} \frac{\partial F_{\text{element}}}{\partial \sigma_{zz}} \frac{\partial \sigma_{zz}}{\partial \mathbf{W}} \\
+\frac{\partial \sigma_{zz}}{\partial \mathbf{W}} &=& \frac{\partial \sigma_{zz}}{\partial \sigma_{\text{vm}}} \frac{\partial \sigma_{\text{vm}}}{\partial \mathbf{W}} \\
+\Delta \mathbf{W} &=& -\mu \frac{\partial \text{Err}}{\partial F_{\text{sim}}} \sum_{\text{elements}} \left( \frac{\partial F_{\text{element}}}{\partial \sigma_{zz}} \frac{\partial \sigma_{zz}}{\partial \sigma_{\text{vm}}} \frac{\partial \sigma_{\text{vm}}}{\partial \mathbf{W}} \right)
+\end{eqnarray}
+
+\begin{equation}
+\frac{\partial \sigma_{zz}}{\partial \sigma_{\text{vm}}} \text{ is to be determined}
+\end{equation}
+
+The von Mises equivalent stress is given by:
+\begin{equation}
+\sigma_{vm} = \sqrt{\frac{1}{2} \left[ (\sigma_1 - \sigma_2)^2 + (\sigma_2 - \sigma_3)^2 + (\sigma_3 - \sigma_1)^2 \right]}
+\end{equation}
+where $\sigma_1$, $\sigma_2$, and $\sigma_3$ are the principal stresses.
