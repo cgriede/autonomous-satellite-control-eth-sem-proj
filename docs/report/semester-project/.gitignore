@@ -1,0 +1,11 @@
+# LaTeX build artifacts (semester project report)
+docs/report/semester-project/*.aux
+docs/report/semester-project/*.bbl
+docs/report/semester-project/*.blg
+docs/report/semester-project/*.fdb_latexmk
+docs/report/semester-project/*.fls
+docs/report/semester-project/*.log
+docs/report/semester-project/*.out
+docs/report/semester-project/*.toc
+docs/report/semester-project/*.synctex.gz
+docs/report/semester-project/main.pdf

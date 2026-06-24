@@ -1,0 +1,37 @@
+\label{sec:results}
+
+% Replace placeholders with final figures/tables before submission.
+% Export plots from notebooks or training logs; keep paths under docs/report/semester-project/figures/
+
+\subsection{Baseline overflight}
+Figure~\ref{fig:baseline-overflight} shows the reference baseline pass with seeded clouds along the target corridor (notebook \texttt{07-baseline-overflight.ipynb}).
+
+\begin{figure}[htbp]
+  \centering
+  % \includegraphics[width=0.85\linewidth]{figures/baseline-overflight-frame.png}
+  \fbox{\parbox[c][4cm][c]{0.85\linewidth}{\centering Placeholder: export a representative frame or metric plot.}}
+  \caption{Baseline overflight scenario (cloud-aware corridor).}
+  \label{fig:baseline-overflight}
+\end{figure}
+
+\subsection{Training progression}
+Report learning curves (episode return, capture count, evaluation rollouts) for the final model checkpoint.
+State the random seed policy and number of training episodes.
+
+\subsection{Policy vs.\ baseline}
+Present a compact comparison table.
+Example headings: controller, mean episode return, captures per orbit, mean quality, safety terminations.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Controller comparison (fill with final numbers).}
+  \label{tab:controller-comparison}
+  \begin{tabular}{lcccc}
+    \toprule
+    Controller & Mean return & Captures & Mean quality & Terminations \\
+    \midrule
+    Baseline   & --- & --- & --- & --- \\
+    MPO (final)& --- & --- & --- & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}

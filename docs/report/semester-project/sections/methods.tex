@@ -1,0 +1,27 @@
+\label{sec:methods}
+
+\subsection{Simulation architecture}
+Numeric propagation, camera sensing, cloud occlusion, and reward computation live in \texttt{backend/simulation/}.
+Rendering (\texttt{backend/render/}) is view-only and consumes \texttt{SimulationStateSeries} from \texttt{run\_simulation()}---no duplicate physics in export paths.
+
+The current mission is a single-satellite 2D polar overflight with a primary nadir camera and a secondary wide-field camera.
+Altitude is sampled per episode; targets lie on a meridian stripe (see \texttt{environment\_definition/constants/MISSION.py}).
+
+\subsection{Observation and action}
+The gym environment (\texttt{SatelliteAttitudeControlEnv}) integrates attitude dynamics with step \SI{0.1}{\second}.
+The policy outputs three-axis reaction-wheel torque commands bounded by plant limits.
+Observations are assembled via explicit feature selection (\texttt{controller\_observation.py}); dimensions depend on enabled vision keys.
+
+\subsection{Reward}
+Reward terms combine distance-to-target shaping, area coverage and novelty, image-quality capture at discrete shutter events, and wheel-dynamics penalties.
+Weights and gates are defined in \texttt{autonomous\_control/reward.py} and \texttt{docs/presentation/machine-learning.md}.
+Reported numbers must match the code revision cited in the appendix.
+
+\subsection{Learning algorithm}
+Training uses MPO (\texttt{MPOAgent} in \texttt{controller\_agent.py}) with episode rollouts from \texttt{EpisodeRunner}.
+Warmup and evaluation share the same simulation configuration as training.
+Hyperparameters are recorded in \texttt{mpo\_config.py} and the presentation slides under \texttt{docs/presentation/}.
+
+\subsection{Baselines and evaluation}
+Compare learned policies against documented baselines (e.g.\ zero-torque coast and scripted overflight sweeps in notebook~07).
+Metrics should include capture count, mean image quality, cloud-blocked fraction, and attitude safety violations---extracted from run artifacts (\texttt{run\_log.md}, \texttt{summary\_metrics.json}) rather than re-simulated ad hoc.
