@@ -62,6 +62,12 @@ After notable process mistakes or breakthroughs, run **`/learn-skill`** to updat
 - 1d strip is updated incorrectly (still)
 - clouds are not (visibly) moving in the simulation — formation generator exists; kinematic motion / render feedback still weak or missing
 - integration tests out of sync with `SimulationConfig` / cloud precompute (movement constraints + cloud formation + `test_cloud_arc_precompute`)
+- **BUG-004 (P0):** MPO agent spams take-picture during notebook 08 training → capture budget exhausted → episode early-stops before full orbit → agent cannot learn meaningful policy
+
+### Suggested next session (2026-06-25)
+
+1. **BUG-004** — fix shutter spam / early-exit loop (action bias, wasted-shutter penalty, budget-aware masking, or train-phase horizon policy).
+2. Fix integration test drift (`controller_mode`, cloud precompute parity) → green gates for notebooks 02–03.
 
 ## Structural issues
 
