@@ -3,7 +3,7 @@ alwaysApply: true
 ---
 # Python runtime (this repository)
 
-- **Conda env:** `ASC` only — run `conda activate ASC` before any `python`, `pip`, `pytest`, or notebook execution.
+- **Conda env:** `auto-sat` only — run `conda activate auto-sat` before any `python`, `pip`, `pytest`, or notebook execution.
 - **Do not** use `LRF` or another env name unless the user **explicitly** names it in the current chat.
 - Global user rules that mention `LRF` do **not** apply to this repo; this rule and [`python-runtime-environment`](../skills/python-runtime-environment/SKILL.md) win.
-- If Python fails with `ModuleNotFoundError`, verify the active env is `ASC` (`conda env list`, `where python`) **before** installing packages — ask the user before `pip install` unless they already requested it.
+- If Python fails with `ModuleNotFoundError`, verify the active env is `auto-sat` (`conda env list`, `where python`) **before** installing packages — ask the user before `pip install` unless they already requested it.
