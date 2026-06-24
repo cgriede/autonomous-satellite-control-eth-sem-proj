@@ -1,0 +1,27 @@
+{
+  "source_pdf": "Target Pointing Baseline model, bugs.pdf",
+  "title": "Target Pointing: Baseline model, bugs",
+  "transcribed_at": "2026-06-24",
+  "status": "fixed",
+  "fixed_at": "2026-06-24",
+  "resolution": "First target engage now slews to active_target_index 0 (first/closest along sequence), not a far-ahead target on the ground track. Baseline rollout uses policy.active_anchor() via stepper.set_obc_ground_target_xy_km on engage.",
+  "pages": [
+    {
+      "page": 1,
+      "typed_captions": [
+        "On approach: nadir pointing, ok",
+        "First target pointing: moves to ~10th target not to the first / closest"
+      ],
+      "handwriting": [
+        "No clouds in green areas, suspicious",
+        "Expected this"
+      ],
+      "figure_annotations": [
+        "Top screenshot (nadir approach): two green hand-drawn circles on the blue sensor footprint over Earth's surface — annotator flags missing clouds in those green-marked regions.",
+        "Middle screenshot (target pointing, frame ~672): green arrow/line from current satellite position toward a red target dot farther along the ground track (~10th target), not the nearest/first target dot. Handwritten 'Expected this' beside the indicated target.",
+        "Dashboard context: SATELLITE OVERFLIGHT — ORBIT & IMAGING DASHBOARD; control mode sequential_target_baseline; altitude ~548 km; attitude z off-nadir ~-42.6°; active target 0; capture reward latent 10.92 applied 0.00."
+      ]
+    }
+  ],
+  "summary": "Baseline target-pointing bug report (2026-06-24). Nadir approach looks correct. On first target-pointing engagement the satellite slewed toward approximately the 10th target along the track instead of the first/closest target. FIXED: engage now points at the active sequential target (index 0 first). Open: green-circled nadir footprint areas still flagged as suspicious for missing clouds."
+}
