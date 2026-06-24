@@ -1,3 +1,5 @@
+import json
+import time
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -19,7 +21,6 @@ from environment_definition.mission_profiles.s00_simulation_build_sample_fl impo
 from simulation.camera_2d import boresight_dir_for_mount
 from simulation.capture_reward import (
     applied_capture_reward_series,
-    capture_time_windows_s,
     latent_capture_reward_series,
 )
 from simulation.state_types import SimulationStateSeries
@@ -35,6 +36,8 @@ if __package__:
     from ._main_view import build_main_panel, update_main_panel
     from ._reward_plot import build_reward_panel, update_reward_panel
     from ._torque_plot import build_torque_panel, update_torque_panel
+    from ._pointing_plot import build_pointing_panel, update_pointing_panel
+    from ._capture_plot import build_capture_panel, update_capture_panel
     from ._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
     from ._telemetry import build_telemetry_panel, update_telemetry_panel
 else:
@@ -43,6 +46,8 @@ else:
     from render._main_view import build_main_panel, update_main_panel
     from render._reward_plot import build_reward_panel, update_reward_panel
     from render._torque_plot import build_torque_panel, update_torque_panel
+    from render._pointing_plot import build_pointing_panel, update_pointing_panel
+    from render._capture_plot import build_capture_panel, update_capture_panel
     from render._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
     from render._telemetry import build_telemetry_panel, update_telemetry_panel
 
@@ -54,6 +59,8 @@ SHOW_CLOSEUP = True
 SHOW_TELEMETRY = True
 SHOW_REWARD_PLOT = True
 SHOW_TORQUE_PLOT = True
+SHOW_POINTING_PLOT = True
+SHOW_CAPTURE_PLOT = True
 
 R_EARTH_KM = EARTH_RADIUS.to(ureg.km).magnitude
 SAT_ALTITUDE_KM = SATELLITE_ALTITUDE.to(ureg.km).magnitude
@@ -82,6 +89,33 @@ def _require_runtime() -> SimulationStateSeries:
     if SIMULATION_SERIES is None:
         raise RuntimeError("Renderer runtime has not been configured with simulation data.")
     return SIMULATION_SERIES
+
+
+def _island_phi_bounds_deg_from_series(simulation_series: SimulationStateSeries) -> list[tuple[float, float]]:
+    """Angular wedge on the orbit disk covering targets and cloud arcs (main-view island gimmick)."""
+    meta = simulation_series.metadata
+    intervals: list[tuple[float, float]] = []
+    if meta.target_region_bounds_deg:
+        intervals.extend((float(lo), float(hi)) for lo, hi in meta.target_region_bounds_deg)
+    else:
+        intervals.append(primary_stripe_disk_phi_bounds_deg())
+
+    cloud_starts = simulation_series.cloud_arc_start_rad
+    cloud_ends = simulation_series.cloud_arc_end_rad
+    if cloud_starts.size > 0:
+        starts_deg = np.rad2deg(cloud_starts)
+        ends_deg = np.rad2deg(cloud_ends)
+        valid = np.isfinite(starts_deg) & np.isfinite(ends_deg)
+        if valid.any():
+            intervals.append((float(np.min(starts_deg[valid])), float(np.max(ends_deg[valid]))))
+
+    if not intervals:
+        return []
+
+    pad_deg = float(RENDER.island_phi_pad_deg)
+    lo_deg = min(a for a, _ in intervals) - pad_deg
+    hi_deg = max(b for _, b in intervals) + pad_deg
+    return [(lo_deg, hi_deg)]
 
 
 def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> None:
@@ -121,6 +155,7 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
         "target_region_start_angle_deg": float(tgt_lo_deg),
         "target_region_end_angle_deg": float(tgt_hi_deg),
         "target_region_bounds_deg": list(region_bounds) if region_bounds else None,
+        "island_phi_bounds_deg": _island_phi_bounds_deg_from_series(simulation_series),
         "view_anchor_x": float(view_anchor_xy[0]),
         "view_anchor_y": float(view_anchor_xy[1]),
         "view_anchor_pos": np.asarray(view_anchor_xy, dtype=float),
@@ -134,6 +169,41 @@ def _configure_runtime_from_series(simulation_series: SimulationStateSeries) -> 
     FIG = plt.figure(figsize=RENDER.figure_size, facecolor=RENDER.space_background)
     PANELS = {}
     CONTROL_ARTISTS = None
+
+
+def _baseline_shutter_steps(sim_series: SimulationStateSeries) -> tuple[int, ...]:
+    steps = sim_series.metadata.baseline_shutter_cmd_steps
+    if not steps:
+        return ()
+    return tuple(int(s) for s in steps)
+
+
+def _take_picture_cmd_steps(sim_series: SimulationStateSeries) -> tuple[int, ...]:
+    meta = sim_series.metadata
+    if meta.take_picture_cmd_steps:
+        return tuple(int(s) for s in meta.take_picture_cmd_steps)
+    baseline = _baseline_shutter_steps(sim_series)
+    if baseline:
+        return baseline
+    cmd = sim_series.baseline_take_picture_cmd
+    if cmd is not None:
+        return tuple(int(i) for i in np.flatnonzero(np.asarray(cmd, dtype=bool)))
+    return ()
+
+
+def _take_picture_cmd_times_s(sim_series: SimulationStateSeries) -> tuple[float, ...]:
+    steps = _take_picture_cmd_steps(sim_series)
+    if not steps:
+        return ()
+    t_s = np.asarray(sim_series.t_s, dtype=float)
+    return tuple(float(t_s[int(k)]) for k in steps if 0 <= int(k) < t_s.shape[0])
+
+
+def _shutter_cmd_active(sim_idx: int, shutter_steps: tuple[int, ...], *, tol_steps: int = 3) -> bool:
+    if not shutter_steps:
+        return False
+    k = int(sim_idx)
+    return any(abs(k - int(s)) <= int(tol_steps) for s in shutter_steps)
 
 
 def _cloud_world_xy_for_frame(sim_idx: int) -> list[dict[str, np.ndarray]]:
@@ -236,7 +306,17 @@ def sample_scene(sim_idx: int) -> dict:
 
     nadir_angle = float(sim_series.theta_orbit_rad[sim_idx]) + np.pi
     z_angle_rel_nadir_rad = np.arctan2(np.sin(z_angle - nadir_angle), np.cos(z_angle - nadir_angle))
-    sat_to_view_anchor = STATIC_SCENE["view_anchor_pos"] - sat_pos
+    view_anchor_x = float(STATIC_SCENE["view_anchor_x"])
+    view_anchor_y = float(STATIC_SCENE["view_anchor_y"])
+    active_target_idx = -1
+    if sim_series.baseline_view_anchor_xy_km is not None:
+        anchor_xy = np.asarray(sim_series.baseline_view_anchor_xy_km[sim_idx], dtype=float)
+        if np.all(np.isfinite(anchor_xy)):
+            view_anchor_x = float(anchor_xy[0])
+            view_anchor_y = float(anchor_xy[1])
+    if sim_series.baseline_active_target_idx is not None:
+        active_target_idx = int(sim_series.baseline_active_target_idx[sim_idx])
+    sat_to_view_anchor = np.array([view_anchor_x, view_anchor_y], dtype=float) - sat_pos
     los_angle = float(np.arctan2(sat_to_view_anchor[1], sat_to_view_anchor[0]))
     los_rel_nadir_rad = np.arctan2(np.sin(los_angle - nadir_angle), np.cos(los_angle - nadir_angle))
 
@@ -281,13 +361,27 @@ def sample_scene(sim_idx: int) -> dict:
     if N_BINS_SECONDARY > 0:
         secondary_codes = np.asarray(sim_series.secondary_camera_observation_line_codes[sim_idx], dtype=np.int8)
 
+    sat_subpoint_lat_deg = float(sim_series.sat_subpoint_lat_deg[sim_idx])
+    sat_subpoint_lon_deg = float(sim_series.sat_subpoint_lon_deg[sim_idx])
+    sat_altitude_km = float(sim_series.sat_altitude_m[sim_idx]) / 1000.0
+    target_intersection_pct = 100.0 * float(sim_series.target_area_intersection_ratio[sim_idx])
+    target_novelty_pct = 100.0 * float(sim_series.target_area_novelty_ratio[sim_idx])
+    theta_orbit_deg = float(np.rad2deg(idx_theta))
+
     scene_out = {
         "sim_idx": sim_idx,
         "sat_pos": sat_pos,
         "z_axis_dir": z_axis_dir,
+        "sat_subpoint_lat_deg": sat_subpoint_lat_deg,
+        "sat_subpoint_lon_deg": sat_subpoint_lon_deg,
+        "sat_altitude_km": sat_altitude_km,
+        "target_intersection_pct": target_intersection_pct,
+        "target_novelty_pct": target_novelty_pct,
+        "theta_orbit_deg": theta_orbit_deg,
         "trail_xy": trail_xy,
-        "view_anchor_x": STATIC_SCENE["view_anchor_x"],
-        "view_anchor_y": STATIC_SCENE["view_anchor_y"],
+        "view_anchor_x": view_anchor_x,
+        "view_anchor_y": view_anchor_y,
+        "baseline_active_target_idx": active_target_idx,
         "orbit_altitude_km": SAT_ALTITUDE_KM,
         "sim_speed_multiplier": CONTROLS.sim_speed_multiplier,
         "edge_l": edge_l,
@@ -318,6 +412,30 @@ def sample_scene(sim_idx: int) -> dict:
         ),
         "controller_mode": sim_series.metadata.controller_mode,
     }
+    shutter_steps = _take_picture_cmd_steps(sim_series)
+    if shutter_steps:
+        shutter_active = _shutter_cmd_active(sim_idx, shutter_steps)
+        latent_val = applied_val = 0.0
+        if "reward" in PANELS:
+            reward_artists = PANELS["reward"]["artists"]
+            latent_arr = reward_artists.get("latent_reward")
+            applied_arr = reward_artists.get("applied_reward")
+            if latent_arr is not None and 0 <= sim_idx < latent_arr.shape[0]:
+                latent_val = float(latent_arr[sim_idx])
+            if applied_arr is not None and 0 <= sim_idx < applied_arr.shape[0]:
+                applied_val = float(applied_arr[sim_idx])
+        scene_out["baseline_shutter_text"] = (
+            f"  SHUTTER  latent {latent_val:.2f}  applied {applied_val:.2f}"
+            if shutter_active
+            else ""
+        )
+        scene_out["baseline_latent_reward_text"] = (
+            f"  capture reward  latent {latent_val:.2f}  applied {applied_val:.2f}"
+        )
+        if active_target_idx >= 0:
+            scene_out["baseline_target_text"] = f"  active target {active_target_idx}"
+        else:
+            scene_out["baseline_target_text"] = "  nadir coast (no target lock)"
     return {**STATIC_SCENE, **scene_out}
 
 
@@ -353,11 +471,11 @@ def init() -> list:
 
     if "1d_sat_view" in PANELS:
         a = PANELS["1d_sat_view"]["artists"]
-        a["img"].set_data(np.zeros((a["H"], a["N_BINS"], 4), dtype=float))
+        a["img"].set_data(np.zeros((a["N_BINS"], a["W"], 4), dtype=float))
 
     if "1d_sat_view_secondary" in PANELS:
         a = PANELS["1d_sat_view_secondary"]["artists"]
-        a["img"].set_data(np.zeros((a["H"], a["N_BINS"], 4), dtype=float))
+        a["img"].set_data(np.zeros((a["N_BINS"], a["W"], 4), dtype=float))
 
     if "telemetry" in PANELS:
         PANELS["telemetry"]["artists"]["text"].set_text("")
@@ -371,6 +489,17 @@ def init() -> list:
         a["line_applied"].set_data([], [])
         if "line_agent" in a:
             a["line_agent"].set_data([], [])
+        a["cursor"].set_data([], [])
+    if "pointing" in PANELS:
+        a = PANELS["pointing"]["artists"]
+        a["line_z"].set_data([], [])
+        if "line_los" in a:
+            a["line_los"].set_data([], [])
+        a["cursor"].set_data([], [])
+    if "capture" in PANELS:
+        a = PANELS["capture"]["artists"]
+        a["line_quality"].set_data([], [])
+        a["line_cloud"].set_data([], [])
         a["cursor"].set_data([], [])
 
     return []
@@ -391,6 +520,10 @@ def update_panels(scene: dict) -> None:
         update_reward_panel(PANELS["reward"]["artists"], scene["sim_idx"])
     if "torque" in PANELS:
         update_torque_panel(PANELS["torque"]["artists"], scene["sim_idx"])
+    if "pointing" in PANELS:
+        update_pointing_panel(PANELS["pointing"]["artists"], scene["sim_idx"])
+    if "capture" in PANELS:
+        update_capture_panel(PANELS["capture"]["artists"], scene["sim_idx"])
 
 
 def update(_frame: int) -> list:
@@ -555,6 +688,107 @@ def _maximize_interactive_window() -> None:
         pass
 
 
+_DEBUG_LAYOUT_LOG = Path(__file__).resolve().parents[2] / "debug-b36892.log"
+
+
+def _rect_overlap_area(a: tuple[float, ...], b: tuple[float, ...]) -> float:
+    ax0, ay0, aw, ah = a
+    bx0, by0, bw, bh = b
+    ix0 = max(ax0, bx0)
+    iy0 = max(ay0, by0)
+    ix1 = min(ax0 + aw, bx0 + bw)
+    iy1 = min(ay0 + ah, by0 + bh)
+    if ix1 <= ix0 or iy1 <= iy0:
+        return 0.0
+    return float((ix1 - ix0) * (iy1 - iy0))
+
+
+def _audit_dashboard_layout(*, run_id: str = "layout") -> None:
+    """Log figure-axis bounds and pairwise overlaps (debug session b36892)."""
+    if FIG is None:
+        return
+    gutter = float(RENDER.figure_inset_gutter_frac)
+
+    def _collect_declared_rects() -> list[dict[str, object]]:
+        declared: list[dict[str, object]] = []
+        specs = [
+            ("telemetry", RENDER.telemetry_axes_rect),
+            ("reward", RENDER.reward_axes_rect),
+            ("torque", RENDER.torque_axes_rect),
+            ("main", RENDER.main_axes_rect),
+            ("closeup", RENDER.closeup_axes_rect),
+            ("pointing", RENDER.pointing_axes_rect),
+            ("capture", RENDER.capture_axes_rect),
+            ("transport", RENDER.transport_bar_rect),
+        ]
+        for name, rect in specs:
+            declared.append({"name": name, "bounds": list(rect)})
+        for name, rect in (
+            ("sat_view_1d", RENDER.sat_view_1d_axes_rect),
+            ("sat_view_1d_secondary", RENDER.sat_view_1d_secondary_axes_rect),
+        ):
+            l, b, w, h = rect
+            title_frac = 0.26
+            h_strip = h * (1.0 - title_frac)
+            declared.append({"name": f"{name}_strip", "bounds": [l, b, w, h_strip]})
+            declared.append({"name": f"{name}_title", "bounds": [l, b + h_strip, w, h * title_frac]})
+        return declared
+
+    def _find_overlaps(entries: list[dict[str, object]]) -> list[dict[str, object]]:
+        out: list[dict[str, object]] = []
+        for i, a in enumerate(entries):
+            for j, b in enumerate(entries):
+                if j <= i:
+                    continue
+                area = _rect_overlap_area(tuple(a["bounds"]), tuple(b["bounds"]))
+                if area <= 1e-9:
+                    continue
+                out.append(
+                    {
+                        "a": a["name"],
+                        "b": b["name"],
+                        "overlap_area": area,
+                        "a_bounds": a["bounds"],
+                        "b_bounds": b["bounds"],
+                    }
+                )
+        return out
+
+    entries: list[dict[str, object]] = []
+    for ax in FIG.axes:
+        name = getattr(ax, "get_label", lambda: "")() or repr(ax)
+        l, b, w, h = ax.get_position().bounds
+        entries.append({"name": name, "bounds": [l, b, w, h]})
+
+    declared = _collect_declared_rects()
+    overlaps_actual = _find_overlaps(entries)
+    overlaps_declared = _find_overlaps(declared)
+
+  #region agent log
+    payload = {
+        "sessionId": "b36892",
+        "runId": run_id,
+        "hypothesisId": "layout-overlap",
+        "location": "render_main.py:_audit_dashboard_layout",
+        "message": "dashboard panel bounds and overlaps",
+        "data": {
+            "gutter_frac": gutter,
+            "n_axes": len(entries),
+            "overlaps_actual": overlaps_actual,
+            "overlaps_declared": overlaps_declared,
+            "panels_actual": entries,
+            "panels_declared": declared,
+        },
+        "timestamp": int(time.time() * 1000),
+    }
+    try:
+        with _DEBUG_LAYOUT_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(payload) + "\n")
+    except OSError:
+        pass
+  #endregion
+
+
 def _build_panels() -> None:
     sim_series = _require_runtime()
     if FIG is None:
@@ -563,26 +797,61 @@ def _build_panels() -> None:
         axes, artists = build_telemetry_panel(FIG, STATIC_SCENE)
         PANELS["telemetry"] = {"axes": axes, "artists": artists}
     if SHOW_REWARD_PLOT:
-        cmd_steps = tuple(sim_series.metadata.take_picture_cmd_steps or ())
+        cmd_steps = _take_picture_cmd_steps(sim_series)
         latent = latent_capture_reward_series(sim_series)
         applied = applied_capture_reward_series(sim_series, cmd_steps=cmd_steps)
-        windows = capture_time_windows_s(sim_series, cmd_steps) if cmd_steps else []
         axes, artists = build_reward_panel(
             FIG,
             sim_series.t_s,
-            latent,
-            applied,
-            capture_windows_s=windows,
+            latent_reward=latent,
+            applied_reward=applied,
+            title="Reward",
+            cmd_times_s=_take_picture_cmd_times_s(sim_series),
         )
         PANELS["reward"] = {"axes": axes, "artists": artists}
     if SHOW_TORQUE_PLOT:
+        use_obc = "obc" in str(sim_series.metadata.controller_mode).lower()
+        torque_agent = None if use_obc else sim_series.wheel_torque_agent_cmd_nm
+        applied_label = "OBC pointing (RW)" if use_obc else "applied (RW)"
         axes, artists = build_torque_panel(
             FIG,
             sim_series.t_s,
             sim_series.wheel_torque_cmd_nm,
-            torque_agent_nm=sim_series.wheel_torque_agent_cmd_nm,
+            torque_agent_nm=torque_agent,
+            applied_label=applied_label,
         )
         PANELS["torque"] = {"axes": axes, "artists": artists}
+    if SHOW_POINTING_PLOT:
+        nadir_angle = sim_series.theta_orbit_rad + np.pi
+        z_offnadir_rad = np.arctan2(
+            np.sin(sim_series.body_z_angle_rad - nadir_angle),
+            np.cos(sim_series.body_z_angle_rad - nadir_angle),
+        )
+        offnadir_deg = np.rad2deg(z_offnadir_rad)
+        los_offnadir_deg = None
+        if sim_series.baseline_view_anchor_xy_km is not None:
+            anchors = np.asarray(sim_series.baseline_view_anchor_xy_km, dtype=float)
+            sat_x = sim_series.radius_km * np.cos(sim_series.theta_orbit_rad)
+            sat_y = sim_series.radius_km * np.sin(sim_series.theta_orbit_rad)
+            los_angle = np.arctan2(anchors[:, 1] - sat_y, anchors[:, 0] - sat_x)
+            los_rel = np.arctan2(np.sin(los_angle - nadir_angle), np.cos(los_angle - nadir_angle))
+            los_offnadir_deg = np.rad2deg(los_rel)
+        axes, artists = build_pointing_panel(
+            FIG,
+            sim_series.t_s,
+            offnadir_deg,
+            los_offnadir_deg=los_offnadir_deg,
+        )
+        PANELS["pointing"] = {"axes": axes, "artists": artists}
+    if SHOW_CAPTURE_PLOT:
+        cloud_blocked_pct = 100.0 * np.asarray(sim_series.camera_cloud_blocked_fraction, dtype=float)
+        axes, artists = build_capture_panel(
+            FIG,
+            sim_series.t_s,
+            sim_series.camera_image_quality,
+            cloud_blocked_pct,
+        )
+        PANELS["capture"] = {"axes": axes, "artists": artists}
     if SHOW_MAIN_PLOT:
         axes, artists = build_main_panel(FIG, STATIC_SCENE)
         PANELS["main"] = {"axes": axes, "artists": artists}
@@ -601,6 +870,7 @@ def _build_panels() -> None:
             title="Secondary Camera",
         )
         PANELS["1d_sat_view_secondary"] = {"axes": axes, "artists": artists}
+    _audit_dashboard_layout(run_id="post-build")
 
 
 def render_from_series(
@@ -616,12 +886,23 @@ def render_from_series(
 
     FIG.text(
         0.5,
-        0.995,
-        f"2D Satellite Orbit around Earth (h={SAT_ALTITUDE_KM:.0f} km, T={simulation_series.metadata.orbit_period_s/60:.1f} min)",
-        color="white",
+        0.988,
+        "SATELLITE OVERFLIGHT \u2014 ORBIT & IMAGING DASHBOARD",
+        color=RENDER.title_color,
         ha="center",
         va="top",
-        fontsize=RENDER.suptitle_fontsize,
+        fontsize=RENDER.suptitle_fontsize + 2,
+        fontweight="bold",
+    )
+    FIG.text(
+        0.5,
+        0.963,
+        f"altitude {SAT_ALTITUDE_KM:.0f} km   \u00b7   period {simulation_series.metadata.orbit_period_s/60:.1f} min"
+        f"   \u00b7   control: {simulation_series.metadata.controller_mode}",
+        color=RENDER.subtitle_color,
+        ha="center",
+        va="top",
+        fontsize=RENDER.suptitle_fontsize - 3,
     )
 
     _build_panels()

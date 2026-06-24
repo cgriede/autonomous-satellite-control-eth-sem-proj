@@ -44,8 +44,21 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
 
 # Observations & actions
 
-- **State (5-D):** `[angle_rel_nadir, omega_sat, alpha_sat, angle_to_target, omega_wheel]`.
-- **Action:** commanded wheel torque (scalar), clipped to ±`tau_max`.
+- **Controller observation (notebook 08):** selected `SimulationTimestepState` keys — attitude scalars, orbit angle, primary + secondary camera observation-line code arrays (see `S01_TRAINING_FEATURE_CONFIG` in `notebooks/s01/s01_utils/training_workflow.py`).
+- **MPO action (2-D):** `[wheel_torque_cmd_nm, take_picture_signal]` — torque clipped to ±`tau_max`; shutter fires when `take_picture_signal > 0` (after `tanh` policy scaling). Source: `autonomous_control/action_adapter.py`, `autonomous_control/episode_runner.py`.
+- **Warmup:** torque-only baseline/random policies; shutter dimension stored as `-1` (no capture).
+
+---
+
+# Training loop policies (notebook 08)
+
+Source: `autonomous_control/episode_runner.py`, `notebooks/s01/s01_utils/training_workflow.py`.
+
+- **`RewardConfig` plumbing:** `MPOConfig.reward` is passed via `SimulationOverrides(reward_config=...)` on the s01 mission setup so `SimulationStepper` and `RewardKernel` share the same flags.
+- **Capture on shutter:** `TakePictureBudget` per episode; `apply_shutter_capture` recomputes step reward with quality/coverage/novelty at the resolved capture frame (parity with notebook 06 `take_picture_verification`).
+- **Early stop:** `warmup` / `train` episodes end when `budget.remaining == 0`; **`eval` runs full horizon** (`early_stop_on_budget_exhausted=False`).
+- **`train_every_n_steps`:** default `1`; MPO `train()` invoked every N simulation steps in train mode (throughput knob, no mission change).
+- **`collect_states`:** default `False`; skips per-step observation copies in the RL hot path.
 
 ---
 
@@ -60,5 +73,6 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
 
 | Topic | Primary code |
 |--------|----------------|
-| Reward & step | `environment_definition/attitude_control_env.py` |
-| MPO trainer | `autonomous_control/controller_agent.py` |
+| Reward & step | `simulation/reward_kernel.py`, `autonomous_control/reward.py`, `simulation/episode_capture.py` |
+| MPO trainer | `autonomous_control/controller_agent.py`, `autonomous_control/episode_runner.py` |
+| Notebook 08 workflow | `notebooks/s01/s01_utils/training_workflow.py` |

@@ -22,6 +22,17 @@ class RenderConstants:
     earth_res                   : int
     earth_dark_rgb              : tuple[float, float, float]
     earth_bright_rgb            : tuple[float, float, float]
+    island_dark_rgb             : tuple[float, float, float]
+    island_bright_rgb           : tuple[float, float, float]
+    island_phi_pad_deg          : float
+    island_blob_along_scale     : float
+    island_blob_along_pad_km    : float
+    island_blob_inward_sigma_km : float
+    island_blob_inward_peak_km  : float
+    island_r_min_frac           : float
+    island_r_feather_frac       : float
+    island_y_min_frac           : float
+    island_y_feather_frac       : float
     # Shared strip styling.
     earth_green_rgb             : tuple[float, float, float]
     fov_turquoise_rgba          : tuple[float, float, float, float]
@@ -72,6 +83,30 @@ class RenderConstants:
     info_bbox_edgecolor         : str
     info_bbox_alpha             : float
     info_bbox_linewidth         : float
+    # Dashboard "mission-control" dark theme.
+    panel_bg                    : str
+    panel_edge                  : str
+    panel_edge_linewidth        : float
+    grid_color                  : str
+    grid_alpha                  : float
+    title_color                 : str
+    subtitle_color              : str
+    text_muted                  : str
+    section_header_color        : str
+    accent_reward               : str
+    accent_cursor               : str
+    accent_torque               : str
+    accent_torque_agent         : str
+    accent_pointing             : str
+    accent_pointing_limit       : str
+    accent_quality              : str
+    accent_cloud                : str
+    telemetry_fontsize          : float
+    plot_title_fontsize         : int
+    plot_title_pad              : float
+    plot_label_fontsize         : int
+    plot_tick_fontsize          : int
+    plot_legend_fontsize        : int
     speed_button_specs          : tuple[tuple[str, float, float], ...]
     speed_button_top            : float
     speed_button_width          : float
@@ -118,6 +153,10 @@ class RenderConstants:
     sat_view_1d_axes_rect      : tuple[float, float, float, float]
     # 1D secondary camera observation strip above the primary strip.
     sat_view_1d_secondary_axes_rect: tuple[float, float, float, float]
+    # Attitude / pointing time-series plot (off-nadir angle).
+    pointing_axes_rect         : tuple[float, float, float, float]
+    # Capture-conditions time-series plot (image quality + cloud blocking).
+    capture_axes_rect          : tuple[float, float, float, float]
     closeup_axes_rect          : tuple[float, float, float, float]
     transport_bar_rect         : tuple[float, float, float, float]
     interactive_start_maximized: bool
@@ -127,7 +166,7 @@ class RenderConstants:
 
 RENDER = RenderConstants(
     # WINDOW SIZE
-    figure_size                  = (12.0, 7.0),
+    figure_size                  = (16.0, 9.0),
 
     constrained_layout           = True,
     # MARGINS
@@ -148,6 +187,17 @@ RENDER = RenderConstants(
     earth_res                    = 1000,
     earth_dark_rgb               = (0.02, 0.08, 0.45),
     earth_bright_rgb             = (0.20, 0.55, 1.00),
+    island_dark_rgb              = (0.06, 0.28, 0.14),
+    island_bright_rgb            = (0.24, 0.68, 0.36),
+    island_phi_pad_deg           = 10.0,
+    island_blob_along_scale      = 0.68,
+    island_blob_along_pad_km     = 320.0,
+    island_blob_inward_sigma_km  = 1150.0,
+    island_blob_inward_peak_km   = 420.0,
+    island_r_min_frac            = 0.50,
+    island_r_feather_frac        = 0.20,
+    island_y_min_frac            = -0.18,
+    island_y_feather_frac        = 0.28,
     earth_green_rgb              = (0.14, 0.52, 0.30),
     fov_turquoise_rgba           = (0.12, 0.72, 0.66, 0.38),
     cloud_grey_rgb               = (0.78, 0.79, 0.81),
@@ -208,6 +258,30 @@ RENDER = RenderConstants(
     info_bbox_edgecolor          = "white",
     info_bbox_alpha              = 0.45,
     info_bbox_linewidth          = 0.8,
+
+    panel_bg                     = "#0d1117",
+    panel_edge                   = "#30363d",
+    panel_edge_linewidth         = 0.8,
+    grid_color                   = "#21262d",
+    grid_alpha                   = 0.35,
+    title_color                  = "#e6edf3",
+    subtitle_color               = "#8b949e",
+    text_muted                   = "#8b949e",
+    section_header_color         = "#58a6ff",
+    accent_reward                = "#3fb950",
+    accent_cursor                = "#f0883e",
+    accent_torque                = "#a371f7",
+    accent_torque_agent          = "#db6d28",
+    accent_pointing              = "#79c0ff",
+    accent_pointing_limit        = "#ff7b72",
+    accent_quality               = "#56d364",
+    accent_cloud                 = "#8b949e",
+    telemetry_fontsize           = 8.5,
+    plot_title_fontsize          = 9,
+    plot_title_pad               = 4.0,
+    plot_label_fontsize          = 8,
+    plot_tick_fontsize           = 7,
+    plot_legend_fontsize         = 6,
     
     speed_button_specs           = (
         ("Real-time", 1.0, 0.56),
@@ -247,20 +321,23 @@ RENDER = RenderConstants(
     closeup_half_window_km=380.0 * ureg.km,
     closeup_cloud_height_scale=1.8,
 
-    # Left column: compact telemetry (top) + reward/torque plots; right: main + enlarged closeup.
+    # Layout (16:9). Left rail: telemetry + reward + torque. Center-bottom band:
+    # capture/pointing time series, camera strips (x ~0.49–0.70), target close-up.
+    # Main orbit view sits above the bottom band with ``figure_inset_gutter_frac`` gaps.
     figure_inset_gutter_frac    = 0.012,
-    telemetry_axes_rect         = (0.02, 0.720, 0.19, 0.260),
-    # Stacked with gap so torque title does not sit in the reward panel (was overlapping at y≈0.38).
-    torque_axes_rect            = (0.02, 0.055, 0.19, 0.278),
-    reward_axes_rect            = (0.02, 0.358, 0.19, 0.278),
-    main_axes_rect              = (0.222, 0.280, 0.758, 0.70),
-    closeup_axes_rect           = (0.478, 0.048, 0.502, 0.318),
-    transport_bar_rect          = (0.02, 0.02, 0.96, 0.048),
+    telemetry_axes_rect         = (0.008, 0.595, 0.216, 0.345),
+    reward_axes_rect            = (0.008, 0.360, 0.216, 0.205),
+    torque_axes_rect            = (0.008, 0.095, 0.216, 0.205),
+    main_axes_rect              = (0.236, 0.418, 0.756, 0.510),
+    closeup_axes_rect           = (0.714, 0.072, 0.278, 0.334),
+    transport_bar_rect          = (0.010, 0.018, 0.980, 0.044),
     interactive_start_maximized = True,
-    
-    # Stacked left column: secondary-cam strip above primary sat observation strip.
-    sat_view_1d_axes_rect=(0.222, 0.048, 0.248, 0.054),
-    sat_view_1d_secondary_axes_rect=(0.222, 0.110, 0.248, 0.054),
+
+    # Bottom band (y 0.072–0.406): time-series left, camera strips center, close-up right.
+    sat_view_1d_axes_rect=(0.490, 0.072, 0.100, 0.334),
+    sat_view_1d_secondary_axes_rect=(0.602, 0.072, 0.100, 0.334),
+    pointing_axes_rect=(0.236, 0.239, 0.240, 0.167),
+    capture_axes_rect=(0.236, 0.072, 0.240, 0.155),
 
     export_filename = "satellite_orbit_one_pass_30x.mp4",
     export_fps      = 20,

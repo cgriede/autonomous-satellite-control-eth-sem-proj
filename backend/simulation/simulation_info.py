@@ -9,6 +9,7 @@ import numpy as np
 from environment_definition.constants.SATELLITE import CAMERA_EXPOSURE_TIME
 from utils.units.require_compatible_unit import require_compatible_units
 
+from .state_types import SimulationTimestepState
 from .stepper import SimulationStepper
 
 
@@ -216,6 +217,236 @@ def build_simulation_info_rows(
         rows.append(("Camera 2 (secondary)", "none"))
 
     return rows
+
+
+def build_training_context_rows(
+    stepper: SimulationStepper,
+    *,
+    tau_max_nm: float | None = None,
+    agent: Any | None = None,
+    episode_mode: str | None = None,
+) -> list[tuple[str, str]]:
+    """Compact rows for MPO training episodes (MDP + control, not full hardware dump)."""
+    meta = stepper._metadata
+    ureg = stepper._ureg
+    alt_km = float(stepper._satellite_altitude.to(ureg.km).magnitude)
+    effective_ctrl_s = float(stepper.effective_controller_update_interval_s)
+    ctrl_steps = int(stepper.controller_update_interval_steps)
+    n_bins_primary = int(stepper._camera_observation_line_codes.shape[1])
+    n_bins_secondary = int(stepper._n_bins_secondary) if stepper._has_secondary else 0
+
+    rows: list[tuple[str, str]] = []
+    if episode_mode is not None:
+        rows.append(("episode runner mode", str(episode_mode)))
+    agent_line = _agent_descriptor(agent)
+    if agent_line is not None:
+        rows.append(("agent", agent_line))
+    rows.append(
+        (
+            "control stack",
+            f"{meta.torque_policy_label or meta.controller_mode} "
+            f"(attitude controller {'on' if meta.attitude_controller_enabled else 'off'})",
+        )
+    )
+    rows.extend(
+        [
+            (
+                "episode",
+                f"{meta.sim_total_s:.1f} s · {stepper.total_steps} steps · dt={meta.sim_dt_s:g} s",
+            ),
+            (
+                "control interval",
+                f"{effective_ctrl_s:g} s ({ctrl_steps} steps)"
+                + (
+                    f" · τ_max={tau_max_nm:.4f} N*m"
+                    if tau_max_nm is not None
+                    else ""
+                ),
+            ),
+            ("reward shaping", _reward_summary(stepper._reward_cfg)),
+            (
+                "mission",
+                f"alt {alt_km:.1f} km · θ {meta.start_angle_deg:.1f}°..{meta.end_angle_deg:.1f}° · "
+                f"{len(stepper._target_areas)} target stripe · {len(stepper._clouds)} clouds",
+            ),
+            (
+                "observation",
+                f"primary {n_bins_primary} bins (reward)"
+                + (
+                    f" · secondary {n_bins_secondary} bins (cloud)"
+                    if n_bins_secondary > 0
+                    else ""
+                ),
+            ),
+        ]
+    )
+    return rows
+
+
+def _recent_metric_mean(metrics: dict[str, Any], key: str, start: int) -> float | None:
+    values = metrics.get(key)
+    if not isinstance(values, list) or len(values) <= start:
+        return None
+    chunk = values[start:]
+    if not chunk:
+        return None
+    return float(np.mean(np.asarray(chunk, dtype=np.float64)))
+
+
+def exploration_status_for_rollout(
+    *,
+    mode: str,
+    step_counter: int,
+    exploration_steps: int,
+) -> tuple[str | None, bool]:
+    """Map rollout mode to live-panel label and episode ``in_exploration`` flag.
+
+    Train rollouts are always exploratory: an initial uniform-random prefill (while
+    ``step_counter < exploration_steps``), then MPO policy ``rsample`` within KL.
+    Eval uses the policy mean (deterministic).
+    """
+    if mode == "warmup":
+        return None, False
+    if mode == "eval":
+        return "deterministic (policy mean)", False
+    if mode == "train":
+        if exploration_steps > 0 and step_counter < exploration_steps:
+            return "random uniform", True
+        return "active (policy sample)", True
+    return None, False
+
+
+def build_training_live_stats_rows(
+    ts: SimulationTimestepState,
+    *,
+    step: int,
+    total_steps: int,
+    reward: float,
+    episode_return: float,
+    mode: str,
+    episode_idx: int,
+    episode_total: int | None = None,
+    agent: Any | None = None,
+    metrics_start: Any | None = None,
+) -> list[tuple[str, str]]:
+    """Rows that change during rollout — for periodic live training panels."""
+    pct = 100.0 * float(step) / max(1, int(total_steps))
+    ep_label = f"{mode} ep {episode_idx + 1}"
+    if episode_total is not None:
+        ep_label += f" / {episode_total}"
+
+    rows: list[tuple[str, str]] = [
+        ("episode", ep_label),
+        ("step", f"{step} / {total_steps} ({pct:.1f}%)"),
+        ("sim time", f"{float(ts.sim_time_s):.1f} s"),
+        ("step reward", f"{reward:.4f}"),
+        ("episode return", f"{episode_return:.2f}"),
+        ("body z angle", f"{float(ts.body_z_angle_rad):.4f} rad"),
+        ("omega sat", f"{float(ts.omega_sat_rad_s):.4f} rad/s"),
+    ]
+
+    smear = float(ts.primary_camera_image_smear_px)
+    quality = float(ts.primary_camera_image_quality)
+    if np.isfinite(smear):
+        rows.append(("image smear", f"{smear:.3f} px"))
+    if np.isfinite(quality):
+        rows.append(("image quality", f"{quality:.4f}"))
+
+    if agent is None:
+        return rows
+
+    buffer_size = len(getattr(agent, "buffer", []))
+    step_counter = int(getattr(agent, "step_counter", 0))
+    exploration_steps = int(getattr(agent, "exploration_steps", 0))
+    rows.append(("buffer", f"{buffer_size}"))
+    rows.append(("agent steps", f"{step_counter}"))
+    exploration_label, _ = exploration_status_for_rollout(
+        mode=mode,
+        step_counter=step_counter,
+        exploration_steps=exploration_steps,
+    )
+    if exploration_label is not None:
+        rows.append(("exploration", exploration_label))
+
+    if mode != "train":
+        return rows
+
+    metrics = getattr(agent, "metrics", None)
+    if not isinstance(metrics, dict):
+        return rows
+
+    starts = getattr(metrics_start, "lengths", {}) if metrics_start is not None else {}
+    metric_labels = (
+        ("kl", "kl (ep mean)"),
+        ("qloss", "q loss (ep mean)"),
+        ("piloss", "pi loss (ep mean)"),
+        ("eta", "eta (ep mean)"),
+    )
+    for key, label in metric_labels:
+        mean = _recent_metric_mean(metrics, key, int(starts.get(key, 0)))
+        if mean is not None:
+            rows.append((label, f"{mean:.6f}"))
+
+    return rows
+
+
+def render_training_panel_html(
+    rows: list[tuple[str, str]],
+    *,
+    title: str = "Live stats",
+    border_style: str = "green",
+) -> str:
+    """Render a Rich table panel to standalone HTML for in-place notebook updates."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+    table.add_column("Parameter", style="cyan", no_wrap=True)
+    table.add_column("Value")
+    for label, value in rows:
+        table.add_row(label, value)
+    console = Console(record=True, width=110)
+    console.print(Panel(table, title=f"[bold]{title}[/bold]", border_style=border_style))
+    return console.export_html(inline_styles=False)
+
+
+def print_training_context(
+    stepper: SimulationStepper,
+    *,
+    simulation_config: Any | None = None,
+    tau_max_nm: float | None = None,
+    agent: Any | None = None,
+    episode_mode: str | None = None,
+    file: Any | None = None,
+) -> None:
+    """Print a compact Rich panel for RL training episodes."""
+    _ = simulation_config
+    rows = build_training_context_rows(
+        stepper,
+        tau_max_nm=tau_max_nm,
+        agent=agent,
+        episode_mode=episode_mode,
+    )
+    out = sys.stdout if file is None else file
+
+    try:
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.table import Table
+
+        console = Console(file=out, force_jupyter=_in_notebook())
+        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
+        table.add_column("Parameter", style="cyan", no_wrap=True)
+        table.add_column("Value")
+        for label, value in rows:
+            table.add_row(label, value)
+        console.print(Panel(table, title="[bold]Training context[/bold]", border_style="green"))
+    except ImportError:
+        print("=== Training context ===", file=out)
+        for label, value in rows:
+            print(f"  {label}: {value}", file=out)
+        print(file=out)
 
 
 def print_simulation_info(

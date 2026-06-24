@@ -54,6 +54,8 @@ class SimulationMetadata :
     view_anchor_xy_km: tuple[float, float] | None = None
     # Sim-step indices where a take-picture command fires (render shutter bands / applied reward).
     take_picture_cmd_steps: tuple[int, ...] | None = None
+    # Baseline overflight notebook: shutter cmd steps for render telemetry markers.
+    baseline_shutter_cmd_steps: tuple[int, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -117,6 +119,11 @@ class SimulationStateSeries:
     # Primary-camera motion blur during exposure (dimensionless smear in GSD units; quality in [0,1]).
     camera_image_smear_px: np.ndarray = None  # type: ignore[assignment]
     camera_image_quality: np.ndarray = None  # type: ignore[assignment]
+
+    # Baseline overflight notebook: per-step policy/render overlays (optional).
+    baseline_view_anchor_xy_km: np.ndarray | None = None
+    baseline_active_target_idx: np.ndarray | None = None
+    baseline_take_picture_cmd: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         n = self.t_s.shape[0]
@@ -208,3 +215,9 @@ class SimulationStateSeries:
             raise ValueError("secondary_camera_observation_line_codes must have dtype int8.")
         if self.secondary_camera_cloud_blocked_fraction.shape[0] != n:
             raise ValueError("secondary_camera_cloud_blocked_fraction must have length n.")
+        if self.baseline_view_anchor_xy_km is not None and self.baseline_view_anchor_xy_km.shape != (n, 2):
+            raise ValueError("baseline_view_anchor_xy_km must have shape (n, 2).")
+        if self.baseline_active_target_idx is not None and self.baseline_active_target_idx.shape[0] != n:
+            raise ValueError("baseline_active_target_idx must have length n.")
+        if self.baseline_take_picture_cmd is not None and self.baseline_take_picture_cmd.shape[0] != n:
+            raise ValueError("baseline_take_picture_cmd must have length n.")

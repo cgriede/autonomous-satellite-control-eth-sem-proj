@@ -101,6 +101,17 @@ python render/render_main.py --render-mode export --controller-mode baseline --s
 - `--save-video ...` writes the state-trace rollout video.
 - Sat Sim render export is available for simulation-native controller modes (`baseline`, `random`).
 
+## Training preflight gate
+
+Before `train_sat_agent.py` or `eval_sat_agent.py` runs, the training gate executes:
+
+1. Inline checks in `autonomous_control/training_preflight.py` (`TRAINING_FEATURE_CHECKS`) — one smoke test per training-facing feature.
+2. The pytest modules listed in `TRAINING_TEST_PATHS` (same file).
+
+Pass `--skip-preflight` only for local debugging.
+
+**When adding a new training feature:** register a check in `TRAINING_FEATURE_CHECKS` and add/extend tests under `backend/tests/test_mpo_training_features.py` or `backend/tests/test_training_preflight.py`. New features must pass before the main scripts proceed.
+
 ## Reward authority and document alignment
 
 - Runtime reward behavior in code is canonical for this phase.

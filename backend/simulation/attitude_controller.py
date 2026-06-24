@@ -253,6 +253,20 @@ class AttitudePointingController:
     def reset_episode(self) -> None:
         self._nadir_gains = None
 
+    def set_pointing_mode(self, mode: str) -> None:
+        """Switch OBC pointing mode between ``nadir`` and ``target`` during an episode."""
+        m = str(mode).lower()
+        if m not in ("nadir", "target"):
+            raise ValueError(f"Unsupported OBC pointing mode: {mode!r}")
+        self.mode = m
+
+    def set_ground_target_xy_km(self, xy: tuple[float, float]) -> None:
+        """Update the OBC ground-target anchor (``obc_pointing_mode='target'`` only)."""
+        if str(self.mode).lower() != "target":
+            raise ValueError("set_ground_target_xy_km requires obc_pointing_mode='target'.")
+        arr = np.asarray(xy, dtype=float).reshape(2)
+        self.ground_target_xy_km = (float(arr[0]), float(arr[1]))
+
     def _gains(self) -> NadirPointingGains:
         if self._nadir_gains is None:
             self._nadir_gains = default_nadir_pointing_gains(

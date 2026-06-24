@@ -41,3 +41,29 @@ def to_gym_torque_array(action: AutonomousControllerAction) -> np.ndarray:
     tau_nm = float(action.wheel_torque_cmd.to(ureg.N * ureg.m).magnitude)
     return np.array([tau_nm], dtype=np.float32)
 
+
+def to_gym_action_array(
+    action: AutonomousControllerAction,
+    *,
+    take_picture_signal: float,
+) -> np.ndarray:
+    """Map controller action to gym/MPO buffer vector ``[torque_nm, take_picture]``."""
+    tau_nm = float(action.wheel_torque_cmd.to(ureg.N * ureg.m).magnitude)
+    return np.array([tau_nm, float(take_picture_signal)], dtype=np.float32)
+
+
+def policy_output_to_gym_action(
+    raw: np.ndarray,
+    *,
+    tau_limit: Any | None = None,
+    active_threshold: float = 0.0,
+) -> tuple[AutonomousControllerAction, np.ndarray]:
+    """Parse policy output and return controller action plus stored gym action vector."""
+    parsed = raw_policy_to_action(
+        raw,
+        tau_limit=tau_limit,
+        active_threshold=active_threshold,
+    )
+    signal = float(raw[1]) if raw.shape == (POLICY_RAW_DIM,) else -1.0
+    return parsed, to_gym_action_array(parsed, take_picture_signal=signal)
+

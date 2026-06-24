@@ -19,6 +19,7 @@ from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, Random
 from autonomous_control.config.randomness import RandomnessConfig, apply_global_seed, derive_seed
 from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.parallel_training import ParallelMPOTrainer
+from autonomous_control.training_preflight import TrainingPreflightError, run_training_gate
 from autonomous_control.training_runtime import make_attitude_control_env, run_episode
 from environment_definition.mission_profiles.s00_simulation_build_sample_fl import sample_satellite_altitude
 from environment_definition.constants import RenderMode
@@ -127,11 +128,22 @@ def parse_args() -> argparse.Namespace:
         default=20,
         help="Emit live step telemetry every N simulation steps.",
     )
+    parser.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        help="Skip training feature checks and pytest gate (not recommended).",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    if not args.skip_preflight:
+        try:
+            run_training_gate()
+        except TrainingPreflightError as exc:
+            print(f"Training preflight failed:\n{exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
     seed_cfg = RandomnessConfig(seed=args.seed)
     apply_global_seed(seed_cfg)
     sampled_altitude = sample_satellite_altitude(

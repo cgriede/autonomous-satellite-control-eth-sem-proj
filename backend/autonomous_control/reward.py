@@ -279,11 +279,16 @@ def compute_reward(
     }
 
     if cfg.enable_distance_reward:
+        distance_picture_taken = (
+            signals.target_visible
+            if cfg.enable_image_quality_capture
+            else signals.picture_taken
+        )
         components["distance_reward"] = distance_band_reward(
             distance_to_target=signals.distance_to_target,
             d_op=OPTIMAL_GROUND_RANGE,
             viewing_threshold=CAMERA_VIEWING_DISTANCE_THRESHOLD,
-            picture_taken=signals.picture_taken,
+            picture_taken=distance_picture_taken,
             target_visible=signals.target_visible,
             outer_gate_enabled=cfg.enable_outer_gate,
         )

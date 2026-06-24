@@ -5,16 +5,35 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from .controller_encoder import ControllerEncoder
+from .controller_observation import ControllerObservationLayout
 from .MLP_model import MLP
+from .mpo_config import MPOConfig
 
 
 class Critic(nn.Module):
-    """Simple MLP Q-function."""
+    """MLP Q-function on encoded observations and actions."""
 
-    def __init__(self, obs_size: int, action_size: int, num_layers: int, num_units: int):
+    def __init__(
+        self,
+        layout: ControllerObservationLayout,
+        action_size: int,
+        config: MPOConfig,
+    ) -> None:
         super().__init__()
-        self.net = MLP([obs_size + action_size] + ([num_units] * num_layers) + [1])
+        self.encoder = ControllerEncoder(layout, config, activation=nn.ReLU)
+        trunk_dim = self.encoder.output_dim
+        self.head = MLP(
+            [trunk_dim + action_size]
+            + ([config.num_units_critic] * config.num_layers_critic)
+            + [1]
+        )
 
-    def forward(self, x: torch.Tensor, a: torch.Tensor) -> torch.Tensor:
-        return self.net(torch.cat([x, a], dim=-1))
-
+    def forward(
+        self,
+        scalars: torch.Tensor,
+        vision_codes: tuple[torch.Tensor, ...],
+        actions: torch.Tensor,
+    ) -> torch.Tensor:
+        features = self.encoder(scalars, vision_codes)
+        return self.head(torch.cat([features, actions], dim=-1))

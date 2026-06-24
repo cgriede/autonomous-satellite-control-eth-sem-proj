@@ -29,7 +29,9 @@ from .camera_2d import (
 )
 from .dynamics_kernel import DynamicsKernel
 from .reaction_wheel import ReactionWheel
+from .episode_capture import ShutterRewardOverride, evaluate_shutter_from_arrays
 from .reward_kernel import RewardKernel
+from .take_picture import TakePictureBudget
 from .scheduler import resolve_controller_interval_steps
 from .sensor_kernel import SensorKernel
 from .image_quality import evaluate_primary_image_quality
@@ -325,6 +327,8 @@ class SimulationStepper:
         self._index = 0
         self._done = False
         self._last_torque_nm = 0.0
+        self._active_length: int | None = None
+        self._take_picture_cmd_steps: list[int] = []
         self._populate_camera_and_reward(k=0, prev_omega_wheel=self._state.omega_wheel)
 
     @property
@@ -342,6 +346,10 @@ class SimulationStepper:
     @property
     def total_steps(self) -> int:
         return max(0, int(self._t_s.shape[0]) - 1)
+
+    @property
+    def current_index(self) -> int:
+        return int(self._index)
 
     def should_update_controller(self) -> bool:
         return (self._index % self._controller_interval_steps) == 0
@@ -388,6 +396,18 @@ class SimulationStepper:
         self._attitude_safety.reset_episode()
         self.attitude_safety_events = []
         return self._attitude_safety
+
+    def set_obc_ground_target_xy_km(self, xy: tuple[float, float]) -> None:
+        """Update OBC target-track anchor for the current episode."""
+        if self._attitude_pointing is None:
+            raise ValueError("OBC pointing is not enabled on this stepper.")
+        self._attitude_pointing.set_ground_target_xy_km(xy)
+
+    def set_obc_pointing_mode(self, mode: str) -> None:
+        """Switch OBC pointing between nadir hold and ground-target track."""
+        if self._attitude_pointing is None:
+            raise ValueError("OBC pointing is not enabled on this stepper.")
+        self._attitude_pointing.set_pointing_mode(mode)
 
     def step(self, *, wheel_torque_cmd_nm: float) -> SimulationTimestepState:
         if self._done:
@@ -453,43 +473,116 @@ class SimulationStepper:
             self._done = True
         return self.current_timestep_state()
 
-    def finalize_series(self) -> SimulationStateSeries:
-        return SimulationStateSeries(
-            t_s=self._t_s,
-            theta_orbit_rad=self._theta_orbit_rad,
-            radius_km=self._radius_km,
-            body_z_angle_rad=self._body_z_angle_rad,
-            simulation_reward=self._simulation_reward,
-            wheel_torque_cmd_nm=self._wheel_torque_cmd_nm,
-            wheel_torque_agent_cmd_nm=self._wheel_torque_agent_cmd_nm,
-            camera_gsd_m=self._camera_gsd_m,
-            camera_vertical_fov_rad=self._camera_vertical_fov_rad,
-            camera_ground_left_xy_km=self._camera_ground_left_xy_km,
-            camera_ground_right_xy_km=self._camera_ground_right_xy_km,
-            camera_ground_center_xy_km=self._camera_ground_center_xy_km,
-            camera_center_first_hit_xy_km=self._camera_center_first_hit_xy_km,
-            camera_center_first_hit_is_cloud=self._camera_center_first_hit_is_cloud,
-            camera_center_ray_observation_code=self._camera_center_ray_observation_code,
-            camera_cloud_blocked_fraction=self._camera_cloud_blocked_fraction,
-            camera_observation_line_codes=self._camera_observation_line_codes,
-            camera_image_smear_px=self._camera_image_smear_px,
+    def truncate_to_step_index(self, final_index: int) -> None:
+        """Mark episode complete and slice exported series to ``0..final_index`` inclusive."""
+        if final_index < 0 or final_index >= self._t_s.shape[0]:
+            raise ValueError(f"truncate_to_step_index: invalid final_index={final_index}.")
+        self._active_length = int(final_index) + 1
+        self._index = int(final_index)
+        self._done = True
+
+    def apply_shutter_capture(
+        self,
+        cmd_step: int,
+        budget: TakePictureBudget,
+        *,
+        capture_latency_steps: int = 0,
+    ):
+        """Evaluate shutter/budget at ``cmd_step`` and recompute reward with applied capture."""
+        result = evaluate_shutter_from_arrays(
+            cmd_step=int(cmd_step),
+            n_steps=int(self._t_s.shape[0]),
+            observation_line_codes=self._camera_observation_line_codes,
             camera_image_quality=self._camera_image_quality,
-            sat_subpoint_lat_deg=self._sat_subpoint_lat_deg,
-            sat_subpoint_lon_deg=self._sat_subpoint_lon_deg,
-            sat_altitude_m=self._sat_altitude_m,
-            camera_ground_left_lon_lat_deg=self._camera_ground_left_lon_lat_deg,
-            camera_ground_right_lon_lat_deg=self._camera_ground_right_lon_lat_deg,
-            camera_ground_center_lon_lat_deg=self._camera_ground_center_lon_lat_deg,
-            target_area_intersection_ratio=self._target_area_intersection_ratio,
-            target_area_novelty_ratio=self._target_area_novelty_ratio,
-            cloud_arc_radius_km=self._cloud_arc_radius_km,
-            cloud_arc_start_rad=self._cloud_arc_start_rad,
-            cloud_arc_end_rad=self._cloud_arc_end_rad,
-            secondary_camera_observation_line_codes=self._secondary_camera_observation_line_codes,
-            secondary_camera_cloud_blocked_fraction=self._secondary_camera_cloud_blocked_fraction,
+            camera_cloud_blocked_fraction=self._camera_cloud_blocked_fraction,
+            budget=budget,
+            capture_latency_steps=int(capture_latency_steps),
+        )
+        self._recompute_reward_at(int(cmd_step), shutter_override=result.override)
+        self._take_picture_cmd_steps.append(int(cmd_step))
+        return result
+
+    def _recompute_reward_at(
+        self,
+        k: int,
+        *,
+        shutter_override: ShutterRewardOverride | None = None,
+    ) -> None:
+        prev_omega_wheel = (
+            self._state.omega_wheel
+            if k == self._index
+            else self._state.omega_wheel
+        )
+        sat_pos_xy_km = self._satellite_xy_km(k)
+        lon_sp_deg, lat_sp_deg = disk_xy_km_to_geodetic_deg(sat_pos_xy_km, ell=WGS84_ELLIPSOID)
+        codes = np.asarray(self._camera_observation_line_codes[k], dtype=np.int8)
+        cloud_frac = float(self._camera_cloud_blocked_fraction[k])
+        if not np.isfinite(cloud_frac):
+            cloud_frac = 0.0
+        secondary_cloud = float(self._secondary_camera_cloud_blocked_fraction[k])
+        self._simulation_reward[k] = RewardKernel.evaluate(
+            sat_pos_xy_km=sat_pos_xy_km,
+            sat_subpoint_lat_deg=float(lat_sp_deg),
+            sat_subpoint_lon_deg=float(lon_sp_deg),
+            target_area_intersection_ratio=float(self._target_area_intersection_ratio[k]),
+            target_area_novelty_ratio=float(self._target_area_novelty_ratio[k]),
+            camera_observation_line_codes=codes,
+            camera_cloud_blocked_fraction=cloud_frac,
+            secondary_camera_cloud_blocked_fraction=secondary_cloud,
+            wheel_inertia=self._wheel_inertia,
+            omega_before=prev_omega_wheel,
+            omega_after=self._state.omega_wheel,
+            reward_config=self._reward_cfg,
+            ureg=self._ureg,
+            target_areas=self._target_areas,
+            camera_image_quality=float(self._camera_image_quality[k]),
+            shutter_override=shutter_override,
+        )
+
+    def finalize_series(self) -> SimulationStateSeries:
+        n = self._active_length if self._active_length is not None else int(self._t_s.shape[0])
+        cmd_steps = tuple(self._take_picture_cmd_steps) if self._take_picture_cmd_steps else None
+        metadata = self._metadata
+        if cmd_steps:
+            from dataclasses import replace
+
+            metadata = replace(metadata, take_picture_cmd_steps=cmd_steps)
+        return SimulationStateSeries(
+            t_s=self._t_s[:n],
+            theta_orbit_rad=self._theta_orbit_rad[:n],
+            radius_km=self._radius_km[:n],
+            body_z_angle_rad=self._body_z_angle_rad[:n],
+            simulation_reward=self._simulation_reward[:n],
+            wheel_torque_cmd_nm=self._wheel_torque_cmd_nm[:n],
+            wheel_torque_agent_cmd_nm=self._wheel_torque_agent_cmd_nm[:n],
+            camera_gsd_m=self._camera_gsd_m[:n],
+            camera_vertical_fov_rad=self._camera_vertical_fov_rad,
+            camera_ground_left_xy_km=self._camera_ground_left_xy_km[:n],
+            camera_ground_right_xy_km=self._camera_ground_right_xy_km[:n],
+            camera_ground_center_xy_km=self._camera_ground_center_xy_km[:n],
+            camera_center_first_hit_xy_km=self._camera_center_first_hit_xy_km[:n],
+            camera_center_first_hit_is_cloud=self._camera_center_first_hit_is_cloud[:n],
+            camera_center_ray_observation_code=self._camera_center_ray_observation_code[:n],
+            camera_cloud_blocked_fraction=self._camera_cloud_blocked_fraction[:n],
+            camera_observation_line_codes=self._camera_observation_line_codes[:n],
+            camera_image_smear_px=self._camera_image_smear_px[:n],
+            camera_image_quality=self._camera_image_quality[:n],
+            sat_subpoint_lat_deg=self._sat_subpoint_lat_deg[:n],
+            sat_subpoint_lon_deg=self._sat_subpoint_lon_deg[:n],
+            sat_altitude_m=self._sat_altitude_m[:n],
+            camera_ground_left_lon_lat_deg=self._camera_ground_left_lon_lat_deg[:n],
+            camera_ground_right_lon_lat_deg=self._camera_ground_right_lon_lat_deg[:n],
+            camera_ground_center_lon_lat_deg=self._camera_ground_center_lon_lat_deg[:n],
+            target_area_intersection_ratio=self._target_area_intersection_ratio[:n],
+            target_area_novelty_ratio=self._target_area_novelty_ratio[:n],
+            cloud_arc_radius_km=self._cloud_arc_radius_km[:n],
+            cloud_arc_start_rad=self._cloud_arc_start_rad[:n],
+            cloud_arc_end_rad=self._cloud_arc_end_rad[:n],
+            secondary_camera_observation_line_codes=self._secondary_camera_observation_line_codes[:n],
+            secondary_camera_cloud_blocked_fraction=self._secondary_camera_cloud_blocked_fraction[:n],
             secondary_camera_vertical_fov_rad=self._secondary_vertical_fov_rad if self._secondary_vertical_fov_rad is not None else 0.0,
             secondary_camera_tilt_off_nadir_rad=self._secondary_tilt_rad,
-            metadata=self._metadata,
+            metadata=metadata,
         )
 
     def build_episode_context(self) -> SimulationEpisodeContext:
@@ -648,6 +741,7 @@ class SimulationStepper:
             reward_config=self._reward_cfg,
             ureg=self._ureg,
             target_areas=self._target_areas,
+            camera_image_quality=float(quality),
         )
 
 

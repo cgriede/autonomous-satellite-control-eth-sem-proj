@@ -1,12 +1,13 @@
-"""Render φ bands align with lat-only target matching for polar-grid areas."""
+"""Render φ bands align with orbit-disk geodetic endpoints (reward/sensor parity)."""
 
 from environment_definition.constants import ureg
 from environment_definition.constants.MISSION import LON_GLOBAL
 from utils.geometry.mission_stripe_disk import target_areas_disk_phi_bounds_deg
+from utils.geometry.orbit_disk_polar_meridian import disk_phi_deg_from_geodetic_deg
 from utils.geometry.polar_meridian_track import build_target_grid_polar_meridian
 
 
-def test_polar_grid_render_phi_uses_lat_only_track_offset() -> None:
+def test_polar_grid_render_phi_matches_geodetic_endpoints() -> None:
     segments = build_target_grid_polar_meridian(
         anchor_lat=80 * ureg.deg,
         anchor_lon=LON_GLOBAL,
@@ -16,10 +17,17 @@ def test_polar_grid_render_phi_uses_lat_only_track_offset() -> None:
     )
     targets = [s.to_observation_target_area() for s in segments]
     bounds = target_areas_disk_phi_bounds_deg(tuple(targets))
-    last_seg_phi = segments[-1].phi_bounds_deg()
-    render_phi = bounds[-1]
-    lat_lo = float(targets[-1].lat_min.to(ureg.deg).magnitude)
-    # Past-pole segment: branch lon=180° used to draw φ≈104°; lat-only render matches ascending φ≈75°.
-    assert render_phi[0] < 90.0
-    assert abs(render_phi[0] - last_seg_phi[0]) > 10.0
-    assert abs(render_phi[0] - (90.0 + (lat_lo - 90.0))) < 0.2
+    for seg, area, render_phi in zip(segments, targets, bounds):
+        seg_phi = seg.phi_bounds_deg()
+        lat_lo = float(area.lat_min.to(ureg.deg).magnitude)
+        lon_lo = float(area.lat_min_lon.to(ureg.deg).magnitude)
+        lat_hi = float(area.lat_max.to(ureg.deg).magnitude)
+        lon_hi = float(area.lat_max_lon.to(ureg.deg).magnitude)
+        geo_phi = (
+            disk_phi_deg_from_geodetic_deg(lat_lo, lon_lo),
+            disk_phi_deg_from_geodetic_deg(lat_hi, lon_hi),
+        )
+        assert abs(render_phi[0] - min(geo_phi)) < 0.05
+        assert abs(render_phi[1] - max(geo_phi)) < 0.05
+        assert abs(render_phi[0] - seg_phi[0]) < 0.15
+        assert abs(render_phi[1] - seg_phi[1]) < 0.15

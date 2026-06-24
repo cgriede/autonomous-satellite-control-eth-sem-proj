@@ -23,7 +23,7 @@ from autonomous_control.config.randomness import derive_seed
 from autonomous_control.feature_selection import ControllerFeatureConfig
 from autonomous_control.training_runtime import EpisodeResult, run_episode
 
-NB_WARMUP_BUNDLE_VERSION = 1
+NB_WARMUP_BUNDLE_VERSION = 2
 _EPISODES_FILENAME = "episodes.pkl.gz"
 _META_FILENAME = "meta.json"
 
@@ -76,6 +76,7 @@ def warmup_fingerprint_payload(
         "satellite_altitude_m": float(satellite_altitude_m),
         "feature_config": encode_feature_config_snapshot(feature_config),
         "warmup_controller": str(warmup_controller),
+        "attitude_controller_enabled": True,
     }
 
 
@@ -94,8 +95,12 @@ def reset_agent_replay_counters(agent: Any) -> None:
     buf = agent.buffer
     buf.ptr = 0
     buf.count = 0
-    buf.obs.fill(0.0)
-    buf.next_obs.fill(0.0)
+    buf.scalars.fill(0.0)
+    buf.next_scalars.fill(0.0)
+    for arr in buf.vision.values():
+        arr.fill(0)
+    for arr in buf.next_vision.values():
+        arr.fill(0)
     buf.actions.fill(0.0)
     buf.rewards.fill(0.0)
     buf.done.fill(0.0)
@@ -189,13 +194,17 @@ def try_load_warmup_episode_bundle(
     if len(episodes) != int(expected_fingerprint["episode_count"]):
         return None
 
-    obs_size = int(np.prod(env.observation_space.shape))
+    from autonomous_control.controller_observation import observation_matches_layout
+
+    layout = getattr(env, "observation_layout", None)
+    if layout is None:
+        return None
     for ep in episodes:
         if not isinstance(ep, EpisodeResult):
             return None
         if ep.steps + 1 != len(ep.simulation_series.t_s):
             return None
-        if ep.states and np.asarray(ep.states[0]).shape != (obs_size,):
+        if ep.states and not observation_matches_layout(ep.states[0], layout):
             return None
 
     return episodes

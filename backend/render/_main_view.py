@@ -105,7 +105,13 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
             ha="left", va="top", zorder=RENDER.zorder_info)
 
     draw_star_field(ax)
-    draw_shaded_earth_disk(ax, float(R_earth))
+    island_phi_bounds_deg = scene.get("island_phi_bounds_deg")
+    draw_shaded_earth_disk(
+        ax,
+        float(R_earth),
+        island_phi_bounds_deg=island_phi_bounds_deg,
+        island_blob_center_xy_km=(float(scene["view_anchor_x"]), float(scene["view_anchor_y"])),
+    )
 
     # Reward-aligned observation target segments on Earth rim.
     for phi_lo_deg, phi_hi_deg in target_regions_deg:

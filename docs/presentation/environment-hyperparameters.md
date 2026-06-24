@@ -34,6 +34,7 @@ Source: `utils/geometry/orbit_disk_polar_meridian.py`, `utils/geometry/polar_mer
 - **Examples:** `δ = 0` → north pole; `δ = −1°` → `89°N, 0°E`; `δ = +1°` → `89°N, 180°W`.
 - **Not** the renderer north-polar azimuthal map (`geodesic_helpers.polar_azimuthal_plane_xy_km_to_lon_lat_deg`).
 - **Clouds:** `SIMULATION.Cloud` uses `base_altitude`, `top_altitude`, and `GeodeticLonLat` endpoints (`start_location`, `end_location`). Rainforest sampling (`s01_utils/cloud_formation.py`): integer-km start on formation path, extent 1–100 km, base 4–12 km, thickness 1–16 km, `top = min(base + thickness, 20 km)`. Simulation converts LLA → disk φ via `orbit_disk_polar_meridian` at kernel init.
+- **S01 baseline overflight clouds (notebook 07, `s01_utils/baseline_overflight.py`):** seeded clouds along the 50-target meridian corridor (first target leading edge → last target trailing edge), `cloud_seed = 0`. Bounds: `cloud_number_bounds = (15, 30)`, `cloud_range_bounds = 1–80 km`, `cloud_base_altitude_bounds = 4–12 km`, `cloud_thickness_bounds = 1–16 km`, `max_top_altitude = 20 km`. Default seed yields 27 cloud patches that partially/fully occlude some captures (reduces per-bin target coverage and adds `camera_cloud_blocked_fraction`).
 
 ---
 
@@ -49,6 +50,16 @@ Source: `environment_definition/constants/SIMULATION.py`.
 - **Camera stats:** `camera_pixel_ray_samples` = 96, `camera_observation_line_n_bins` = 100.
 - **Camera kernel backend:** `camera_kernel_backend` = `"accelerated"` (default). Batches all strip pixel rays and all observation-line bins per timestep via NumPy (`simulation/camera_2d.py`). The `"python"` backend remains as a parity reference (per-ray Python loops).
 - **Episode cap:** `max_episode_steps` = 1000 (canonical rollout cap shared by gym and MPO runtime).
+
+---
+
+# MPO training episodes (`EpisodeRunner`)
+
+Source: `environment_definition/constants/SIMULATION.py` (`training_episode_simulation_config`), `autonomous_control/episode_runner.py`.
+
+- **Torque path:** external policy (`torque_command_source="external"`); warmup uses random or baseline sweep, train/eval use `MPOAgent.get_action`.
+- **Attitude safety:** `attitude_controller_enabled=True` — `AttitudeSafetyController` arbitrates every external torque command (off-nadir taper, safe-mode takeover) before the reaction-wheel plant.
+- **Replay buffer:** stores the **agent/warmup command** [N·m]; applied torque after arbitration is in `SimulationStateSeries.wheel_torque_cmd_nm`.
 
 ---
 

@@ -76,8 +76,8 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     ax.set_xticks([])
     ax.set_yticks([])
     for spine in ax.spines.values():
-        spine.set_edgecolor(RENDER.info_text_color)
-        spine.set_linewidth(1.0)
+        spine.set_edgecolor(RENDER.panel_edge)
+        spine.set_linewidth(RENDER.panel_edge_linewidth)
 
     R_earth = float(scene["R_earth"])
     tgt_a = float(scene["target_region_start_angle_deg"])
@@ -92,9 +92,9 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     ax.set_ylim(y0, y1)
 
     ax.text(
-        0.02, 0.98, "Target Zoom",
-        transform=ax.transAxes, color=RENDER.info_text_color,
-        fontsize=8, va="top", ha="left",
+        0.025, 0.965, "TARGET ZOOM",
+        transform=ax.transAxes, color=RENDER.section_header_color,
+        fontsize=RENDER.plot_title_fontsize, fontweight="bold", va="top", ha="left",
     )
 
     draw_star_field(ax)

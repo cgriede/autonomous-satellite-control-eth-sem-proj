@@ -138,6 +138,19 @@ class SimulationConfig:
     obc_pointing_mode: ObcPointingMode = "none"
 
 
+def training_episode_simulation_config(
+    *,
+    torque_policy_label: str | None = None,
+) -> SimulationConfig:
+    """Headless external-policy config for MPO warmup/train/eval episodes."""
+    return SimulationConfig(
+        render_mode=RenderMode.HEADLESS,
+        torque_command_source="external",
+        torque_policy_label=torque_policy_label,
+        attitude_controller_enabled=True,
+    )
+
+
 SIMULATION = SimulationConstants(
     theta_center=90.0 * ureg.deg,
     sat_motion_span_scale=1.05,

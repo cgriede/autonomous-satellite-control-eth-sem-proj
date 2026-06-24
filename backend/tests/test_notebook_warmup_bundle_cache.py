@@ -13,6 +13,10 @@ from gymnasium import spaces
 
 from environment_definition.constants import SIMULATION
 
+from autonomous_control.controller_observation import (
+    ControllerObservation,
+    controller_observation_layout,
+)
 from autonomous_control.feature_selection import ControllerFeatureConfig
 from autonomous_control.notebook_warmup_bundle_cache import (
     NB_WARMUP_BUNDLE_VERSION,
@@ -26,7 +30,7 @@ from autonomous_control.notebook_warmup_bundle_cache import (
     try_load_warmup_episode_bundle,
     warmup_fingerprint_payload,
 )
-from autonomous_control.training_runtime import EpisodeResult, ReplayBuffer
+from autonomous_control.training_runtime import EpisodeResult, ReplayBuffer, make_attitude_control_env
 from simulation.state_types import SimulationMetadata, SimulationStateSeries
 
 
@@ -85,10 +89,18 @@ def _minimal_state_series(*, n_frames: int, n_bins: int) -> SimulationStateSerie
     )
 
 
-def _synthetic_episode(*, obs_dim: int, n_frames: int, n_bins: int) -> EpisodeResult:
+def _synthetic_obs(*, index: float, layout) -> ControllerObservation:
+    return ControllerObservation(
+        scalars=np.full((layout.scalar_dim,), index, dtype=np.float32),
+        vision=tuple(np.zeros(seq_len, dtype=np.int8) for seq_len in layout.vision_seq_lens),
+    )
+
+
+def _synthetic_episode(*, n_frames: int, n_bins: int) -> EpisodeResult:
     series = _minimal_state_series(n_frames=n_frames, n_bins=n_bins)
     steps = n_frames - 1
-    states = [np.full((obs_dim,), float(i), dtype=np.float32) for i in range(n_frames)]
+    layout = controller_observation_layout()
+    states = [_synthetic_obs(index=float(i), layout=layout) for i in range(n_frames)]
     ep_ret = float(np.sum(series.simulation_reward[1:]))
     return EpisodeResult(
         episode_return=ep_ret,
@@ -104,15 +116,13 @@ def _synthetic_episode(*, obs_dim: int, n_frames: int, n_bins: int) -> EpisodeRe
 class _RecordingAgent:
     """Minimal ``MPOAgent.store`` stand-in for buffer hydration tests."""
 
-    def __init__(self, *, obs_size: int, action_size: int) -> None:
-        self.buffer = ReplayBuffer(
-            500, obs_size, action_size, torch.device("cpu")
-        )
+    def __init__(self, *, layout, action_size: int) -> None:
+        self.buffer = ReplayBuffer(500, layout, action_size, torch.device("cpu"))
         self.step_counter = 0
         self.current_ep_return = 0.0
         self.episode_returns: list[float] = []
 
-    def store(self, transition: tuple[np.ndarray, np.ndarray, float, np.ndarray, bool]) -> None:
+    def store(self, transition) -> None:
         obs, action, reward, next_obs, done = transition
         self.current_ep_return += float(reward)
         self.step_counter += 1
@@ -122,16 +132,12 @@ class _RecordingAgent:
         self.buffer.store(obs, next_obs, action, reward, done)
 
 
-def _fake_env(*, obs_dim: int, max_episode_steps: int = 10_000) -> SimpleNamespace:
-    high = np.ones((obs_dim,), dtype=np.float32)
+def _fake_env(*, max_episode_steps: int = 10_000) -> SimpleNamespace:
+    env = make_attitude_control_env()
     return SimpleNamespace(
-        observation_space=spaces.Box(-high, high, dtype=np.float32),
-        action_space=spaces.Box(
-            low=np.array([-1.0], dtype=np.float32),
-            high=np.array([1.0], dtype=np.float32),
-            shape=(1,),
-            dtype=np.float32,
-        ),
+        observation_space=env.observation_space,
+        observation_layout=env.observation_layout,
+        action_space=env.action_space,
         max_episode_steps=max_episode_steps,
     )
 
@@ -170,10 +176,10 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
         import tempfile
         from pathlib import Path
 
-        obs_dim = 5
+        obs_dim = int(make_attitude_control_env().observation_layout.scalar_dim)
         n_bins = int(SIMULATION.camera_observation_line_n_bins)
-        ep = _synthetic_episode(obs_dim=obs_dim, n_frames=5, n_bins=n_bins)
-        env = _fake_env(obs_dim=obs_dim)
+        ep = _synthetic_episode(n_frames=5, n_bins=n_bins)
+        env = _fake_env()
 
         fp = warmup_fingerprint_payload(
             obs_dim=obs_dim,
@@ -209,10 +215,10 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
             np.testing.assert_array_equal(loaded[0].simulation_series.t_s, ep.simulation_series.t_s)
 
     def test_preload_buffer_torques_match_series(self):
-        obs_dim = 4
+        layout = make_attitude_control_env().observation_layout
         n_bins = int(SIMULATION.camera_observation_line_n_bins)
-        ep = _synthetic_episode(obs_dim=obs_dim, n_frames=6, n_bins=n_bins)
-        agent = _RecordingAgent(obs_size=obs_dim, action_size=1)
+        ep = _synthetic_episode(n_frames=6, n_bins=n_bins)
+        agent = _RecordingAgent(layout=layout, action_size=1)
         n = preload_warmup_buffer_from_episodes(agent, [ep])
         self.assertEqual(n, ep.steps)
         self.assertEqual(agent.buffer.count, ep.steps)
@@ -222,9 +228,9 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
             self.assertAlmostEqual(float(agent.buffer.rewards[i]), float(ep.simulation_series.simulation_reward[i + 1]))
 
     def test_reset_agent_replay_counters(self):
-        obs_dim = 3
-        agent = _RecordingAgent(obs_size=obs_dim, action_size=1)
-        ep = _synthetic_episode(obs_dim=obs_dim, n_frames=4, n_bins=int(SIMULATION.camera_observation_line_n_bins))
+        layout = make_attitude_control_env().observation_layout
+        agent = _RecordingAgent(layout=layout, action_size=1)
+        ep = _synthetic_episode(n_frames=4, n_bins=int(SIMULATION.camera_observation_line_n_bins))
         preload_warmup_buffer_from_episodes(agent, [ep])
         self.assertGreater(agent.buffer.count, 0)
         reset_agent_replay_counters(agent)
@@ -235,11 +241,12 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
         import tempfile
         from pathlib import Path
 
-        obs_dim = 4
+        layout = make_attitude_control_env().observation_layout
+        obs_dim = layout.scalar_dim
         n_bins = int(SIMULATION.camera_observation_line_n_bins)
-        ep = _synthetic_episode(obs_dim=obs_dim, n_frames=4, n_bins=n_bins)
-        env = _fake_env(obs_dim=obs_dim)
-        fake_agent = _RecordingAgent(obs_size=obs_dim, action_size=1)
+        ep = _synthetic_episode(n_frames=4, n_bins=n_bins)
+        env = _fake_env()
+        fake_agent = _RecordingAgent(layout=layout, action_size=1)
 
         fp = warmup_fingerprint_payload(
             obs_dim=obs_dim,

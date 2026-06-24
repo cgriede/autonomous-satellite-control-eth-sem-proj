@@ -16,6 +16,11 @@ import numpy as np
 if TYPE_CHECKING:
     from simulation.state_types import SimulationTimestepState
 
+VISION_OBSERVATION_LINE_KEYS: tuple[str, ...] = (
+    "camera_observation_line_codes",
+    "secondary_camera_observation_line_codes",
+)
+
 
 @dataclass(frozen=True)
 class ControllerFeatureConfig:
@@ -89,5 +94,6 @@ def select_controller_inputs_from_timestep(
 
 __all__ = [
     "ControllerFeatureConfig",
+    "VISION_OBSERVATION_LINE_KEYS",
     "select_controller_inputs_from_timestep",
 ]

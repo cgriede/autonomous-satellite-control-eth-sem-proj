@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -13,6 +12,11 @@ import torch.optim as optim
 from .action_adapter import POLICY_RAW_DIM
 from .controller_actor import Actor
 from .controller_critic import Critic
+from .controller_observation import (
+    ControllerObservation,
+    ControllerObservationLayout,
+    controller_observation_to_tensors,
+)
 from .mpo_config import MPOConfig
 from .training_runtime import ReplayBuffer
 
@@ -42,12 +46,20 @@ class LinearDummyPolicy:
         return (self._w @ obs + self._b).astype(np.float64)
 
 
+def _require_observation_layout(env: Any) -> ControllerObservationLayout:
+    layout = getattr(env, "observation_layout", None)
+    if layout is None:
+        raise ValueError("env must expose observation_layout for MPOAgent.")
+    return layout
+
+
 class MPOAgent:
     def __init__(self, env: Any, config: MPOConfig | None = None) -> None:
         self.config = config if config is not None else MPOConfig()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
 
+        self.layout = _require_observation_layout(env)
         self.obs_size = int(np.prod(env.observation_space.shape))
         self.action_size = int(np.prod(env.action_space.shape))
         self.action_low = torch.tensor(env.action_space.low, dtype=torch.float32, device=self.device)
@@ -60,48 +72,22 @@ class MPOAgent:
         self.pi = Actor(
             self.action_low,
             self.action_high,
-            self.obs_size,
+            self.layout,
             self.action_size,
-            self.config.num_layers_actor,
-            self.config.num_units_actor,
-            self.config.activation_actor,
-            self.config.actor_dropout,
+            self.config,
         ).to(self.device)
         self.pi_target = Actor(
             self.action_low,
             self.action_high,
-            self.obs_size,
+            self.layout,
             self.action_size,
-            self.config.num_layers_actor,
-            self.config.num_units_actor,
-            self.config.activation_actor,
-            self.config.actor_dropout,
+            self.config,
         ).to(self.device)
 
-        self.q1 = Critic(
-            self.obs_size,
-            self.action_size,
-            self.config.num_layers_critic,
-            self.config.num_units_critic,
-        ).to(self.device)
-        self.q2 = Critic(
-            self.obs_size,
-            self.action_size,
-            self.config.num_layers_critic,
-            self.config.num_units_critic,
-        ).to(self.device)
-        self.q1_target = Critic(
-            self.obs_size,
-            self.action_size,
-            self.config.num_layers_critic,
-            self.config.num_units_critic,
-        ).to(self.device)
-        self.q2_target = Critic(
-            self.obs_size,
-            self.action_size,
-            self.config.num_layers_critic,
-            self.config.num_units_critic,
-        ).to(self.device)
+        self.q1 = Critic(self.layout, self.action_size, self.config).to(self.device)
+        self.q2 = Critic(self.layout, self.action_size, self.config).to(self.device)
+        self.q1_target = Critic(self.layout, self.action_size, self.config).to(self.device)
+        self.q2_target = Critic(self.layout, self.action_size, self.config).to(self.device)
         self.q1_target.load_state_dict(self.q1.state_dict())
         self.q2_target.load_state_dict(self.q2.state_dict())
         self.pi_target.load_state_dict(self.pi.state_dict())
@@ -115,7 +101,10 @@ class MPOAgent:
         self.eta_optimizer = optim.Adam([self.log_eta], lr=self.config.learning_rate_eta)
 
         self.buffer = ReplayBuffer(
-            self.config.buffer_size, self.obs_size, self.action_size, self.device
+            self.config.buffer_size,
+            self.layout,
+            self.action_size,
+            self.device,
         )
         self.step_counter = 0
         self.current_ep_return = 0.0
@@ -129,6 +118,8 @@ class MPOAgent:
             "etaloss": [],
             "eta": [],
             "kl": [],
+            "kl_mu": [],
+            "kl_sigma": [],
             "return": [],
         }
 
@@ -153,25 +144,57 @@ class MPOAgent:
                 group["lr"] = new_lr
             self.current_actor_lr = new_lr
 
+    def _obs_tensors(
+        self, obs: ControllerObservation
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, ...]]:
+        return controller_observation_to_tensors(obs, device=self.device)
+
+    def _expand_obs_for_samples(
+        self,
+        scalars: torch.Tensor,
+        vision: tuple[torch.Tensor, ...],
+        num_samples: int,
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, ...], int]:
+        batch_size = int(scalars.shape[0])
+        scalars_expanded = (
+            scalars.unsqueeze(0)
+            .repeat(num_samples, 1, 1)
+            .reshape(num_samples * batch_size, -1)
+        )
+        vision_expanded = tuple(
+            codes.unsqueeze(0)
+            .repeat(num_samples, 1, 1)
+            .reshape(num_samples * batch_size, codes.shape[-1])
+            for codes in vision
+        )
+        return scalars_expanded, vision_expanded, batch_size
+
     def train(self) -> dict[str, float] | None:
         if len(self.buffer) < self.config.batch_size or self.step_counter < self.exploration_steps:
             return None
 
-        obs, action, next_obs, done, reward = self.buffer.sample(self.config.batch_size)
+        (obs_scalars, obs_vision), action, (next_scalars, next_vision), done, reward = (
+            self.buffer.sample(self.config.batch_size)
+        )
         last_return = self.episode_returns[-1] if self.episode_returns else -200.0
         self.metrics["return"].append(float(last_return))
         self._maybe_schedule_actor_lr(last_return)
 
         with torch.no_grad():
-            dist_target = self.pi_target(next_obs)
+            dist_target = self.pi_target(next_scalars, next_vision)
             next_actions_samples = dist_target.sample((self.config.num_samples_q,))
             next_actions_rescaled = (
                 torch.tanh(next_actions_samples) * self.action_scale + self.action_bias
             )
-            next_obs_expanded = next_obs.unsqueeze(0).repeat(self.config.num_samples_q, 1, 1)
+            next_actions_flat = next_actions_rescaled.reshape(
+                self.config.num_samples_q * self.config.batch_size, -1
+            )
+            next_scalars_expanded, next_vision_expanded, _ = self._expand_obs_for_samples(
+                next_scalars, next_vision, self.config.num_samples_q
+            )
             q_target_all = torch.min(
-                self.q1_target(next_obs_expanded, next_actions_rescaled),
-                self.q2_target(next_obs_expanded, next_actions_rescaled),
+                self.q1_target(next_scalars_expanded, next_vision_expanded, next_actions_flat),
+                self.q2_target(next_scalars_expanded, next_vision_expanded, next_actions_flat),
             )
             q_next = q_target_all.reshape(self.config.num_samples_q, self.config.batch_size, 1).mean(
                 dim=0
@@ -179,8 +202,8 @@ class MPOAgent:
             y = reward.unsqueeze(1) + (1 - done.unsqueeze(1)) * self.config.gamma * q_next
 
         loss_fn = nn.MSELoss()
-        q1_loss = loss_fn(self.q1(obs, action), y)
-        q2_loss = loss_fn(self.q2(obs, action), y)
+        q1_loss = loss_fn(self.q1(obs_scalars, obs_vision, action), y)
+        q2_loss = loss_fn(self.q2(obs_scalars, obs_vision, action), y)
         q_loss = q1_loss + q2_loss
         self.metrics["qloss"].append(float(q_loss.item()))
 
@@ -188,12 +211,17 @@ class MPOAgent:
         q_loss.backward()
         self.q_optimizer.step()
 
-        dist_online = self.pi(obs)
+        dist_online = self.pi(obs_scalars, obs_vision)
         actions_gaussian = dist_online.rsample((self.config.num_samples_pi,))
         actions_tanh = torch.tanh(actions_gaussian)
         actions_squashed = actions_tanh * self.action_scale + self.action_bias
-        obs_expanded = obs.unsqueeze(0).repeat(self.config.num_samples_pi, 1, 1)
-        q1_values_samples = self.q1(obs_expanded, actions_squashed).detach()
+        obs_scalars_expanded, obs_vision_expanded, _ = self._expand_obs_for_samples(
+            obs_scalars, obs_vision, self.config.num_samples_pi
+        )
+        actions_flat = actions_squashed.reshape(self.config.num_samples_pi * self.config.batch_size, -1)
+        q1_values_samples = self.q1(
+            obs_scalars_expanded, obs_vision_expanded, actions_flat
+        ).detach().reshape(self.config.num_samples_pi, self.config.batch_size, 1)
 
         eta = torch.exp(self.log_eta).detach()
         self.metrics["eta"].append(float(eta.item()))
@@ -209,7 +237,7 @@ class MPOAgent:
         pi_loss.backward()
         self.pi_optimizer.step()
 
-        dist_new = self.pi(obs)
+        dist_new = self.pi(obs_scalars, obs_vision)
         if self.config.decoupled_kl:
             kl_mu = 0.5 * torch.mean(
                 ((dist_online.loc - dist_new.loc) ** 2) / (dist_new.scale**2 + 1e-8)
@@ -226,6 +254,8 @@ class MPOAgent:
                 self.config.target_kl_sigma - kl_sigma
             ).detach()
         else:
+            kl_mu = torch.tensor(float("nan"), device=self.device)
+            kl_sigma = torch.tensor(float("nan"), device=self.device)
             with torch.no_grad():
                 if self.config.reverse_kl:
                     kl = torch.distributions.kl_divergence(dist_new, dist_online).mean()
@@ -235,6 +265,8 @@ class MPOAgent:
             eta_loss = torch.exp(self.log_eta) * (target_kl - kl).detach()
 
         self.metrics["kl"].append(float(kl.item()))
+        self.metrics["kl_mu"].append(float(kl_mu.item()))
+        self.metrics["kl_sigma"].append(float(kl_sigma.item()))
         self.metrics["etaloss"].append(float(eta_loss.item()))
 
         self.eta_optimizer.zero_grad()
@@ -245,26 +277,39 @@ class MPOAgent:
         self._soft_update(self.q2_target, self.q2)
         self._soft_update(self.pi_target, self.pi)
 
-        return {
+        out: dict[str, float] = {
             "q_loss": float(q_loss.item()),
             "pi_loss": float(pi_loss.item()),
             "eta_loss": float(eta_loss.item()),
             "eta": float(torch.exp(self.log_eta).item()),
             "kl": float(kl.item()),
         }
+        if self.config.decoupled_kl:
+            out["kl_mu"] = float(kl_mu.item())
+            out["kl_sigma"] = float(kl_sigma.item())
+        return out
 
-    def get_action(self, obs: np.ndarray, train: bool) -> np.ndarray:
-        obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=self.device)
+    def get_action(self, obs: ControllerObservation, train: bool) -> np.ndarray:
+        scalars, vision = self._obs_tensors(obs)
         if train and self.step_counter < self.exploration_steps:
-            return np.array([np.random.uniform(-1.0, 1.0)], dtype=np.float64)
+            tau_max = float(self.action_high[0].item())
+            return np.array(
+                [
+                    np.random.uniform(-tau_max, tau_max),
+                    np.random.uniform(-1.0, 1.0),
+                ],
+                dtype=np.float64,
+            )
 
         with torch.no_grad():
-            dist = self.pi(obs_tensor)
+            dist = self.pi(scalars, vision)
             action_gaussian = dist.rsample() if train else dist.mean
             action_scaled = torch.tanh(action_gaussian) * self.action_scale + self.action_bias
-        return action_scaled.detach().cpu().numpy().astype(np.float64)
+        return action_scaled.detach().cpu().numpy().reshape(-1).astype(np.float64)
 
-    def store(self, transition: tuple[np.ndarray, np.ndarray, float, np.ndarray, bool]) -> None:
+    def store(
+        self, transition: tuple[ControllerObservation, np.ndarray, float, ControllerObservation, bool]
+    ) -> None:
         obs, action, reward, next_obs, done = transition
         self.current_ep_return += float(reward)
         self.step_counter += 1

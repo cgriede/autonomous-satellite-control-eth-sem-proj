@@ -154,14 +154,8 @@ def target_areas_disk_phi_bounds_deg(
         else:
             lat_a, lon_a = _area_endpoint_geodetic_deg(area, which="min")
             lat_b, lon_b = _area_endpoint_geodetic_deg(area, which="max")
-            if getattr(area, "lat_min_lon", None) is not None:
-                off_a = track_offset_deg_from_latitude_only_deg(lat_a)
-                off_b = track_offset_deg_from_latitude_only_deg(lat_b)
-                phi_a = disk_phi_deg_from_track_offset_deg(off_a)
-                phi_b = disk_phi_deg_from_track_offset_deg(off_b)
-            else:
-                phi_a = disk_phi_deg_from_geodetic_deg(lat_a, lon_a, ell=e)
-                phi_b = disk_phi_deg_from_geodetic_deg(lat_b, lon_b, ell=e)
+            phi_a = disk_phi_deg_from_geodetic_deg(lat_a, lon_a, ell=e)
+            phi_b = disk_phi_deg_from_geodetic_deg(lat_b, lon_b, ell=e)
         bounds.append((min(phi_a, phi_b), max(phi_a, phi_b)))
     return tuple(bounds)
 

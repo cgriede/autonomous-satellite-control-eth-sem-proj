@@ -29,6 +29,11 @@ from environment_definition.mission_profiles.s00_simulation_build_sample_fl impo
 from simulation.state_types import SimulationTimestepState
 from simulation.state_types import SimulationStateSeries
 
+from .controller_observation import (
+    ControllerObservation,
+    ControllerObservationLayout,
+    controller_observation_layout,
+)
 from .feature_selection import ControllerFeatureConfig, select_controller_inputs_from_timestep
 from .reward import RewardConfig
 
@@ -114,11 +119,28 @@ def build_state_vector_from_timestep(
 
 
 class ReplayBuffer:
-    def __init__(self, size: int, obs_size: int, action_size: int, device: torch.device) -> None:
+    def __init__(
+        self,
+        size: int,
+        layout: ControllerObservationLayout,
+        action_size: int,
+        device: torch.device,
+    ) -> None:
         self.size = int(size)
         self.device = device
-        self.obs = np.zeros((self.size, obs_size), dtype=np.float32)
-        self.next_obs = np.zeros((self.size, obs_size), dtype=np.float32)
+        self.layout = layout
+        self.scalars = np.zeros((self.size, layout.scalar_dim), dtype=np.float32)
+        self.next_scalars = np.zeros((self.size, layout.scalar_dim), dtype=np.float32)
+        self.vision: dict[str, np.ndarray] = {
+            layout.vision_cache_key(key): np.zeros(
+                (self.size, seq_len),
+                dtype=np.int8,
+            )
+            for key, seq_len in zip(layout.vision_keys, layout.vision_seq_lens)
+        }
+        self.next_vision: dict[str, np.ndarray] = {
+            key: np.zeros_like(arr) for key, arr in self.vision.items()
+        }
         self.actions = np.zeros((self.size, action_size), dtype=np.float32)
         self.rewards = np.zeros((self.size,), dtype=np.float32)
         self.done = np.zeros((self.size,), dtype=np.float32)
@@ -130,14 +152,20 @@ class ReplayBuffer:
 
     def store(
         self,
-        obs: np.ndarray,
-        next_obs: np.ndarray,
+        obs: ControllerObservation,
+        next_obs: ControllerObservation,
         action: np.ndarray,
         reward: float,
         done: bool,
     ) -> None:
-        self.obs[self.ptr] = obs
-        self.next_obs[self.ptr] = next_obs
+        self.scalars[self.ptr] = obs.scalars
+        self.next_scalars[self.ptr] = next_obs.scalars
+        for key, line in zip(self.layout.vision_keys, obs.vision):
+            cache_key = self.layout.vision_cache_key(key)
+            self.vision[cache_key][self.ptr] = line
+        for key, line in zip(self.layout.vision_keys, next_obs.vision):
+            cache_key = self.layout.vision_cache_key(key)
+            self.next_vision[cache_key][self.ptr] = line
         self.actions[self.ptr] = action
         self.rewards[self.ptr] = reward
         self.done[self.ptr] = float(done)
@@ -146,14 +174,33 @@ class ReplayBuffer:
 
     def sample(
         self, batch_size: int
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[
+        tuple[torch.Tensor, tuple[torch.Tensor, ...]],
+        torch.Tensor,
+        tuple[torch.Tensor, tuple[torch.Tensor, ...]],
+        torch.Tensor,
+        torch.Tensor,
+    ]:
         idxs = np.random.randint(0, self.count, size=batch_size)
-        obs = torch.as_tensor(self.obs[idxs], dtype=torch.float32, device=self.device)
+        scalars = torch.as_tensor(self.scalars[idxs], dtype=torch.float32, device=self.device)
+        next_scalars = torch.as_tensor(
+            self.next_scalars[idxs], dtype=torch.float32, device=self.device
+        )
+        vision = tuple(
+            torch.as_tensor(self.vision[self.layout.vision_cache_key(key)][idxs], device=self.device)
+            for key in self.layout.vision_keys
+        )
+        next_vision = tuple(
+            torch.as_tensor(
+                self.next_vision[self.layout.vision_cache_key(key)][idxs],
+                device=self.device,
+            )
+            for key in self.layout.vision_keys
+        )
         action = torch.as_tensor(self.actions[idxs], dtype=torch.float32, device=self.device)
-        next_obs = torch.as_tensor(self.next_obs[idxs], dtype=torch.float32, device=self.device)
         done = torch.as_tensor(self.done[idxs], dtype=torch.float32, device=self.device)
         reward = torch.as_tensor(self.rewards[idxs], dtype=torch.float32, device=self.device)
-        return obs, action, next_obs, done, reward
+        return (scalars, vision), action, (next_scalars, next_vision), done, reward
 
 
 @dataclass
@@ -165,18 +212,27 @@ class EpisodeResult:
     configured_controller_update_interval_s: float
     effective_controller_update_interval_s: float
     effective_controller_update_interval_steps: int
+    learning_stats: Any | None = None
+    ended_early_on_budget: bool = False
+    configured_episode_steps: int = 0
 
 
 def make_attitude_control_env(
     *,
     render_mode: str | None = None,
     reward_config: RewardConfig | None = None,
+    feature_config: ControllerFeatureConfig | None = None,
     secondary_camera_observation_line_n_bins: int = 0,
 ) -> Any:
     _ = render_mode
     _ = reward_config
+    layout = controller_observation_layout(
+        feature_config=feature_config,
+        secondary_camera_observation_line_n_bins=secondary_camera_observation_line_n_bins,
+    )
     obs_dim = controller_observation_dim(
-        secondary_camera_observation_line_n_bins=secondary_camera_observation_line_n_bins
+        feature_config=feature_config,
+        secondary_camera_observation_line_n_bins=secondary_camera_observation_line_n_bins,
     )
     high = np.full((obs_dim,), np.finfo(np.float32).max, dtype=np.float32)
     tau_max_nm = float(cast(Any, SATELLITE.reaction_wheel_max_torque).to(ureg.N * ureg.m).magnitude)
@@ -185,15 +241,17 @@ def make_attitude_control_env(
     class _EnvAdapter:
         observation_space: Any
         action_space: Any
+        observation_layout: ControllerObservationLayout
         dt: Any
         max_episode_steps: int
 
     return _EnvAdapter(
         observation_space=spaces.Box(-high, high, dtype=np.float32),
+        observation_layout=layout,
         action_space=spaces.Box(
-            low=np.array([-tau_max_nm], dtype=np.float32),
-            high=np.array([tau_max_nm], dtype=np.float32),
-            shape=(1,),
+            low=np.array([-tau_max_nm, -1.0], dtype=np.float32),
+            high=np.array([tau_max_nm, 1.0], dtype=np.float32),
+            shape=(2,),
             dtype=np.float32,
         ),
         dt=SIMULATION.simulation_timestep,
@@ -216,6 +274,7 @@ def run_episode(
     np_rng: np.random.Generator | None = None,
     verbose_print: int = 0,
     setup=None,  # EnvironmentSetup | None
+    collect_states: bool = True,
 ) -> EpisodeResult:
     """Backward-compatible wrapper — delegates to EpisodeRunner.run_serial.
 
@@ -247,5 +306,6 @@ def run_episode(
         feature_config=feature_config,
         np_rng=np_rng,
         verbose_print=verbose_print,
+        collect_states=collect_states,
     )
 

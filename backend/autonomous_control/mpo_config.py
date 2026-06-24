@@ -37,6 +37,11 @@ class MPOConfig:
     activation_actor: type[nn.Module] = nn.ELU
     reverse_kl: bool = False
     decoupled_kl: bool = True
+    code_embed_dim: int = 8
+    cnn_embedding_dim: int = 32
+    num_layers_scalar_encoder: int = 1
+    num_layers_vision_fusion: int = 1
+    max_target_index: int = 35
     max_steps_per_episode: int = int(SIMULATION.max_episode_steps)
     # Per-component reward flags (routed into env and run_simulation via training
     # runtime / render call sites). See autonomous_control.reward for semantics.

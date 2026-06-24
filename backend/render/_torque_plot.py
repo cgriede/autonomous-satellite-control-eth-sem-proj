@@ -3,6 +3,11 @@ import numpy as np
 
 from environment_definition.constants import RENDER
 
+if __package__:
+    from ._plot_style import style_dashboard_axes, style_dashboard_legend
+else:
+    from render._plot_style import style_dashboard_axes, style_dashboard_legend
+
 
 def build_torque_panel(
     fig: plt.Figure,
@@ -10,17 +15,10 @@ def build_torque_panel(
     torque_applied_nm: np.ndarray,
     *,
     torque_agent_nm: np.ndarray | None = None,
+    applied_label: str = "applied (RW)",
 ) -> tuple[dict, dict]:
     ax = fig.add_axes(RENDER.torque_axes_rect)
-    ax.set_facecolor(RENDER.space_background)
-    ax.set_title("Wheel torque", color=RENDER.info_text_color, fontsize=9, pad=4.0)
-    ax.set_xlabel("time [s]", color=RENDER.info_text_color, fontsize=8)
-    ax.set_ylabel("τ [N·m]", color=RENDER.info_text_color, fontsize=8)
-    ax.tick_params(colors=RENDER.info_text_color, labelsize=7)
-    for sp in ax.spines.values():
-        sp.set_edgecolor(RENDER.info_text_color)
-        sp.set_linewidth(0.8)
-    ax.grid(True, alpha=0.2, linewidth=0.6)
+    style_dashboard_axes(ax, title="Reaction-wheel torque", xlabel="time [s]", ylabel="\u03c4 [N\u00b7m]")
 
     t_nm = np.asarray(torque_applied_nm, dtype=float)
     agent_nm = np.asarray(torque_agent_nm, dtype=float) if torque_agent_nm is not None else None
@@ -31,22 +29,24 @@ def build_torque_panel(
         tmax = float(np.max(finite))
     else:
         tmin, tmax = 0.0, 1.0
-    if np.isclose(tmin, tmax):
-        pad = 1.0
-    else:
-        pad = 0.1 * (tmax - tmin)
+    span = tmax - tmin
+    pad = 1.0 if np.isclose(tmin, tmax) else 0.15 * span
     ax.set_xlim(float(t_s[0]), float(t_s[-1]))
     ax.set_ylim(tmin - pad, tmax + pad)
 
-    (line_applied,) = ax.plot([], [], color="orange", linewidth=1.2, label="applied (RW)")
+    ax.axhline(0.0, color=RENDER.panel_edge, linewidth=0.8, alpha=0.9, zorder=0)
+
     line_agent = None
     if agent_nm is not None:
         (line_agent,) = ax.plot(
-            [], [], color="cyan", linewidth=1.0, linestyle="--", label="agent request"
+            [], [], color=RENDER.accent_torque_agent, linewidth=1.0, linestyle="--", label="agent request"
         )
-    (cursor,) = ax.plot([], [], color="yellow", marker="o", markersize=3, linestyle="None")
-    if agent_nm is not None:
-        ax.legend(loc="upper right", fontsize=6, facecolor=RENDER.space_background, labelcolor=RENDER.info_text_color)
+    (line_applied,) = ax.plot([], [], color=RENDER.accent_torque, linewidth=1.6, label=applied_label)
+    (cursor,) = ax.plot(
+        [], [], color=RENDER.accent_cursor, marker="o", markersize=4,
+        markeredgecolor="black", markeredgewidth=0.5, linestyle="None", zorder=5,
+    )
+    style_dashboard_legend(ax, loc="upper right")
 
     axes = {"torque": ax}
     artists: dict = {

@@ -10,14 +10,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from environment_definition.constants import (
-    EARTH_GRAVITATIONAL_PARAMETER,
-    EARTH_RADIUS,
-    RenderMode,
-    SIMULATION,
-    SimulationConfig,
-    UREG as ureg,
-)
+from environment_definition.constants import RenderMode, SimulationConfig
 from environment_definition.mission_profiles.s00_simulation_build_sample_fl import SATELLITE, SATELLITE_ALTITUDE
 from simulation.setup_types import OrbitConfig, EnvironmentSetup
 from simulation.stepper_factory import build_stepper
@@ -25,9 +18,13 @@ from utils.ml_training.ml_training_utils import RunTelemetryWriter
 
 from .config.randomness import apply_global_seed, derive_seed
 from .controller_actor import Actor
+from .controller_observation import (
+    ControllerObservation,
+    ControllerObservationLayout,
+    build_controller_observation_from_timestep,
+    controller_observation_to_tensors,
+)
 from .mpo_config import MPOConfig
-from .reward import RewardConfig
-from .training_runtime import build_state_vector_from_timestep
 
 
 @dataclass(frozen=True)
@@ -43,11 +40,30 @@ class WorkerResult:
     episode_idx: int
     episode_return: float
     steps: int
-    obs: np.ndarray
+    scalars: np.ndarray
+    next_scalars: np.ndarray
+    vision: dict[str, np.ndarray]
+    next_vision: dict[str, np.ndarray]
     actions: np.ndarray
     rewards: np.ndarray
-    next_obs: np.ndarray
     done: np.ndarray
+
+
+def _observation_from_row(
+    layout: ControllerObservationLayout,
+    *,
+    scalars_row: np.ndarray,
+    vision_rows: dict[str, np.ndarray],
+    index: int,
+) -> ControllerObservation:
+    vision = tuple(
+        np.asarray(vision_rows[layout.vision_cache_key(key)][index], dtype=np.int8)
+        for key in layout.vision_keys
+    )
+    return ControllerObservation(
+        scalars=np.asarray(scalars_row, dtype=np.float32),
+        vision=vision,
+    )
 
 
 def _build_stepper(*, satellite_altitude: Any):
@@ -68,7 +84,7 @@ def _build_stepper(*, satellite_altitude: Any):
 def _load_actor_from_bytes(
     *,
     payload: bytes,
-    obs_size: int,
+    layout: ControllerObservationLayout,
     action_size: int,
     action_low: np.ndarray,
     action_high: np.ndarray,
@@ -80,12 +96,9 @@ def _load_actor_from_bytes(
     actor = Actor(
         action_low_t,
         action_high_t,
-        obs_size,
+        layout,
         action_size,
-        config.num_layers_actor,
-        config.num_units_actor,
-        config.activation_actor,
-        config.actor_dropout,
+        config,
     ).to(device)
     state_dict = torch.load(io.BytesIO(payload), map_location=device)
     actor.load_state_dict(state_dict)
@@ -107,7 +120,7 @@ def _worker_loop(
     worker_id: int,
     task_queue: mp.Queue,
     result_queue: mp.Queue,
-    obs_size: int,
+    layout: ControllerObservationLayout,
     action_size: int,
     action_low: np.ndarray,
     action_high: np.ndarray,
@@ -126,7 +139,7 @@ def _worker_loop(
         assert isinstance(task, WorkerTask)
         actor = _load_actor_from_bytes(
             payload=task.policy_state_bytes,
-            obs_size=obs_size,
+            layout=layout,
             action_size=action_size,
             action_low=action_low,
             action_high=action_high,
@@ -135,16 +148,20 @@ def _worker_loop(
         )
         stepper = _build_stepper(satellite_altitude=satellite_altitude)
         current_ts = stepper.current_timestep_state()
-        obs = build_state_vector_from_timestep(
-            timestep=current_ts,
-        )
+        obs = build_controller_observation_from_timestep(timestep=current_ts, layout=layout)
         current_action_nm = 0.0
         episode_return = 0.0
         steps = 0
-        obs_batch: list[np.ndarray] = []
+        scalars_batch: list[np.ndarray] = []
+        next_scalars_batch: list[np.ndarray] = []
+        vision_batch: dict[str, list[np.ndarray]] = {
+            layout.vision_cache_key(key): [] for key in layout.vision_keys
+        }
+        next_vision_batch: dict[str, list[np.ndarray]] = {
+            layout.vision_cache_key(key): [] for key in layout.vision_keys
+        }
         actions_batch: list[np.ndarray] = []
         rewards_batch: list[float] = []
-        next_obs_batch: list[np.ndarray] = []
         done_batch: list[float] = []
         train_mode = task.mode in {"warmup", "train"}
         action_low_t = torch.as_tensor(action_low, dtype=torch.float32, device=device)
@@ -156,22 +173,29 @@ def _worker_loop(
                 if task.mode == "warmup":
                     current_action_nm = float(worker_rng.uniform(-1.0, 1.0))
                 else:
-                    obs_tensor = torch.as_tensor(obs, dtype=torch.float32, device=device)
+                    scalars_t, vision_t = controller_observation_to_tensors(obs, device=device)
                     with torch.no_grad():
-                        dist = actor(obs_tensor)
+                        dist = actor(scalars_t, vision_t)
                         action_gaussian = dist.rsample() if train_mode else dist.mean
                         action_scaled = torch.tanh(action_gaussian) * action_scale + action_bias
                     current_action_nm = float(action_scaled.detach().cpu().numpy().reshape(-1)[0])
             next_ts = stepper.step(wheel_torque_cmd_nm=current_action_nm)
-            next_obs = build_state_vector_from_timestep(
+            next_obs = build_controller_observation_from_timestep(
                 timestep=next_ts,
+                layout=layout,
             )
             reward = float(next_ts.reward)
             done = bool(stepper.done)
-            obs_batch.append(obs.copy())
+            scalars_batch.append(obs.scalars.copy())
+            next_scalars_batch.append(next_obs.scalars.copy())
+            for key, line in zip(layout.vision_keys, obs.vision):
+                cache_key = layout.vision_cache_key(key)
+                vision_batch[cache_key].append(line.copy())
+            for key, line in zip(layout.vision_keys, next_obs.vision):
+                cache_key = layout.vision_cache_key(key)
+                next_vision_batch[cache_key].append(line.copy())
             actions_batch.append(np.array([current_action_nm], dtype=np.float32))
             rewards_batch.append(reward)
-            next_obs_batch.append(next_obs.copy())
             done_batch.append(1.0 if done else 0.0)
             episode_return += reward
             obs = next_obs
@@ -183,22 +207,25 @@ def _worker_loop(
                 episode_idx=int(task.episode_idx),
                 episode_return=float(episode_return),
                 steps=int(steps),
-                obs=np.asarray(obs_batch, dtype=np.float32),
+                scalars=np.asarray(scalars_batch, dtype=np.float32),
+                next_scalars=np.asarray(next_scalars_batch, dtype=np.float32),
+                vision={
+                    key: np.asarray(values, dtype=np.int8)
+                    for key, values in vision_batch.items()
+                },
+                next_vision={
+                    key: np.asarray(values, dtype=np.int8)
+                    for key, values in next_vision_batch.items()
+                },
                 actions=np.asarray(actions_batch, dtype=np.float32),
                 rewards=np.asarray(rewards_batch, dtype=np.float32),
-                next_obs=np.asarray(next_obs_batch, dtype=np.float32),
                 done=np.asarray(done_batch, dtype=np.float32),
             )
         )
 
 
 class ParallelMPOTrainer:
-    """Shared learner, parallel rollout workers.
-
-    Contract:
-    - worker -> learner: batched transitions `(obs, action, reward, next_obs, done)` + episode summary.
-    - learner -> worker: serialized policy state bytes refreshed each dispatched episode.
-    """
+    """Shared learner, parallel rollout workers."""
 
     def __init__(
         self,
@@ -224,7 +251,7 @@ class ParallelMPOTrainer:
         self._workers: list[mp.Process] = []
 
     def __enter__(self) -> "ParallelMPOTrainer":
-        obs_size = int(np.prod(self.env.observation_space.shape))
+        layout = self.agent.layout
         action_size = int(np.prod(self.env.action_space.shape))
         action_low = np.asarray(self.env.action_space.low, dtype=np.float32)
         action_high = np.asarray(self.env.action_space.high, dtype=np.float32)
@@ -236,7 +263,7 @@ class ParallelMPOTrainer:
                     worker_id,
                     self._task_queue,
                     self._result_queue,
-                    obs_size,
+                    layout,
                     action_size,
                     action_low,
                     action_high,
@@ -272,6 +299,7 @@ class ParallelMPOTrainer:
         started_at = time.perf_counter()
         returns_window: list[float] = []
         completed: list[dict[str, float]] = []
+        layout = self.agent.layout
 
         while next_to_collect < episode_count:
             while in_flight < self.num_workers and next_to_submit < episode_count:
@@ -299,12 +327,22 @@ class ParallelMPOTrainer:
             in_flight -= 1
             next_to_collect += 1
 
-            for i in range(result.obs.shape[0]):
+            for i in range(result.scalars.shape[0]):
                 transition = (
-                    result.obs[i],
+                    _observation_from_row(
+                        layout,
+                        scalars_row=result.scalars[i],
+                        vision_rows=result.vision,
+                        index=i,
+                    ),
                     result.actions[i],
                     float(result.rewards[i]),
-                    result.next_obs[i],
+                    _observation_from_row(
+                        layout,
+                        scalars_row=result.next_scalars[i],
+                        vision_rows=result.next_vision,
+                        index=i,
+                    ),
                     bool(result.done[i] > 0.5),
                 )
                 self.agent.store(transition)

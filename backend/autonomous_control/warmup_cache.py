@@ -13,11 +13,12 @@ import numpy as np
 
 from autonomous_control.config.randomness import derive_seed
 from autonomous_control.controller_agent import MPOAgent
+from autonomous_control.controller_observation import ControllerObservationLayout
 from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.training_runtime import make_attitude_control_env, run_episode
 from paths import MODELS_ROOT
 
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 
 
 def default_cache_dir() -> Path:
@@ -51,31 +52,51 @@ def load_warmup_cache(path: Path) -> dict[str, np.ndarray]:
 def validate_warmup_cache(
 	cache: dict[str, np.ndarray],
 	*,
-	obs_size: int,
+	layout: ControllerObservationLayout,
 	action_size: int,
 ) -> None:
-	"""Validate that a cache payload matches the current agent dimensions."""
-	required = ("obs", "actions", "rewards", "next_obs", "done")
+	"""Validate that a cache payload matches the current agent layout."""
+	required = ("scalars", "next_scalars", "actions", "rewards", "done", "cache_version")
 	missing = [k for k in required if k not in cache]
 	if missing:
 		raise ValueError(f"Warmup cache missing keys: {missing}")
 
-	obs = np.asarray(cache["obs"])
+	scalars = np.asarray(cache["scalars"])
+	next_scalars = np.asarray(cache["next_scalars"])
 	actions = np.asarray(cache["actions"])
 	rewards = np.asarray(cache["rewards"])
-	next_obs = np.asarray(cache["next_obs"])
 	done = np.asarray(cache["done"])
 
-	if obs.ndim != 2 or obs.shape[1] != int(obs_size):
-		raise ValueError(f"Expected obs shape (N,{obs_size}), got {obs.shape}.")
-	if next_obs.ndim != 2 or next_obs.shape[1] != int(obs_size):
-		raise ValueError(f"Expected next_obs shape (N,{obs_size}), got {next_obs.shape}.")
+	if scalars.ndim != 2 or scalars.shape[1] != layout.scalar_dim:
+		raise ValueError(
+			f"Expected scalars shape (N,{layout.scalar_dim}), got {scalars.shape}."
+		)
+	if next_scalars.shape != scalars.shape:
+		raise ValueError(f"next_scalars shape {next_scalars.shape} != scalars {scalars.shape}.")
 	if actions.ndim != 2 or actions.shape[1] != int(action_size):
 		raise ValueError(f"Expected actions shape (N,{action_size}), got {actions.shape}.")
 
-	n = obs.shape[0]
-	if next_obs.shape[0] != n or actions.shape[0] != n or rewards.shape[0] != n or done.shape[0] != n:
+	n = scalars.shape[0]
+	if next_scalars.shape[0] != n or actions.shape[0] != n or rewards.shape[0] != n or done.shape[0] != n:
 		raise ValueError("Warmup cache arrays must have identical first dimension N.")
+
+	for key, seq_len in zip(layout.vision_keys, layout.vision_seq_lens):
+		cache_key = layout.vision_cache_key(key)
+		next_key = f"next_{cache_key}"
+		if cache_key not in cache or next_key not in cache:
+			raise ValueError(f"Warmup cache missing vision arrays for {key!r}.")
+		vision = np.asarray(cache[cache_key])
+		next_vision = np.asarray(cache[next_key])
+		if vision.shape != (n, seq_len) or next_vision.shape != (n, seq_len):
+			raise ValueError(
+				f"Expected vision arrays shape (N,{seq_len}) for {key!r}, "
+				f"got {vision.shape} and {next_vision.shape}."
+			)
+
+	if int(np.asarray(cache["cache_version"]).reshape(-1)[0]) != CACHE_VERSION:
+		raise ValueError(
+			f"Warmup cache version mismatch: expected {CACHE_VERSION}, rebuild the cache."
+		)
 
 
 def preload_agent_replay_buffer(
@@ -90,34 +111,58 @@ def preload_agent_replay_buffer(
 	"""
 	validate_warmup_cache(
 		cache,
-		obs_size=int(agent.obs_size),
+		layout=agent.layout,
 		action_size=int(agent.action_size),
 	)
 
-	obs = np.asarray(cache["obs"], dtype=np.float32)
+	scalars = np.asarray(cache["scalars"], dtype=np.float32)
+	next_scalars = np.asarray(cache["next_scalars"], dtype=np.float32)
 	actions = np.asarray(cache["actions"], dtype=np.float32)
 	rewards = np.asarray(cache["rewards"], dtype=np.float32)
-	next_obs = np.asarray(cache["next_obs"], dtype=np.float32)
 	done = np.asarray(cache["done"], dtype=np.float32)
 
-	n = int(obs.shape[0])
+	n = int(scalars.shape[0])
 	n = min(n, int(agent.buffer.size))
 	if max_samples is not None:
 		n = min(n, int(max_samples))
 	if n <= 0:
 		return 0
 
-	agent.buffer.obs[:n] = obs[:n]
-	agent.buffer.actions[:n] = actions[:n]
-	agent.buffer.rewards[:n] = rewards[:n]
-	agent.buffer.next_obs[:n] = next_obs[:n]
-	agent.buffer.done[:n] = done[:n]
-	agent.buffer.count = n
-	agent.buffer.ptr = n % int(agent.buffer.size)
+	buf = agent.buffer
+	buf.scalars[:n] = scalars[:n]
+	buf.next_scalars[:n] = next_scalars[:n]
+	for key in agent.layout.vision_keys:
+		cache_key = agent.layout.vision_cache_key(key)
+		buf.vision[cache_key][:n] = np.asarray(cache[cache_key], dtype=np.int8)[:n]
+		buf.next_vision[cache_key][:n] = np.asarray(cache[f"next_{cache_key}"], dtype=np.int8)[:n]
+	buf.actions[:n] = actions[:n]
+	buf.rewards[:n] = rewards[:n]
+	buf.done[:n] = done[:n]
+	buf.count = n
+	buf.ptr = n % int(buf.size)
 
-	# Ensure training is not blocked by exploration-step gating after preload.
 	agent.step_counter = max(int(agent.step_counter), n)
 	return n
+
+
+def _cache_payload_from_agent(agent: MPOAgent, *, count: int) -> dict[str, np.ndarray]:
+	buf = agent.buffer
+	payload: dict[str, np.ndarray] = {
+		"scalars": buf.scalars[:count].copy(),
+		"next_scalars": buf.next_scalars[:count].copy(),
+		"actions": buf.actions[:count].copy(),
+		"rewards": buf.rewards[:count].copy(),
+		"done": buf.done[:count].copy(),
+		"cache_version": np.asarray([int(CACHE_VERSION)], dtype=np.int64),
+		"scalar_dim": np.asarray([int(agent.layout.scalar_dim)], dtype=np.int64),
+		"action_size": np.asarray([int(agent.action_size)], dtype=np.int64),
+		"buffer_size": np.asarray([int(agent.buffer.size)], dtype=np.int64),
+	}
+	for key in agent.layout.vision_keys:
+		cache_key = agent.layout.vision_cache_key(key)
+		payload[cache_key] = buf.vision[cache_key][:count].copy()
+		payload[f"next_{cache_key}"] = buf.next_vision[cache_key][:count].copy()
+	return payload
 
 
 def build_warmup_cache(
@@ -155,21 +200,11 @@ def build_warmup_cache(
 		episode_steps.append(int(result.steps))
 
 	count = int(len(agent.buffer))
-	payload: dict[str, np.ndarray] = {
-		"obs": agent.buffer.obs[:count].copy(),
-		"actions": agent.buffer.actions[:count].copy(),
-		"rewards": agent.buffer.rewards[:count].copy(),
-		"next_obs": agent.buffer.next_obs[:count].copy(),
-		"done": agent.buffer.done[:count].copy(),
-		"episode_returns": np.asarray(episode_returns, dtype=np.float32),
-		"episode_steps": np.asarray(episode_steps, dtype=np.int32),
-		"seed": np.asarray([int(seed)], dtype=np.int64),
-		"episode_count": np.asarray([int(episode_count)], dtype=np.int64),
-		"obs_size": np.asarray([int(agent.obs_size)], dtype=np.int64),
-		"action_size": np.asarray([int(agent.action_size)], dtype=np.int64),
-		"buffer_size": np.asarray([int(agent.buffer.size)], dtype=np.int64),
-		"cache_version": np.asarray([int(CACHE_VERSION)], dtype=np.int64),
-	}
+	payload = _cache_payload_from_agent(agent, count=count)
+	payload["episode_returns"] = np.asarray(episode_returns, dtype=np.float32)
+	payload["episode_steps"] = np.asarray(episode_steps, dtype=np.int32)
+	payload["seed"] = np.asarray([int(seed)], dtype=np.int64)
+	payload["episode_count"] = np.asarray([int(episode_count)], dtype=np.int64)
 	save_warmup_cache(path, payload=payload)
 
 	return {
@@ -177,7 +212,7 @@ def build_warmup_cache(
 		"seed": int(seed),
 		"episodes": int(episode_count),
 		"samples": int(count),
-		"obs_size": int(agent.obs_size),
+		"scalar_dim": int(agent.layout.scalar_dim),
 		"action_size": int(agent.action_size),
 	}
 
