@@ -1,0 +1,73 @@
+{
+  "artifact_paths": {
+    "config": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-24_18-36-58\\config.json",
+    "episodes_csv": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-24_18-36-58\\episodes.csv",
+    "eval_best_reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-24_18-36-58\\episodes\\eval_best_reward.png",
+    "eval_best_video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-24_18-36-58\\videos\\eval_best.mp4",
+    "learning_curves_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-24_18-36-58\\plots\\learning_curves.png",
+    "returns_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-24_18-36-58\\plots\\returns_by_episode.png",
+    "summary_json": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-24_18-36-58\\summary_metrics.json",
+    "train_last_reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-24_18-36-58\\episodes\\train_last_reward.png"
+  },
+  "features": {
+    "attitude_keys": [
+      "body_z_angle_rad",
+      "omega_sat_rad_s"
+    ],
+    "orbit_keys": [
+      "theta_orbit_rad"
+    ],
+    "vision_keys": [
+      "camera_observation_line_codes",
+      "secondary_camera_observation_line_codes"
+    ]
+  },
+  "mission": {
+    "cloud_count": 2,
+    "sampled_altitude_km": 528.7583065070219
+  },
+  "mpo": {
+    "batch_size": 256,
+    "buffer_size": 50000,
+    "cnn_embedding_dim": 32,
+    "code_embed_dim": 8,
+    "gamma": 0.99,
+    "learning_rate_eta": 0.001,
+    "learning_rate_pi": 0.00015,
+    "learning_rate_q": 0.00045,
+    "num_samples_pi": 40,
+    "num_samples_q": 80,
+    "num_units_actor": 90,
+    "num_units_critic": 140,
+    "reward": {
+      "enable_cloud_penalty": false,
+      "enable_distance_reward": true,
+      "enable_energy": false,
+      "enable_outer_gate": true
+    },
+    "target_kl_mu": 0.1,
+    "target_kl_sigma": 0.0001,
+    "tau": 0.005,
+    "warmup_episodes": 4
+  },
+  "observation": {
+    "encoder_output_dim": 180,
+    "scalar_dim": 3,
+    "vision_keys": [
+      "camera_observation_line_codes",
+      "secondary_camera_observation_line_codes"
+    ],
+    "vision_seq_lens": [
+      100,
+      200
+    ]
+  },
+  "workflow": {
+    "background_artifacts": true,
+    "eval_episodes": 2,
+    "seed": 7,
+    "train_episodes": 10,
+    "updates_per_step": 1,
+    "warmup_episodes": 4
+  }
+}
