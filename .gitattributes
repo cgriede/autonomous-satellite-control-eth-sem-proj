@@ -1,0 +1,3 @@
+# Binary video artifacts: auto-resolve merge conflicts by keeping current branch copy.
+*.mp4 merge=keepMine -binary diff
+**/video_archive/** merge=keepMine -binary diff

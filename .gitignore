@@ -2,10 +2,12 @@
 
 # Agent debug probes (see .cursor/skills/debug-workflow/SKILL.md)
 .cursor/debug_logs/
+# Agent video frame extracts (see .cursor/skills/video-frame-inspect/SKILL.md)
+.cursor/video_frame_inspect/data/
 /debug-*.log
 
-#videos
-#*.mp4
+# Generated / re-exported videos — local artifacts, not merged
+*.mp4
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
