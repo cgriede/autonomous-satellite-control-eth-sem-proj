@@ -29,22 +29,9 @@ class _FakeAgent:
 
 
 class TrainingMetricsTest(unittest.TestCase):
-    def test_exploration_status_train_uses_policy_sample_after_prefill(self):
-        label, active = exploration_status_for_rollout(
-            mode="train",
-            step_counter=500,
-            exploration_steps=100,
-        )
+    def test_exploration_status_train_uses_policy_sample(self):
+        label, active = exploration_status_for_rollout(mode="train")
         self.assertEqual(label, "active (policy sample)")
-        self.assertTrue(active)
-
-    def test_exploration_status_train_random_prefill(self):
-        label, active = exploration_status_for_rollout(
-            mode="train",
-            step_counter=50,
-            exploration_steps=100,
-        )
-        self.assertEqual(label, "random uniform")
         self.assertTrue(active)
 
     def test_snapshot_and_collect_slice_means(self):

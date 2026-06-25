@@ -23,23 +23,32 @@ POLICY_RAW_DIM = 2
 def raw_policy_to_action(
     raw: np.ndarray,
     *,
-    tau_limit: Any | None = None,
-    active_threshold: float = 0.0,
+    tau_limit: Any = REACTION_WHEEL_MAX_TORQUE,
+    active_threshold: float = 0.5,
 ) -> AutonomousControllerAction:
+    """Map MPO policy output (already scaled by get_action) to controller action.
+    
+    Args:
+        raw: Policy output [torque_nm, shutter_signal].
+             Torque is in physical units [-tau_max, tau_max] N*m (post-tanh scaled).
+             Shutter is in [0, 1] range (post-sigmoid scaled).
+        tau_limit: Maximum torque limit for safety clipping.
+        active_threshold: Threshold to convert shutter signal to binary command.
+    """
     if raw.shape != (POLICY_RAW_DIM,):
         raise ValueError(f"Expected raw shape ({POLICY_RAW_DIM},), got {raw.shape}.")
-    if tau_limit is None:
-        tau_limit = REACTION_WHEEL_MAX_TORQUE
+    
+    torque_nm = raw[0]  # Already scaled to physical units by get_action
+    shutter_signal = raw[1]  # Already scaled to [0, 1] by get_action
     tau_max = float(tau_limit.to(ureg.N * ureg.m).magnitude)
-    t = float(np.clip(raw[0], -tau_max, tau_max))
+
+    # Clip torque to safety limit (should already be within bounds from get_action)
+    t = float(np.clip(torque_nm, -tau_max, tau_max))
     torque = t * ureg.N * ureg.m
-    active = bool(raw[1] > active_threshold)
+    
+    # Convert sigmoid output to binary shutter command
+    active = bool(shutter_signal > active_threshold)
     return AutonomousControllerAction(wheel_torque_cmd=torque, active_observation=active)
-
-
-def to_gym_torque_array(action: AutonomousControllerAction) -> np.ndarray:
-    tau_nm = float(action.wheel_torque_cmd.to(ureg.N * ureg.m).magnitude)
-    return np.array([tau_nm], dtype=np.float32)
 
 
 def to_gym_action_array(

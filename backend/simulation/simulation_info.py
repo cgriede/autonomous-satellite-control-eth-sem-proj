@@ -296,22 +296,17 @@ def _recent_metric_mean(metrics: dict[str, Any], key: str, start: int) -> float 
 def exploration_status_for_rollout(
     *,
     mode: str,
-    step_counter: int,
-    exploration_steps: int,
 ) -> tuple[str | None, bool]:
     """Map rollout mode to live-panel label and episode ``in_exploration`` flag.
 
-    Train rollouts are always exploratory: an initial uniform-random prefill (while
-    ``step_counter < exploration_steps``), then MPO policy ``rsample`` within KL.
-    Eval uses the policy mean (deterministic).
+    Train rollouts use the policy distribution for ``train`` and the policy mean for
+    ``eval``. Warmup is not considered an exploration phase here.
     """
     if mode == "warmup":
         return None, False
     if mode == "eval":
         return "deterministic (policy mean)", False
     if mode == "train":
-        if exploration_steps > 0 and step_counter < exploration_steps:
-            return "random uniform", True
         return "active (policy sample)", True
     return None, False
 
@@ -357,14 +352,9 @@ def build_training_live_stats_rows(
 
     buffer_size = len(getattr(agent, "buffer", []))
     step_counter = int(getattr(agent, "step_counter", 0))
-    exploration_steps = int(getattr(agent, "exploration_steps", 0))
     rows.append(("buffer", f"{buffer_size}"))
     rows.append(("agent steps", f"{step_counter}"))
-    exploration_label, _ = exploration_status_for_rollout(
-        mode=mode,
-        step_counter=step_counter,
-        exploration_steps=exploration_steps,
-    )
+    exploration_label, _ = exploration_status_for_rollout(mode=mode)
     if exploration_label is not None:
         rows.append(("exploration", exploration_label))
 

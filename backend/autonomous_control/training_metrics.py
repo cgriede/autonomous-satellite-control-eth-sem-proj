@@ -83,15 +83,9 @@ def collect_episode_learning_stats(
     n_pi = len(metrics.get("piloss", [])) - starts.get("piloss", 0)
     n_train_updates = max(n_q, n_pi, 0)
 
-    step_counter = int(getattr(agent, "step_counter", 0))
-    exploration_steps = int(getattr(agent, "exploration_steps", 0))
     buffer = getattr(agent, "buffer", None)
     buffer_size = int(len(buffer)) if buffer is not None else 0
-    _, in_exploration = exploration_status_for_rollout(
-        mode=mode,
-        step_counter=step_counter,
-        exploration_steps=exploration_steps,
-    )
+    _, in_exploration = exploration_status_for_rollout(mode=mode)
 
     return EpisodeLearningStats(
         phase=phase,

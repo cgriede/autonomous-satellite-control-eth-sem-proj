@@ -8,7 +8,6 @@ from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from autonomous_control.action_adapter import (
     POLICY_RAW_DIM,
     raw_policy_to_action,
-    to_gym_torque_array,
 )
 from simulation.attitude_dynamics import AttitudeState2D
 from simulation.reaction_wheel import ReactionWheel
@@ -27,12 +26,6 @@ class ActionAdapterTest(unittest.TestCase):
         raw = np.array([0.0, 0.5], dtype=np.float64)
         action = raw_policy_to_action(raw, active_threshold=0.0)
         self.assertTrue(action.active_observation)
-
-    def test_gym_array_shape(self):
-        action = raw_policy_to_action(np.zeros(POLICY_RAW_DIM, dtype=np.float64))
-        arr = to_gym_torque_array(action)
-        self.assertEqual(arr.shape, (1,))
-        self.assertEqual(arr.dtype, np.float32)
 
     def test_raw_dim_enforced(self):
         with self.assertRaises(ValueError):
