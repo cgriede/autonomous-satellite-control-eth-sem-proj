@@ -43,6 +43,7 @@ from simulation.take_picture import TakePictureBudget, TakePictureConfig
 from s01_utils.baseline_overflight import BASELINE_N_TARGETS, build_baseline_overflight_setup
 from simulation.state_types import SimulationTimestepState
 from utils.ml_training.ml_training_utils import (
+    RunTelemetryWriter,
     append_run_markdown_event,
     checkpoint_path,
     create_run_dir,
@@ -72,6 +73,7 @@ S01_TRAINING_FEATURE_CONFIG = ControllerFeatureConfig(
     ),
     orbit_keys=(
         "theta_orbit_rad",
+        "primary_camera_image_quality",
     ),
     vision_keys=(
         "camera_observation_line_codes",
@@ -85,6 +87,7 @@ _FEATURE_UNITS: dict[str, str] = {
     "body_z_angle_rad": "rad",
     "omega_sat_rad_s": "rad/s",
     "theta_orbit_rad": "rad",
+    "primary_camera_image_quality": "1",
     "camera_observation_line_codes": "obs code / bin",
     "secondary_camera_observation_line_codes": "obs code / bin",
     "capture_budget_remaining": "count",
@@ -112,8 +115,8 @@ class TrainingWorkflowConfig:
     run_id: str | None = None
     feature_config: ControllerFeatureConfig = S01_TRAINING_FEATURE_CONFIG
     background_artifacts: bool = True
-    live_feed_interval_steps: int = 100
-    warmup_live_feed_interval_steps: int = 400
+    live_feed_interval_steps: int = 400
+    warmup_live_feed_interval_steps: int = 1600
     early_stop_on_budget_exhausted: bool = False
 
 
@@ -869,11 +872,14 @@ def run_training_workflow(
     if cfg.background_artifacts:
         worker = BackgroundArtifactWorker(setup.run_dir)
 
+    telemetry_writer = RunTelemetryWriter(setup.run_dir)
+    telemetry_writer.on_run_started(metadata={"workflow": "s01_notebook_08"})
     progress_display: TrainingProgressDisplay | None = None
     if show_progress:
         progress_display = TrainingProgressDisplay(
             config=TrainingProgressConfig(
                 live_feed_interval_steps=cfg.live_feed_interval_steps,
+                telemetry_writer=telemetry_writer,
             ),
             agent=setup.agent,
         )
@@ -1065,6 +1071,10 @@ def run_training_workflow(
                 episode_rows=episode_rows,
             )
             artifact_errors.extend(sync_errors)
+
+        if worker is not None:
+            artifact_errors.extend(worker.shutdown(wait=True))
+            worker = None
 
         return TrainingWorkflowResult(
             warmup_results=warmup_results,

@@ -21,9 +21,10 @@ from .training_runtime import _in_notebook
 
 @dataclass(frozen=True)
 class TrainingProgressConfig:
-    live_feed_interval_steps: int = 100
+    live_feed_interval_steps: int = 400
     show_live_stats: bool = True
     show_camera_feed: bool = False
+    telemetry_writer: Any | None = None
 
 
 def _codes_to_strip_image(codes: np.ndarray, *, width_px: int = 32) -> np.ndarray:
@@ -60,6 +61,7 @@ class TrainingProgressDisplay:
         self._feed_initialized = False
         self._in_notebook = _in_notebook()
         self._live_feed_interval_override: int | None = None
+        self._telemetry = self._config.telemetry_writer
 
     def set_live_feed_interval_steps(self, interval: int) -> None:
         self._live_feed_interval_override = max(1, int(interval))
@@ -138,6 +140,8 @@ class TrainingProgressDisplay:
         self._metrics_start = None
 
     def write(self, msg: str) -> None:
+        if self._telemetry is not None:
+            self._telemetry.on_training_log(message=msg, mode=self._mode, episode_idx=self._episode_idx)
         if self._step_bar is not None:
             self._step_bar.write(msg)
         elif self._phase_bar is not None:
@@ -202,6 +206,17 @@ class TrainingProgressDisplay:
         )
         if done:
             rows.append(("status", "episode done"))
+
+        if self._telemetry is not None:
+            self._telemetry.on_step_snapshot(
+                episode_idx=self._episode_idx,
+                step_idx=int(step),
+                sim_time_s=float(ts.sim_time_s),
+                reward=float(reward),
+                episode_return=float(episode_return),
+                phase=self._mode,
+                done=bool(done),
+            )
 
         if self._in_notebook:
             from IPython.display import HTML, display, update_display

@@ -25,6 +25,16 @@ class TrainingArtifactWorkerTest(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertTrue(paths["train_last_reward_plot"].exists())
 
+    def test_background_worker_writes_video(self):
+        with tempfile.TemporaryDirectory() as td:
+            run_dir = Path(td)
+            paths = artifact_paths_map(run_dir)
+            worker = BackgroundArtifactWorker(run_dir)
+            worker.submit_video_export(_minimal_series(), paths["eval_best_video"])
+            errors = worker.shutdown(wait=True)
+            self.assertEqual(errors, [])
+            self.assertTrue(paths["eval_best_video"].exists())
+
     def test_sync_fallback_writes_plot(self):
         with tempfile.TemporaryDirectory() as td:
             run_dir = Path(td)

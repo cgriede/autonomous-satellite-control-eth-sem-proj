@@ -164,6 +164,9 @@ class RunTelemetryWriter:
         sim_time_s: float,
         reward: float,
         worker_id: int | None = None,
+        episode_return: float | None = None,
+        phase: str | None = None,
+        done: bool | None = None,
     ) -> None:
         record = {
             "event": "step_snapshot",
@@ -174,9 +177,36 @@ class RunTelemetryWriter:
             "reward": float(reward),
             "worker_id": None if worker_id is None else int(worker_id),
         }
+        if episode_return is not None:
+            record["episode_return"] = float(episode_return)
+        if phase is not None:
+            record["phase"] = str(phase)
+        if done is not None:
+            record["done"] = bool(done)
         with self._lock:
+            self._write_event(record)
+            self._write_latest(record)
             self._step_path.write_text(
                 json.dumps(record, separators=(",", ":"), indent=2),
                 encoding="utf-8",
             )
+
+    def on_training_log(
+        self,
+        *,
+        message: str,
+        mode: str | None = None,
+        episode_idx: int | None = None,
+    ) -> None:
+        record = {
+            "event": "training_log",
+            "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
+            "message": str(message),
+        }
+        if mode is not None:
+            record["phase"] = str(mode)
+        if episode_idx is not None:
+            record["episode_idx"] = int(episode_idx)
+        with self._lock:
+            self._write_event(record)
 
