@@ -1,7 +1,9 @@
 """TDD: EpisodeRunner.run_serial — stepper parity via factory, EpisodeResult artifact."""
 from __future__ import annotations
 
+import sys
 import unittest
+from pathlib import Path
 
 import numpy as np
 
@@ -15,6 +17,12 @@ from environment_definition.mission_profiles.s01_multiple_targets_fwd_fish impor
 from simulation.setup_types import OrbitConfig, EnvironmentSetup
 from simulation.state_types import SimulationStateSeries
 from autonomous_control.training_runtime import EpisodeResult
+
+BACKEND = Path(__file__).resolve().parents[1]
+S01 = BACKEND / "notebooks" / "s01"
+if str(S01) not in sys.path:
+    sys.path.insert(0, str(S01))
+from s01_utils.baseline_overflight import build_baseline_overflight_setup
 
 
 class _MetricsAgent:
@@ -112,6 +120,19 @@ class EpisodeRunnerStepperParityTest(unittest.TestCase):
         self.assertEqual(factory_stepper.total_steps, direct_stepper.total_steps)
 
 
+class _BufferAgent:
+    def __init__(self) -> None:
+        self.buffer: list[tuple] = []
+
+    def get_action(self, obs: np.ndarray, train: bool) -> np.ndarray:
+        _ = obs
+        _ = train
+        return np.array([0.0, -1.0], dtype=np.float64)
+
+    def store(self, transition) -> None:
+        self.buffer.append(transition)
+
+
 class EpisodeRunnerRunSerialTest(unittest.TestCase):
     def setUp(self):
         altitude = sample_satellite_altitude(seed=1)
@@ -149,11 +170,25 @@ class EpisodeRunnerRunSerialTest(unittest.TestCase):
         result = runner.run_serial(self.agent, mode="train")
         self.assertEqual(result.steps, len(result.simulation_series.t_s) - 1)
 
-    def test_run_serial_warmup_random_returns_episode_result(self):
-        runner = EpisodeRunner(self.cfg)
-        result = runner.run_serial(self.agent, mode="warmup", warmup_controller="random")
+    def test_run_serial_warmup_baseline_overflight_returns_episode_result(self):
+        setup = build_baseline_overflight_setup(n_targets=3, cloud_seed=0)
+        runner = EpisodeRunner(setup)
+        agent = _BufferAgent()
+        result = runner.run_serial(agent, mode="warmup", collect_states=True)
         self.assertIsInstance(result, EpisodeResult)
         self.assertGreater(result.steps, 0)
+        self.assertEqual(
+            str(result.simulation_series.metadata.torque_policy_label),
+            "sequential_target_baseline",
+        )
+        self.assertGreater(len(agent.buffer), 0)
+        for _obs, action, _r, _next_obs, _done in agent.buffer:
+            self.assertEqual(action.shape, (2,))
+
+    def test_run_serial_warmup_rejects_random_controller(self):
+        runner = EpisodeRunner(self.cfg)
+        with self.assertRaises(ValueError):
+            runner.run_serial(self.agent, mode="warmup", warmup_controller="random")
 
     def test_run_serial_effective_controller_interval_positive(self):
         runner = EpisodeRunner(self.cfg)

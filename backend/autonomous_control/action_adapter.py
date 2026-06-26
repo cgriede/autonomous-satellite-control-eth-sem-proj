@@ -26,28 +26,25 @@ def raw_policy_to_action(
     tau_limit: Any = REACTION_WHEEL_MAX_TORQUE,
     active_threshold: float = 0.5,
 ) -> AutonomousControllerAction:
-    """Map MPO policy output (already scaled by get_action) to controller action.
-    
-    Args:
-        raw: Policy output [torque_nm, shutter_signal].
-             Torque is in physical units [-tau_max, tau_max] N*m (post-tanh scaled).
-             Shutter is in [0, 1] range (post-sigmoid scaled).
-        tau_limit: Maximum torque limit for safety clipping.
-        active_threshold: Threshold to convert shutter signal to binary command.
+    """Map MPO gym action tensor to simulation/controller commands.
+
+    MPO keeps a single tanh-squashed action vector. This adapter applies the
+    per-dimension simulation semantics at the ML/simulation boundary:
+    - dim 0 (torque): continuous N*m, clipped to hardware limit
+    - dim 1 (shutter): tanh gym value mapped to [0, 1], then thresholded
     """
     if raw.shape != (POLICY_RAW_DIM,):
         raise ValueError(f"Expected raw shape ({POLICY_RAW_DIM},), got {raw.shape}.")
-    
-    torque_nm = raw[0]  # Already scaled to physical units by get_action
-    shutter_signal = raw[1]  # Already scaled to [0, 1] by get_action
-    tau_max = float(tau_limit.to(ureg.N * ureg.m).magnitude)
 
-    # Clip torque to safety limit (should already be within bounds from get_action)
-    t = float(np.clip(torque_nm, -tau_max, tau_max))
+    tau_max = float(tau_limit.to(ureg.N * ureg.m).magnitude)
+    t = float(np.clip(raw[0], -tau_max, tau_max))
     torque = t * ureg.N * ureg.m
     
-    # Convert sigmoid output to binary shutter command
+    
+    #Map MPO gym shutter dim (tanh-squashed in [-1, 1]) to [0, 1] at sim boundary.
+    shutter_signal = float(0.5 * (np.clip(raw[1], -1.0, 1.0) + 1.0))
     active = bool(shutter_signal > active_threshold)
+
     return AutonomousControllerAction(wheel_torque_cmd=torque, active_observation=active)
 
 
@@ -65,9 +62,11 @@ def policy_output_to_gym_action(
     raw: np.ndarray,
     *,
     tau_limit: Any | None = None,
-    active_threshold: float = 0.0,
+    active_threshold: float = 0.5,
 ) -> tuple[AutonomousControllerAction, np.ndarray]:
     """Parse policy output and return controller action plus stored gym action vector."""
+    if tau_limit is None:
+        tau_limit = REACTION_WHEEL_MAX_TORQUE
     parsed = raw_policy_to_action(
         raw,
         tau_limit=tau_limit,

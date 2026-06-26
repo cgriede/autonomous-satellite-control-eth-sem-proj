@@ -193,27 +193,35 @@ def main() -> None:
     eval_results: list[EpisodeResult] = []
     started = time.perf_counter()
 
-    # Warmup (random + baseline split like train_sat_agent)
-    random_warmup = (args.warmup_episodes + 1) // 2
-    baseline_warmup = args.warmup_episodes // 2
-    warmup_idx = 0
+    # Warmup: sequential baseline overflight only (notebook 07 stack)
+    import sys
+    from pathlib import Path
+
+    s01 = Path(__file__).resolve().parents[1] / "notebooks" / "s01"
+    if str(s01) not in sys.path:
+        sys.path.insert(0, str(s01))
+    from s01_utils.baseline_overflight import build_baseline_overflight_setup
+
+    mission_setup = build_baseline_overflight_setup(
+        seed=derive_seed(args.seed, "mission_altitude"),
+        n_targets=50,
+    )
     if args.warmup_episodes > 0:
         with tqdm(total=args.warmup_episodes, desc="Warmup", unit="ep") as pbar:
-            for controller, count in (("random", random_warmup), ("baseline", baseline_warmup)):
-                for _ in range(count):
-                    run_episode(
-                        env,
-                        agent,
-                        mode="warmup",
-                        train_updates_per_step=0,
-                        warmup_controller=controller,
-                        satellite_altitude=sampled_altitude,
-                        np_rng=np.random.default_rng(
-                            derive_seed(args.seed, "warmup_episode", warmup_idx)
-                        ),
-                    )
-                    warmup_idx += 1
-                    pbar.update(1)
+            for warmup_idx in range(args.warmup_episodes):
+                run_episode(
+                    env,
+                    agent,
+                    mode="warmup",
+                    train_updates_per_step=0,
+                    warmup_controller="baseline",
+                    satellite_altitude=sampled_altitude,
+                    setup=mission_setup,
+                    np_rng=np.random.default_rng(
+                        derive_seed(args.seed, "warmup_episode", warmup_idx)
+                    ),
+                )
+                pbar.update(1)
 
     with tqdm(total=args.train_episodes, desc="Train", unit="ep") as pbar:
         for ep in range(args.train_episodes):

@@ -171,7 +171,7 @@ def build_warmup_cache(
 	seed: int,
 	episode_count: int,
 	satellite_altitude: Any,
-	warmup_controller: str = "random",
+	warmup_controller: str = "baseline",
 ) -> dict[str, Any]:
 	"""Run warmup episodes and save replay transitions to ``path``.
 
@@ -184,6 +184,16 @@ def build_warmup_cache(
 	cfg = MPOConfig(warmup_episodes=0)
 	agent = MPOAgent(env, config=cfg)
 
+	import sys
+	from pathlib import Path
+
+	s01 = Path(__file__).resolve().parents[1] / "notebooks" / "s01"
+	if str(s01) not in sys.path:
+		sys.path.insert(0, str(s01))
+	from s01_utils.baseline_overflight import build_baseline_overflight_setup
+
+	mission_setup = build_baseline_overflight_setup(seed=int(seed), n_targets=3)
+
 	episode_returns: list[float] = []
 	episode_steps: list[int] = []
 	for ep in range(int(episode_count)):
@@ -194,6 +204,7 @@ def build_warmup_cache(
 			train_updates_per_step=0,
 			warmup_controller=warmup_controller,
 			satellite_altitude=satellite_altitude,
+			setup=mission_setup,
 			np_rng=np.random.default_rng(derive_seed(seed, "warmup_cache", ep)),
 		)
 		episode_returns.append(float(result.episode_return))
@@ -224,7 +235,7 @@ def load_or_build_warmup_cache(
 	episode_count: int,
 	satellite_altitude: Any,
 	rebuild: bool = False,
-	warmup_controller: str = "random",
+	warmup_controller: str = "baseline",
 ) -> dict[str, np.ndarray]:
 	"""Load warmup cache if present, otherwise build and load it."""
 	if rebuild or (not path.exists()):

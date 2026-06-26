@@ -23,7 +23,7 @@ from autonomous_control.config.randomness import derive_seed
 from autonomous_control.feature_selection import ControllerFeatureConfig
 from autonomous_control.training_runtime import EpisodeResult, run_episode
 
-NB_WARMUP_BUNDLE_VERSION = 2
+NB_WARMUP_BUNDLE_VERSION = 3
 _EPISODES_FILENAME = "episodes.pkl.gz"
 _META_FILENAME = "meta.json"
 
@@ -114,6 +114,10 @@ def preload_warmup_buffer_from_episodes(agent: Any, episodes: list[EpisodeResult
 
     Returns total transitions stored.
     """
+    if hasattr(agent, "buffer") and hasattr(agent.buffer, "actions"):
+        action_size = int(agent.buffer.actions.shape[1])
+    else:
+        action_size = int(getattr(agent, "action_size", 1))
     n_stored = 0
     for ep in episodes:
         series = ep.simulation_series
@@ -122,12 +126,24 @@ def preload_warmup_buffer_from_episodes(agent: Any, episodes: list[EpisodeResult
             raise ValueError(f"episode steps {n} inconsistent with series length {len(series.t_s)}.")
         if len(ep.states) != n + 1:
             raise ValueError(f"len(states) {len(ep.states)} != steps+1 {n + 1}.")
+        agent_cmds = np.asarray(
+            series.wheel_torque_agent_cmd_nm if series.wheel_torque_agent_cmd_nm is not None else series.wheel_torque_cmd_nm,
+            dtype=float,
+        )
+        shutter_steps = set(int(s) for s in (series.metadata.take_picture_cmd_steps or ()))
         for i in range(n):
             obs = ep.states[i]
             next_obs = ep.states[i + 1]
             reward = float(series.simulation_reward[i + 1])
-            torque_nm = float(series.wheel_torque_cmd_nm[i + 1])
-            action = np.asarray([torque_nm], dtype=np.float32)
+            step_k = i + 1
+            torque_nm = float(agent_cmds[step_k])
+            if action_size == 1:
+                action = np.asarray([torque_nm], dtype=np.float32)
+            elif action_size == 2:
+                shutter_gym = 1.0 if step_k in shutter_steps else -1.0
+                action = np.asarray([torque_nm, shutter_gym], dtype=np.float32)
+            else:
+                raise ValueError(f"Unsupported action_size for warmup preload: {action_size}")
             done = i == n - 1
             agent.store((obs, action, reward, next_obs, done))
             n_stored += 1
@@ -219,7 +235,7 @@ def load_or_build_notebook_random_warmup_episodes(
     satellite_altitude: Any,
     rebuild: bool = False,
     feature_config: ControllerFeatureConfig | None = None,
-    warmup_controller: str = "random",
+    warmup_controller: str = "baseline",
     seed_tag: str = "nb_warmup",
     train_updates_per_step: int = 0,
     warmup_baseline_period_s: float = 60.0,

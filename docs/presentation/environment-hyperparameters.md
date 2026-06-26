@@ -57,9 +57,9 @@ Source: `environment_definition/constants/SIMULATION.py`.
 
 Source: `environment_definition/constants/SIMULATION.py` (`training_episode_simulation_config`), `autonomous_control/episode_runner.py`.
 
-- **Torque path:** external policy (`torque_command_source="external"`); warmup uses random or baseline sweep, train/eval use `MPOAgent.get_action`.
+- **Torque path:** external policy (`torque_command_source="external"`); warmup uses sequential baseline overflight (`SequentialTargetBaselinePolicy`), train/eval use `MPOAgent.get_action`. Both request torque; `AttitudeSafetyController` arbitrates before the wheel.
 - **Attitude safety:** `attitude_controller_enabled=True` — `AttitudeSafetyController` arbitrates every external torque command (off-nadir taper, safe-mode takeover) before the reaction-wheel plant.
-- **Replay buffer:** stores the **agent/warmup command** [N·m]; applied torque after arbitration is in `SimulationStateSeries.wheel_torque_cmd_nm`.
+- **Replay buffer:** stores the **policy request** `[torque_request_nm, shutter_gym]` (shape `(2,)`); applied torque after arbitration is in `SimulationStateSeries.wheel_torque_cmd_nm`.
 
 ---
 

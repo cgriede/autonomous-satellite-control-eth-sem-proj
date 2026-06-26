@@ -57,7 +57,8 @@ Source: `environment_definition/constants/SATELLITE.py` (and `attitude_control_e
 Source: `environment_definition/constants/ATTITUDE_SAFETY.py`, `simulation/attitude_controller.py`, `simulation/stepper.py`.
 
 - **Torque path:** agent `τ_cmd` → `AttitudeSafetyController.arbitrate()` → `ReactionWheel.compute_applied_torque()` → `propagate_reaction_wheel_attitude_2d()`.
-- **OBC controller type:** `AttitudeSafetyController` — not a continuous tracking loop in normal mode; it **arbitrates** agent torque (pass-through, taper, or safe-mode takeover). Safe-mode recovery uses **PD body pointing + orbit-rate feedforward** (`body_pointing_torque_nm` / `nadir_pointing_torque_nm`).
+- **OBC controller type:** `AttitudeSafetyController` — arbitrates policy torque requests (pass-through, taper, or safe-mode takeover). Safe-mode recovery uses **PD body pointing + orbit-rate feedforward** (`body_pointing_torque_nm` / `nadir_pointing_torque_nm`).
+- **Notebook 07 baseline:** `SequentialTargetBaselinePolicy` emits PD torque **requests** (same helpers as `AttitudePointingController`) on `training_episode_simulation_config`; no `set_obc_pointing_mode` engage path in rollout/warmup.
 - **Off-nadir hard limit:** `OFF_NADIR_HARD_LIMIT_DEG` = 45°.
 - **Nadir recovery tolerance:** `NADIR_RECOVERY_TOLERANCE_DEG` = 1.0°.
 - **Decel band (cruise → settle handoff):** `SAFE_MODE_DECEL_START_DEG` = 5.0° off-nadir.

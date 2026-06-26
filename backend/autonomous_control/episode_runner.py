@@ -28,6 +28,8 @@ from autonomous_control.action_adapter import (
     policy_output_to_gym_action,
 )
 
+from autonomous_control.baseline_overflight_step import baseline_overflight_controller_tick
+
 from autonomous_control.reward import RewardConfig
 
 from environment_definition.constants.SIMULATION import training_episode_simulation_config
@@ -66,7 +68,7 @@ class EpisodeRunner:
 
         setup = build_setup(seed=SEED)
 
-        result = EpisodeRunner(setup).run_serial(agent, mode="warmup", warmup_controller="random")
+        result = EpisodeRunner(setup).run_serial(agent, mode="warmup")
 
     """
 
@@ -98,7 +100,7 @@ class EpisodeRunner:
 
         step_callback: Any | None = None,
 
-        warmup_controller: str = "random",
+        warmup_controller: str = "baseline",
 
         warmup_baseline_period_s: float = 60.0,
 
@@ -130,7 +132,17 @@ class EpisodeRunner:
 
 
 
-        torque_policy_label = _infer_torque_policy_label(agent, mode)
+        if mode == "warmup" and warmup_controller not in _WARMUP_OVERFLIGHT_CONTROLLERS:
+            raise ValueError(
+                f"mode='warmup' only supports sequential baseline overflight; "
+                f"got warmup_controller={warmup_controller!r}. "
+                "Torque-only random/sweep warmups were removed."
+            )
+
+        if mode == "warmup":
+            torque_policy_label = "sequential_target_baseline"
+        else:
+            torque_policy_label = _infer_torque_policy_label(agent, mode)
 
         sim_config = training_episode_simulation_config(
 
@@ -139,10 +151,6 @@ class EpisodeRunner:
         )
 
         stepper = build_stepper(self._resolved, simulation_config=sim_config)
-
-
-
-        episode_rng = np_rng if np_rng is not None else np.random.default_rng()
 
 
 
@@ -158,23 +166,10 @@ class EpisodeRunner:
 
         tau_limit = self._resolved.satellite.reaction_wheel_max_torque
 
-        warmup_policy: Any | None = None
+        overflight_policy: Any | None = None
 
         if mode == "warmup":
-
-            warmup_policy = _make_warmup_policy(
-
-                warmup_controller=warmup_controller,
-
-                tau_max_nm=tau_max_nm,
-
-                dt=stepper._dt,
-
-                period_s=warmup_baseline_period_s,
-
-                rng=episode_rng,
-
-            )
+            overflight_policy = _build_warmup_overflight_policy(self._setup, self._resolved)
 
 
 
@@ -353,29 +348,37 @@ class EpisodeRunner:
 
                     if mode == "warmup":
 
-                        if warmup_policy is None:
+                        if overflight_policy is None:
 
-                            raise RuntimeError("warmup_policy must be configured in warmup mode.")
+                            raise RuntimeError("overflight_policy must be configured in warmup mode.")
 
-                        action_vec = warmup_policy.get_action(obs, train=False)
+                        ctrl_state = stepper.current_timestep_state()
 
-                        current_action_nm = float(
+                        sat_xy = np.asarray(ctrl_state.sat_pos_xy_km, dtype=float)
 
-                            np.asarray(action_vec, dtype=np.float64).reshape(-1)[0]
+                        _action, stored_action, take_picture_cmd = baseline_overflight_controller_tick(
+
+                            policy=overflight_policy,
+
+                            stepper=stepper,
+
+                            state=ctrl_state,
+
+                            sat_pos_xy_km=sat_xy,
+
+                            omega_orbit_rad_s=float(stepper._omega_orbit_rad_s),
+
+                            sat_inertia=self._resolved.satellite.moment_of_inertia_2d,
+
+                            tau_max_nm=tau_max_nm,
+
+                            budget=budget,
 
                         )
 
-                        current_take_picture_signal = -1.0
+                        current_action_nm = float(_action.torque_request_nm)
 
-                        take_picture_cmd = False
-
-                        stored_action = np.array(
-
-                            [current_action_nm, current_take_picture_signal],
-
-                            dtype=np.float32,
-
-                        )
+                        current_take_picture_signal = float(stored_action[1])
 
                     else:
 
@@ -659,6 +662,23 @@ class EpisodeRunner:
 
 
 
+_WARMUP_OVERFLIGHT_CONTROLLERS = frozenset({"baseline", "overflight"})
+
+
+def _build_warmup_overflight_policy(setup: EnvironmentSetup, resolved: Any) -> Any:
+    """Build notebook-07 sequential baseline policy for warmup episodes."""
+    import sys
+    from pathlib import Path
+
+    s01 = Path(__file__).resolve().parents[1] / "notebooks" / "s01"
+    if str(s01) not in sys.path:
+        sys.path.insert(0, str(s01))
+    from s01_utils.baseline_overflight import build_overflight_policy
+
+    earth_radius_km = float(resolved.earth_radius.to(resolved.ureg.km).magnitude)
+    return build_overflight_policy(setup, earth_radius_km=earth_radius_km)
+
+
 def _infer_torque_policy_label(agent: Any, mode: str) -> str:
 
     """Map agent class + episode mode to metadata torque_policy_label (external command source)."""
@@ -682,85 +702,4 @@ def _infer_torque_policy_label(agent: Any, mode: str) -> str:
         return "zero_torque"
 
     return f"{type(agent).__name__}:{mode}"
-
-
-
-
-
-def _make_warmup_policy(
-
-    *,
-
-    warmup_controller: str,
-
-    tau_max_nm: float,
-
-    dt: Any,
-
-    period_s: float,
-
-    rng: np.random.Generator,
-
-) -> Any:
-
-    """Build a warmup policy from first principles — no env adapter required."""
-
-    from gymnasium import spaces
-
-
-
-    from .controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
-
-
-
-    action_space = spaces.Box(
-
-        low=np.array([-tau_max_nm], dtype=np.float32),
-
-        high=np.array([tau_max_nm], dtype=np.float32),
-
-        shape=(1,),
-
-        dtype=np.float32,
-
-    )
-
-
-
-    from dataclasses import dataclass
-
-
-
-    @dataclass(frozen=True)
-
-    class _Adapter:
-
-        action_space: Any
-
-        dt: Any
-
-
-
-    adapter = _Adapter(action_space=action_space, dt=dt)
-
-
-
-    if warmup_controller == "random":
-
-        policy = RandomTorquePolicy(adapter, rng=rng)
-
-    elif warmup_controller == "baseline":
-
-        policy = MaxTorqueSweepPolicy(adapter, period_s=period_s)
-
-    else:
-
-        raise ValueError(f"Unsupported warmup_controller: {warmup_controller!r}")
-
-
-
-    policy.reset_episode()
-
-    return policy
-
 

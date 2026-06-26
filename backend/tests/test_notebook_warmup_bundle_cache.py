@@ -49,13 +49,15 @@ def _minimal_state_series(*, n_frames: int, n_bins: int) -> SimulationStateSerie
         sat_theta_span_rad=1.0,
         start_angle_deg=0.0,
         end_angle_deg=1.0,
-        controller_mode="random",
+        controller_mode="sequential_target_baseline",
         render_mode="headless",
+        take_picture_cmd_steps=(2, 4),
     )
     sim_reward = np.zeros(n, dtype=float)
     sim_reward[1:] = np.arange(1, n, dtype=float) * 0.1
     torque = np.zeros(n, dtype=float)
     torque[1:] = np.linspace(0.1, 0.1 * (n - 1), n - 1)
+    agent_torque = torque.copy()
     line_codes = np.zeros((n, n_bins), dtype=np.int8)
     return SimulationStateSeries(
         t_s=t_s,
@@ -64,6 +66,7 @@ def _minimal_state_series(*, n_frames: int, n_bins: int) -> SimulationStateSerie
         body_z_angle_rad=np.zeros(n, dtype=float),
         simulation_reward=sim_reward,
         wheel_torque_cmd_nm=torque,
+        wheel_torque_agent_cmd_nm=agent_torque,
         camera_gsd_m=np.ones(n, dtype=float),
         camera_vertical_fov_rad=0.5,
         camera_ground_left_xy_km=np.zeros((n, 2), dtype=float),
@@ -146,13 +149,13 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
     def test_digest_stable_and_seed_sensitive(self):
         fp1 = warmup_fingerprint_payload(
             obs_dim=11,
-            action_dim=1,
+            action_dim=2,
             max_episode_steps=100,
             camera_observation_line_n_bins=int(SIMULATION.camera_observation_line_n_bins),
             satellite_altitude_m=400_000.0,
             base_seed=7,
             episode_count=16,
-            warmup_controller="random",
+            warmup_controller="baseline",
             feature_config=None,
         )
         fp2 = dict(fp1)
@@ -183,13 +186,13 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
 
         fp = warmup_fingerprint_payload(
             obs_dim=obs_dim,
-            action_dim=1,
+            action_dim=2,
             max_episode_steps=int(env.max_episode_steps),
             camera_observation_line_n_bins=n_bins,
             satellite_altitude_m=400_000.0,
             base_seed=0,
             episode_count=1,
-            warmup_controller="random",
+            warmup_controller="baseline",
             feature_config=None,
         )
         digest = digest_for_warmup_fingerprint(fp)
@@ -218,13 +221,17 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
         layout = make_attitude_control_env().observation_layout
         n_bins = int(SIMULATION.camera_observation_line_n_bins)
         ep = _synthetic_episode(n_frames=6, n_bins=n_bins)
-        agent = _RecordingAgent(layout=layout, action_size=1)
+        agent = _RecordingAgent(layout=layout, action_size=2)
         n = preload_warmup_buffer_from_episodes(agent, [ep])
         self.assertEqual(n, ep.steps)
         self.assertEqual(agent.buffer.count, ep.steps)
+        shutter_steps = set(ep.simulation_series.metadata.take_picture_cmd_steps or ())
         for i in range(ep.steps):
-            torque = float(ep.simulation_series.wheel_torque_cmd_nm[i + 1])
+            step_k = i + 1
+            torque = float(ep.simulation_series.wheel_torque_agent_cmd_nm[step_k])
             self.assertAlmostEqual(float(agent.buffer.actions[i, 0]), torque)
+            expected_shutter = 1.0 if step_k in shutter_steps else -1.0
+            self.assertAlmostEqual(float(agent.buffer.actions[i, 1]), expected_shutter)
             self.assertAlmostEqual(float(agent.buffer.rewards[i]), float(ep.simulation_series.simulation_reward[i + 1]))
 
     def test_reset_agent_replay_counters(self):
@@ -250,13 +257,13 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
 
         fp = warmup_fingerprint_payload(
             obs_dim=obs_dim,
-            action_dim=1,
+            action_dim=2,
             max_episode_steps=int(env.max_episode_steps),
             camera_observation_line_n_bins=n_bins,
             satellite_altitude_m=400_000.0,
             base_seed=99,
             episode_count=2,
-            warmup_controller="random",
+            warmup_controller="baseline",
             feature_config=None,
         )
         digest = digest_for_warmup_fingerprint(fp)

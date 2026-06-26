@@ -45,8 +45,8 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
 # Observations & actions
 
 - **Controller observation (notebook 08):** selected `SimulationTimestepState` keys — attitude scalars, orbit angle, primary + secondary camera observation-line code arrays (see `S01_TRAINING_FEATURE_CONFIG` in `notebooks/s01/s01_utils/training_workflow.py`).
-- **MPO action (2-D):** `[wheel_torque_cmd_nm, take_picture_signal]` — torque clipped to ±`tau_max`; shutter fires when `take_picture_signal > 0` (after `tanh` policy scaling). Source: `autonomous_control/action_adapter.py`, `autonomous_control/episode_runner.py`.
-- **Warmup:** torque-only baseline/random policies; shutter dimension stored as `-1` (no capture).
+- **MPO action (2-D):** `[torque_request_nm, shutter_gym]` — torque clipped to ±`tau_max`; shutter fires when gym dim > 0 (MPO: after `tanh` + threshold). Source: `autonomous_control/action_adapter.py`, `autonomous_control/episode_runner.py`.
+- **Warmup:** notebook-07 `SequentialTargetBaselinePolicy` only; buffer stores the same 2-D request vector (`shutter_gym` = `+1` on capture steps, `-1` otherwise). Same sim config and safety stack as train/eval.
 
 ---
 

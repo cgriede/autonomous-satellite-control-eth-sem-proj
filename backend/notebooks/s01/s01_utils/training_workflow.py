@@ -93,7 +93,7 @@ _OBS_CODE_LABELS: dict[int, str] = {
 @dataclass(frozen=True)
 class TrainingWorkflowConfig:
     seed: int = 7
-    warmup_episodes: int = 4
+    warmup_episodes: int = 10
     train_episodes: int = 10
     eval_episodes: int = 2
     updates_per_step: int = 1
@@ -490,6 +490,8 @@ def display_feature_tables(
     import pandas as pd
     from IPython.display import Markdown, display
 
+    from utils.notebook.display import display_notebook_dataframe
+
     layout = controller_observation_layout(
         feature_config=feature_config,
         secondary_camera_observation_line_n_bins=secondary_camera_bins,
@@ -502,7 +504,7 @@ def display_feature_tables(
             "`S01_TRAINING_FEATURE_CONFIG` in `s01_utils/training_workflow.py`."
         )
     )
-    display(
+    display_notebook_dataframe(
         pd.DataFrame(
             feature_config_registry_table(
                 feature_config,
@@ -517,7 +519,7 @@ def display_feature_tables(
             f"vision streams **{layout.num_vision_streams}**)"
         )
     )
-    display(
+    display_notebook_dataframe(
         pd.DataFrame(
             controller_encoder_routing_table(
                 feature_config,
@@ -527,13 +529,15 @@ def display_feature_tables(
         )
     )
     display(Markdown("### Observation code legend (vision line bins)"))
-    display(pd.DataFrame(observation_code_legend_table()))
+    display_notebook_dataframe(pd.DataFrame(observation_code_legend_table()))
 
 
 def display_feature_snapshot_tables(setup: TrainingWorkflowSetup) -> None:
     """Notebook helper: scalar values + vision summaries at episode start."""
     import pandas as pd
     from IPython.display import Markdown, display
+
+    from utils.notebook.display import display_notebook_dataframe
 
     ts = _initial_timestep_for_setup(setup)
     obs = build_controller_observation_from_timestep(
@@ -546,9 +550,9 @@ def display_feature_snapshot_tables(setup: TrainingWorkflowSetup) -> None:
         for key, line in zip(setup.observation_layout.vision_keys, obs.vision)
     )
     display(Markdown("### Scalar features at episode start (MLP branch)"))
-    display(pd.DataFrame(feature_scalar_snapshot_table(setup, timestep=ts)))
+    display_notebook_dataframe(pd.DataFrame(feature_scalar_snapshot_table(setup, timestep=ts)))
     display(Markdown("### Vision line features at episode start (CNN branches)"))
-    display(pd.DataFrame(feature_vision_line_summary_table(setup, timestep=ts)))
+    display_notebook_dataframe(pd.DataFrame(feature_vision_line_summary_table(setup, timestep=ts)))
     display(
         Markdown(
             f"Structured `ControllerObservation`: "
@@ -800,8 +804,6 @@ def run_training_workflow(
         global_idx += 1
 
     try:
-        random_warmup = (cfg.warmup_episodes + 1) // 2
-        baseline_warmup = cfg.warmup_episodes // 2
         warmup_idx = 0
         if cfg.warmup_episodes > 0:
             warmup_bar = tqdm(
@@ -815,32 +817,27 @@ def run_training_workflow(
                 progress_display.set_phase_bar(warmup_bar)
                 progress_display.set_phase_episode_total(cfg.warmup_episodes)
             try:
-                for controller, count in (("random", random_warmup), ("baseline", baseline_warmup)):
-                    if count <= 0:
-                        continue
-                    if progress_display is not None:
-                        progress_display.set_live_feed_interval_steps(
-                            cfg.warmup_live_feed_interval_steps
-                        )
-                    for sub_idx in range(count):
-                        result = run_episode(
-                            mode="warmup",
-                            warmup_controller=controller,
-                            episode_idx=warmup_idx,
-                            show_config_panel=sub_idx == 0,
-                            np_rng=np.random.default_rng(
-                                derive_seed(cfg.seed, "warmup_episode", warmup_idx)
-                            ),
-                        )
-                        warmup_results.append(result)
-                        record_episode(
-                            phase="warmup",
-                            episode_idx=warmup_idx,
-                            result=result,
-                            heading=f"Warmup episode {warmup_idx + 1} ({controller})",
-                        )
-                        warmup_idx += 1
-                        warmup_bar.update(1)
+                if progress_display is not None:
+                    progress_display.set_live_feed_interval_steps(
+                        cfg.warmup_live_feed_interval_steps
+                    )
+                for warmup_idx in range(cfg.warmup_episodes):
+                    result = run_episode(
+                        mode="warmup",
+                        episode_idx=warmup_idx,
+                        show_config_panel=warmup_idx == 0,
+                        np_rng=np.random.default_rng(
+                            derive_seed(cfg.seed, "warmup_episode", warmup_idx)
+                        ),
+                    )
+                    warmup_results.append(result)
+                    record_episode(
+                        phase="warmup",
+                        episode_idx=warmup_idx,
+                        result=result,
+                        heading=f"Warmup episode {warmup_idx + 1} (baseline overflight)",
+                    )
+                    warmup_bar.update(1)
             finally:
                 warmup_bar.close()
 

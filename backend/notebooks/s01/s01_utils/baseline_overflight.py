@@ -7,20 +7,30 @@ from pathlib import Path
 
 import numpy as np
 
+from typing import Any
+
 from environment_definition.constants.MISSION import LON_GLOBAL, ObservationTargetArea
 from environment_definition.constants.SATELLITE import MAX_PRIMARY_CAPTURES_PER_ORBIT
 from environment_definition.constants.SIMULATION import (
     Cloud,
     GeodeticLonLat,
     OBSERVATION_TARGET,
-    RenderMode,
     SimulationConfig,
+    training_episode_simulation_config,
 )
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from environment_definition.mission_profiles.s01_multiple_targets_fwd_fish import build_setup
-from simulation.attitude_controller import target_boresight_angle_rad
+from simulation.attitude_controller import (
+    NadirPointingGains,
+    body_pointing_torque_nm,
+    default_nadir_pointing_gains,
+    nadir_pointing_torque_nm,
+    target_boresight_angle_rad,
+    target_boresight_rate_rad_s,
+)
 from simulation.state_types import SimulationStateSeries, SimulationTimestepState
 from simulation.stepper_factory import build_stepper
+from simulation.take_picture import TakePictureBudget, TakePictureConfig
 from utils.geometry.mission_stripe_disk import target_areas_disk_phi_bounds_deg, target_areas_midpoint_disk_xy_km_on_sphere
 from utils.geometry.orbit_disk_wgs84 import disk_xy_km_to_geodetic_deg
 from utils.geometry.polar_meridian_track import (
@@ -148,13 +158,10 @@ def build_baseline_overflight_setup(
 
 
 def baseline_simulation_config() -> SimulationConfig:
-    """HEADLESS baseline: nadir approach, then per-target OBC engage."""
-    return SimulationConfig(
-        render_mode=RenderMode.HEADLESS,
-        torque_command_source="external",
-        torque_policy_label="sequential_target_baseline",
-        obc_pointing_mode="nadir",
-        attitude_controller_enabled=True,
+    """Deprecated: baseline overflight uses ``training_episode_simulation_config``."""
+    raise RuntimeError(
+        "baseline_simulation_config() is removed. "
+        "Use training_episode_simulation_config(torque_policy_label='sequential_target_baseline')."
     )
 
 
@@ -171,15 +178,17 @@ class BaselinePolicyObservation:
 
 @dataclass(frozen=True)
 class BaselinePolicyAction:
+    torque_request_nm: float
     take_picture: bool
 
 
 @dataclass
 class SequentialTargetBaselinePolicy:
     """
-    Dummy baseline: nadir coast until lead margin before each target, then OBC engage.
+    Scripted baseline: nadir coast until lead margin before each target, then target engage.
 
-    Consumes per-target bearing angles (same contract planned for MPO mission observations).
+    Emits PD torque requests (same helpers as AttitudePointingController) plus shutter
+    commands on the training stack — policy requests only; safety applies torque.
     """
 
     target_anchors: tuple[tuple[float, float], ...]
@@ -192,6 +201,7 @@ class SequentialTargetBaselinePolicy:
     active_target_index: int = 0
     cmd_steps: list[int] | None = None
     _shuttered: set[int] | None = None
+    _pointing_gains: NadirPointingGains | None = None
 
     def __post_init__(self) -> None:
         if self.cmd_steps is None:
@@ -215,6 +225,58 @@ class SequentialTargetBaselinePolicy:
         theta_deg = float(np.rad2deg(theta_orbit_rad))
         engage_lo = phi_lo - float(self.lead_margin_deg)
         return engage_lo <= theta_deg <= phi_hi
+
+    def update_pointing_phase(self, theta_orbit_rad: float) -> None:
+        if self.pointing_phase == "nadir" and self.should_engage(theta_orbit_rad):
+            self.pointing_phase = "engage"
+
+    def _gains(self, *, sat_inertia: Any, tau_max_nm: float) -> NadirPointingGains:
+        if self._pointing_gains is None:
+            self._pointing_gains = default_nadir_pointing_gains(
+                tau_max_nm=float(tau_max_nm),
+                sat_inertia=sat_inertia,
+            )
+        return self._pointing_gains
+
+    def compute_torque_request_nm(
+        self,
+        state: SimulationTimestepState,
+        *,
+        sat_pos_xy_km: np.ndarray,
+        omega_orbit_rad_s: float,
+        sat_inertia: Any,
+        tau_max_nm: float,
+    ) -> float:
+        """PD torque request mirroring AttitudePointingController for nadir / target engage."""
+        gains = self._gains(sat_inertia=sat_inertia, tau_max_nm=tau_max_nm)
+        body_z = float(state.body_z_angle_rad)
+        omega_sat = float(state.omega_sat_rad_s)
+        if self.pointing_phase == "nadir":
+            return nadir_pointing_torque_nm(
+                body_z_rad=body_z,
+                omega_sat_rad_s=omega_sat,
+                theta_orbit_rad=float(state.theta_orbit_rad),
+                omega_orbit_rad_s=float(omega_orbit_rad_s),
+                omega_cmd_rad_s=0.0,
+                tau_max_nm=float(tau_max_nm),
+                gains=gains,
+            )
+        anchor = np.asarray(self.active_anchor(), dtype=float)
+        theta_target = target_boresight_angle_rad(sat_pos_xy_km, anchor)
+        omega_target = target_boresight_rate_rad_s(
+            sat_pos_xy_km=sat_pos_xy_km,
+            omega_orbit_rad_s=float(omega_orbit_rad_s),
+            ground_target_xy_km=anchor,
+        )
+        return body_pointing_torque_nm(
+            body_z_rad=body_z,
+            omega_sat_rad_s=omega_sat,
+            theta_target_rad=theta_target,
+            omega_target_rad_s=omega_target,
+            tau_max_nm=float(tau_max_nm),
+            gains=gains,
+            omega_cmd_rad_s=0.0,
+        )
 
     def observe(
         self,
@@ -260,29 +322,47 @@ class SequentialTargetBaselinePolicy:
         lo = float(area.lat_min.to(ureg.deg).magnitude)
         return float(lat_deg) > max(lo, hi)
 
-    def act(self, obs: BaselinePolicyObservation, *, step_idx: int) -> BaselinePolicyAction:
-        if obs.pointing_phase != "engage":
-            return BaselinePolicyAction(take_picture=False)
-        idx = int(obs.active_target_index)
-        if idx >= self.n_targets or idx in self._shuttered:
-            return BaselinePolicyAction(take_picture=False)
-        threshold_rad = float(np.deg2rad(self.tracking_threshold_deg))
-        bearing = float(obs.target_boresight_angles_rad[idx])
-        tracking_err = abs(float(obs.body_z_angle_rad) - bearing)
-        quality = float(obs.camera_image_quality)
-        in_band = self._active_target_lat_overlap(obs.sat_subpoint_lat_deg)
-        past_trailing = self._past_trailing_edge(obs.sat_subpoint_lat_deg)
-        if not in_band and not past_trailing:
-            return BaselinePolicyAction(take_picture=False)
-        locked = tracking_err <= threshold_rad
-        quality_ok = np.isfinite(quality) and quality >= MIN_CAPTURE_QUALITY
-        if not locked and not quality_ok and not past_trailing:
-            return BaselinePolicyAction(take_picture=False)
-        self._shuttered.add(idx)
-        self.cmd_steps.append(int(step_idx))
-        self.pointing_phase = "nadir"
-        self.active_target_index = idx + 1
-        return BaselinePolicyAction(take_picture=True)
+    def act(
+        self,
+        obs: BaselinePolicyObservation,
+        *,
+        step_idx: int,
+        state: SimulationTimestepState,
+        sat_pos_xy_km: np.ndarray,
+        omega_orbit_rad_s: float,
+        sat_inertia: Any,
+        tau_max_nm: float,
+    ) -> BaselinePolicyAction:
+        torque_request_nm = self.compute_torque_request_nm(
+            state,
+            sat_pos_xy_km=sat_pos_xy_km,
+            omega_orbit_rad_s=omega_orbit_rad_s,
+            sat_inertia=sat_inertia,
+            tau_max_nm=tau_max_nm,
+        )
+        take_picture = False
+        if obs.pointing_phase == "engage":
+            idx = int(obs.active_target_index)
+            if idx < self.n_targets and idx not in self._shuttered:
+                threshold_rad = float(np.deg2rad(self.tracking_threshold_deg))
+                bearing = float(obs.target_boresight_angles_rad[idx])
+                tracking_err = abs(float(obs.body_z_angle_rad) - bearing)
+                quality = float(obs.camera_image_quality)
+                in_band = self._active_target_lat_overlap(obs.sat_subpoint_lat_deg)
+                past_trailing = self._past_trailing_edge(obs.sat_subpoint_lat_deg)
+                if in_band or past_trailing:
+                    locked = tracking_err <= threshold_rad
+                    quality_ok = np.isfinite(quality) and quality >= MIN_CAPTURE_QUALITY
+                    if locked or quality_ok or past_trailing:
+                        self._shuttered.add(idx)
+                        self.cmd_steps.append(int(step_idx))
+                        self.pointing_phase = "nadir"
+                        self.active_target_index = idx + 1
+                        take_picture = True
+        return BaselinePolicyAction(
+            torque_request_nm=float(torque_request_nm),
+            take_picture=take_picture,
+        )
 
 
 @dataclass(frozen=True)
@@ -310,6 +390,11 @@ class BaselineCaptureKPIs:
         return self.total_applied_capture_reward
 
 
+def build_overflight_policy(setup, *, earth_radius_km: float) -> SequentialTargetBaselinePolicy:
+    """Build ``SequentialTargetBaselinePolicy`` from a mission setup."""
+    return _build_policy_from_setup(setup, earth_radius_km=earth_radius_km)
+
+
 def _build_policy_from_setup(setup, *, earth_radius_km: float) -> SequentialTargetBaselinePolicy:
     areas = tuple(setup.target_areas)
     anchors = tuple(
@@ -331,33 +416,51 @@ def run_baseline_overflight_rollout(
     simulation_config: SimulationConfig | None = None,
     show_progress: bool = True,
 ) -> BaselineOverflightRollout:
+    from autonomous_control.baseline_overflight_step import (
+        apply_baseline_shutter_if_requested,
+        baseline_overflight_controller_tick,
+    )
     from tqdm import tqdm
 
-    sim_cfg = simulation_config or baseline_simulation_config()
+    sim_cfg = simulation_config or training_episode_simulation_config(
+        torque_policy_label="sequential_target_baseline",
+    )
     resolved = setup.resolve(require_camera=True)
     earth_radius_km = float(resolved.earth_radius.to(ureg.km).magnitude)
-    policy = _build_policy_from_setup(setup, earth_radius_km=earth_radius_km)
+    sat_inertia = resolved.satellite.moment_of_inertia_2d
+    tau_max_nm = float(
+        resolved.satellite.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude
+    )
+    policy = build_overflight_policy(setup, earth_radius_km=earth_radius_km)
     stepper = build_stepper(resolved, simulation_config=sim_cfg)
+    omega_orbit_rad_s = float(stepper._omega_orbit_rad_s)
+    budget = TakePictureBudget.from_config(TakePictureConfig())
     total_steps = max(0, int(stepper._t_s.shape[0]) - 1)
     n_frames = int(stepper._t_s.shape[0])
     view_anchors = np.full((n_frames, 2), np.nan, dtype=float)
     active_target_idx = np.full(n_frames, -1, dtype=np.int32)
     take_picture_cmd = np.zeros(n_frames, dtype=bool)
+    current_torque_nm = 0.0
+    take_picture_this_step = False
     iterator = tqdm(total=total_steps, desc="baseline overflight", disable=not show_progress)
     try:
         while not stepper.done:
             state = stepper.current_timestep_state()
             sat_xy = np.asarray(state.sat_pos_xy_km, dtype=float)
             k = int(state.step_idx)
-            if policy.pointing_phase == "nadir":
-                stepper.set_obc_pointing_mode("nadir")
-                if policy.should_engage(float(state.theta_orbit_rad)):
-                    policy.pointing_phase = "engage"
-                    stepper.set_obc_pointing_mode("target")
-                    stepper.set_obc_ground_target_xy_km(policy.active_anchor())
-            else:
-                stepper.set_obc_pointing_mode("target")
-                stepper.set_obc_ground_target_xy_km(policy.active_anchor())
+            take_picture_this_step = False
+            if stepper.should_update_controller():
+                _action, _gym, take_picture_this_step = baseline_overflight_controller_tick(
+                    policy=policy,
+                    stepper=stepper,
+                    state=state,
+                    sat_pos_xy_km=sat_xy,
+                    omega_orbit_rad_s=omega_orbit_rad_s,
+                    sat_inertia=sat_inertia,
+                    tau_max_nm=tau_max_nm,
+                    budget=budget,
+                )
+                current_torque_nm = float(_action.torque_request_nm)
             if policy.pointing_phase == "engage":
                 ax, ay = policy.active_anchor()
                 view_anchors[k] = (ax, ay)
@@ -365,11 +468,14 @@ def run_baseline_overflight_rollout(
             else:
                 view_anchors[k] = _nadir_ground_xy_km(sat_xy, earth_radius_km=earth_radius_km)
                 active_target_idx[k] = -1
-            obs = policy.observe(state, sat_pos_xy_km=sat_xy)
-            action = policy.act(obs, step_idx=k)
-            if action.take_picture:
-                take_picture_cmd[k] = True
-            stepper.step(wheel_torque_cmd_nm=0.0)
+            stepper.step(wheel_torque_cmd_nm=current_torque_nm)
+            cmd_step = apply_baseline_shutter_if_requested(
+                stepper=stepper,
+                take_picture_cmd=take_picture_this_step,
+                budget=budget,
+            )
+            if cmd_step is not None:
+                take_picture_cmd[cmd_step] = True
             if iterator.n < total_steps:
                 iterator.update(1)
     finally:

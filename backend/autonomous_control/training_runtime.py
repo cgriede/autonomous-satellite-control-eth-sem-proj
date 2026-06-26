@@ -267,7 +267,7 @@ def run_episode(
     train_updates_per_step: int = 1,
     max_steps: int | None = None,  # compatibility, ignored in canonical stepper mode
     step_callback: Any | None = None,
-    warmup_controller: str = "random",
+    warmup_controller: str = "baseline",
     warmup_baseline_period_s: float = 60.0,
     feature_config: ControllerFeatureConfig | None = None,
     satellite_altitude: Any | None = None,
