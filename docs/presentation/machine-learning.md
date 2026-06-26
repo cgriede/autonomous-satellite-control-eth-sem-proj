@@ -44,7 +44,10 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
 
 # Observations & actions
 
-- **Controller observation (notebook 08):** selected `SimulationTimestepState` keys — attitude scalars, orbit angle, primary + secondary camera observation-line code arrays (see `S01_TRAINING_FEATURE_CONFIG` in `notebooks/s01/s01_utils/training_workflow.py`).
+- **Controller observation (notebook 08):** selected `SimulationTimestepState` keys — attitude scalars (`body_z_angle_rad`, `omega_sat_rad_s`), orbit angle (`theta_orbit_rad`), primary + secondary camera observation-line code arrays — plus **mission scalars** from `ControllerEpisodeContext`:
+  - `capture_budget_remaining` — pictures left this episode (dimensionless count).
+  - `target_bearing_error_rad_i` — signed pointing error toward mission target *i* [rad], one per `len(target_areas)`; `wrap_pi(θ_boresight,i − body_z_angle_rad)`; 0 when aligned over target *i*.
+- Source: `S01_TRAINING_FEATURE_CONFIG` in `notebooks/s01/s01_utils/training_workflow.py`, `autonomous_control/controller_observation.py`.
 - **MPO action (2-D):** `[torque_request_nm, shutter_gym]` — torque clipped to ±`tau_max`; shutter fires when gym dim > 0 (MPO: after `tanh` + threshold). Source: `autonomous_control/action_adapter.py`, `autonomous_control/episode_runner.py`.
 - **Warmup:** notebook-07 `SequentialTargetBaselinePolicy` only; buffer stores the same 2-D request vector (`shutter_gym` = `+1` on capture steps, `-1` otherwise). Same sim config and safety stack as train/eval.
 
@@ -55,8 +58,9 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
 Source: `autonomous_control/episode_runner.py`, `notebooks/s01/s01_utils/training_workflow.py`.
 
 - **`RewardConfig` plumbing:** `MPOConfig.reward` is passed via `SimulationOverrides(reward_config=...)` on the s01 mission setup so `SimulationStepper` and `RewardKernel` share the same flags.
+- **Training reward (nb08 default):** capture-only — `enable_distance_reward=False`, `enable_image_quality_capture=True`. Per-step distance band shaping is off; credit is sparse on applied shutters only. Post-budget steps are `+0`, so early abort does not change total capture return.
 - **Capture on shutter:** `TakePictureBudget` per episode; `apply_shutter_capture` recomputes step reward with quality/coverage/novelty at the resolved capture frame (parity with notebook 06 `take_picture_verification`).
-- **Early stop:** `warmup` / `train` episodes end when `budget.remaining == 0`; **`eval` runs full horizon** (`early_stop_on_budget_exhausted=False`).
+- **Early stop toggle:** `TrainingWorkflowConfig.early_stop_on_budget_exhausted` (default `False` for A/B). When `True`, warmup/train truncate when `budget.remaining == 0`; **`eval` always runs full horizon** (`early_stop_on_budget_exhausted=False`).
 - **`train_every_n_steps`:** default `1`; MPO `train()` invoked every N simulation steps in train mode (throughput knob, no mission change).
 - **`collect_states`:** default `False`; skips per-step observation copies in the RL hot path.
 

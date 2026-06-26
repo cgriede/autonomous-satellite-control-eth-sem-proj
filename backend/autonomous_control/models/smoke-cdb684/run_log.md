@@ -1,0 +1,13 @@
+# Controller Training Run (random)
+
+## Metadata
+
+- run_dir: `C:\Users\cedri\code\autonomous-satellite-control-eth-sem-proj\backend\autonomous_control\models\smoke-cdb684`
+- seed: `0`
+- train_episodes: `0`
+- warmup_episodes: `0`
+- controller_mode: `random`
+- timestamp_utc: `2026-06-26T06:29:54.482842+00:00`
+
+## Events
+

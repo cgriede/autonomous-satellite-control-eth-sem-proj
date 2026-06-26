@@ -46,7 +46,7 @@ def run_simulation(
         )
         sim_cfg = simulation_config if simulation_config is not None else _SC(
             render_mode=RenderMode.HEADLESS,
-            controller_mode="random",
+            builtin_torque_policy="random",
         )
         resolved = setup.resolve(require_camera=False)
         stepper = build_stepper(resolved, simulation_config=sim_cfg)

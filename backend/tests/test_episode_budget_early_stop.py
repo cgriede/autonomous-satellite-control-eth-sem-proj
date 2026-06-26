@@ -29,9 +29,9 @@ class _ShutterEveryStepAgent:
 
 
 class EpisodeBudgetEarlyStopTest(unittest.TestCase):
-    def _training_setup(self):
+    def _training_setup(self, *, distance_reward: bool = False):
         reward = RewardConfig(
-            enable_distance_reward=True,
+            enable_distance_reward=distance_reward,
             enable_image_quality_capture=True,
         )
         return replace(
@@ -62,6 +62,24 @@ class EpisodeBudgetEarlyStopTest(unittest.TestCase):
             len(train_result.simulation_series.t_s) - 1,
             train_result.steps,
         )
+
+    def test_capture_only_early_stop_same_return_as_full_horizon(self) -> None:
+        setup = self._training_setup(distance_reward=False)
+        runner = EpisodeRunner(setup)
+        full = runner.run_serial(
+            _ShutterEveryStepAgent(),
+            mode="train",
+            early_stop_on_budget_exhausted=False,
+            verbose_print=1,
+        )
+        early = runner.run_serial(
+            _ShutterEveryStepAgent(),
+            mode="train",
+            early_stop_on_budget_exhausted=True,
+            verbose_print=1,
+        )
+        self.assertLess(early.steps, full.steps)
+        self.assertAlmostEqual(early.episode_return, full.episode_return, places=4)
 
     def test_eval_runs_full_horizon_with_budget_enabled(self) -> None:
         setup = self._training_setup()

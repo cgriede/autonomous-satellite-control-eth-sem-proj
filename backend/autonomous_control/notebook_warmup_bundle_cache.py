@@ -23,7 +23,7 @@ from autonomous_control.config.randomness import derive_seed
 from autonomous_control.feature_selection import ControllerFeatureConfig
 from autonomous_control.training_runtime import EpisodeResult, run_episode
 
-NB_WARMUP_BUNDLE_VERSION = 3
+NB_WARMUP_BUNDLE_VERSION = 4
 _EPISODES_FILENAME = "episodes.pkl.gz"
 _META_FILENAME = "meta.json"
 
@@ -50,6 +50,8 @@ def encode_feature_config_snapshot(
         "attitude_keys": list(cfg.attitude_keys),
         "orbit_keys": list(cfg.orbit_keys),
         "vision_keys": list(cfg.vision_keys),
+        "include_capture_budget": bool(cfg.include_capture_budget),
+        "include_target_bearing_errors": bool(cfg.include_target_bearing_errors),
     }
 
 
@@ -64,6 +66,8 @@ def warmup_fingerprint_payload(
     episode_count: int,
     warmup_controller: str,
     feature_config: ControllerFeatureConfig | None,
+    early_stop_on_budget_exhausted: bool = False,
+    n_mission_targets: int = 0,
 ) -> dict[str, Any]:
     return {
         "base_seed": int(base_seed),
@@ -77,6 +81,8 @@ def warmup_fingerprint_payload(
         "feature_config": encode_feature_config_snapshot(feature_config),
         "warmup_controller": str(warmup_controller),
         "attitude_controller_enabled": True,
+        "early_stop_on_budget_exhausted": bool(early_stop_on_budget_exhausted),
+        "n_mission_targets": int(n_mission_targets),
     }
 
 

@@ -232,6 +232,47 @@ def _off_nadir_from_state(
     return float(math.acos(dot))
 
 
+def body_boresight_off_nadir_rad(
+    *,
+    body_z_angle_rad: float,
+    sat_pos_xy_km: np.ndarray,
+) -> float:
+    """Off-nadir angle [rad] for a body +Z boresight at ``body_z_angle_rad``."""
+    return _off_nadir_from_state(
+        body_z_angle_rad=float(body_z_angle_rad),
+        sat_pos_xy_km=sat_pos_xy_km,
+    )
+
+
+def target_pointing_safe_for_engage(
+    *,
+    sat_pos_xy_km: np.ndarray,
+    ground_target_xy_km: np.ndarray,
+    omega_sat: Any,
+    tau_max: Any,
+    sat_inertia: Any,
+    off_nadir_limit: Any = OFF_NADIR_HARD_LIMIT_DEG,
+) -> bool:
+    """
+    True when aligning the boresight on the ground target would not trip safe mode.
+
+    Mirrors ``AttitudeSafetyController`` predictive entry:
+    ``(off_nadir_at_target + θ_brake) < θ_hard``.
+    """
+    theta_target = target_boresight_angle_rad(sat_pos_xy_km, ground_target_xy_km)
+    projected_off = body_boresight_off_nadir_rad(
+        body_z_angle_rad=theta_target,
+        sat_pos_xy_km=sat_pos_xy_km,
+    )
+    hard = float(off_nadir_limit.to(ureg.rad).magnitude)
+    brake = braking_distance_rad(
+        omega_sat=omega_sat,
+        tau_max=tau_max,
+        sat_inertia=sat_inertia,
+    )
+    return (projected_off + brake) < hard - 1e-9
+
+
 def _interval_event_name(kind: SafeIntervalKind) -> str:
     return f"SAFE_MODE_INTERVAL_{kind.name}"
 

@@ -15,6 +15,7 @@ if str(BACKEND) not in sys.path:
 if str(S01) not in sys.path:
     sys.path.insert(0, str(S01))
 
+from environment_definition.constants.ATTITUDE_SAFETY import SAFE_MODE_LOCKOUT_S
 from environment_definition.constants.MISSION import ObservationTargetArea
 from environment_definition.constants.SATELLITE import MOMENT_OF_INERTIA_2D
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
@@ -24,6 +25,7 @@ from s01_utils.baseline_overflight import (
     BaselinePolicyObservation,
     SequentialTargetBaselinePolicy,
     build_baseline_overflight_setup,
+    build_overflight_policy,
     run_baseline_overflight_rollout,
 )
 
@@ -125,6 +127,62 @@ class SequentialTargetBaselinePolicyTest(unittest.TestCase):
         action = policy.act(obs, **_act_kwargs(policy, obs, state=state))
         self.assertFalse(action.take_picture)
         self.assertTrue(np.isfinite(action.torque_request_nm))
+
+    def test_phi_window_at_engage_lo_stays_nadir_until_target_safe(self):
+        setup = build_baseline_overflight_setup(n_targets=1, cloud_seed=0)
+        resolved = setup.resolve(require_camera=True)
+        policy = build_overflight_policy(
+            setup,
+            earth_radius_km=float(resolved.earth_radius.to(ureg.km).magnitude),
+        )
+        from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
+        from simulation.stepper_factory import build_stepper
+        from environment_definition.constants.SIMULATION import training_episode_simulation_config
+
+        stepper = build_stepper(
+            resolved,
+            simulation_config=training_episode_simulation_config(),
+        )
+        anchor = np.asarray(policy.target_anchors[0], dtype=float)
+        engage_lo_rad = np.deg2rad(
+            float(policy.target_leading_phi_lo_deg[0]) - float(policy.lead_margin_deg)
+        )
+        saw_phi_without_safe = False
+        while not stepper.done:
+            state = stepper.current_timestep_state()
+            sat_xy = np.asarray(state.sat_pos_xy_km, dtype=float)
+            if float(state.theta_orbit_rad) >= float(engage_lo_rad):
+                in_phi = policy.in_phi_engage_window(float(state.theta_orbit_rad))
+                can = policy.can_engage(
+                    state,
+                    sat_pos_xy_km=sat_xy,
+                    sat_inertia=MOMENT_OF_INERTIA_2D,
+                    tau_max_nm=float(
+                        REACTION_WHEEL_MAX_TORQUE.to(ureg.N * ureg.m).magnitude
+                    ),
+                )
+                if in_phi and not can:
+                    saw_phi_without_safe = True
+                policy.update_pointing_phase(
+                    state,
+                    sat_pos_xy_km=sat_xy,
+                    sat_inertia=MOMENT_OF_INERTIA_2D,
+                    tau_max_nm=float(
+                        REACTION_WHEEL_MAX_TORQUE.to(ureg.N * ureg.m).magnitude
+                    ),
+                )
+                if policy.pointing_phase == "engage":
+                    break
+            stepper.step(wheel_torque_cmd_nm=0.0)
+        self.assertTrue(saw_phi_without_safe)
+        self.assertEqual(policy.pointing_phase, "engage")
+
+    def test_lockout_duration_is_one_minute(self):
+        self.assertAlmostEqual(
+            float(SAFE_MODE_LOCKOUT_S.to(ureg.s).magnitude),
+            60.0,
+            places=6,
+        )
 
 
 class BaselineOverflightRolloutTest(unittest.TestCase):

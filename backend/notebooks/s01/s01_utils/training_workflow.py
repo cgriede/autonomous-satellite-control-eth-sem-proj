@@ -14,15 +14,19 @@ from tqdm.auto import tqdm
 from autonomous_control.config.randomness import RandomnessConfig, apply_global_seed, derive_seed
 from autonomous_control.controller_agent import MPOAgent
 from autonomous_control.controller_observation import (
+    ControllerEpisodeContext,
     ControllerObservationLayout,
     build_controller_observation_from_timestep,
     controller_observation_layout,
+    mission_scalar_values_from_context,
+    resolve_target_anchor_xy_km,
 )
-from autonomous_control.episode_runner import EpisodeRunner
 from autonomous_control.feature_selection import (
     ControllerFeatureConfig,
+    mission_scalar_key_names,
     select_controller_inputs_from_timestep,
 )
+from autonomous_control.episode_runner import EpisodeRunner
 from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.reward import RewardConfig
 from autonomous_control.training_metrics import learning_stats_to_row
@@ -35,6 +39,7 @@ from autonomous_control.training_runtime import EpisodeResult, make_attitude_con
 from environment_definition.constants import RenderMode, SIMULATION
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from simulation.setup_types import EnvironmentSetup, ResolvedSimulationSetup, SimulationOverrides
+from simulation.take_picture import TakePictureBudget, TakePictureConfig
 from s01_utils.baseline_overflight import BASELINE_N_TARGETS, build_baseline_overflight_setup
 from simulation.state_types import SimulationTimestepState
 from utils.ml_training.ml_training_utils import (
@@ -58,7 +63,8 @@ from utils.ml_training.training_run_artifacts import (
 
 
 # Default controller observation features for notebook 08.
-# Edit this tuple block (or pass a custom ControllerFeatureConfig) to change training inputs.
+# Timestep keys (attitude/orbit/vision) plus mission scalars (budget + per-target bearing [rad]).
+# Notebook 08 should use this constant (or dataclasses.replace on it) — do not duplicate a partial config.
 S01_TRAINING_FEATURE_CONFIG = ControllerFeatureConfig(
     attitude_keys=(
         "body_z_angle_rad",
@@ -71,6 +77,8 @@ S01_TRAINING_FEATURE_CONFIG = ControllerFeatureConfig(
         "camera_observation_line_codes",
         "secondary_camera_observation_line_codes",
     ),
+    include_capture_budget=True,
+    include_target_bearing_errors=True,
 )
 
 _FEATURE_UNITS: dict[str, str] = {
@@ -79,6 +87,8 @@ _FEATURE_UNITS: dict[str, str] = {
     "theta_orbit_rad": "rad",
     "camera_observation_line_codes": "obs code / bin",
     "secondary_camera_observation_line_codes": "obs code / bin",
+    "capture_budget_remaining": "count",
+    "target_bearing_error_rad": "rad",
 }
 
 _OBS_CODE_LABELS: dict[int, str] = {
@@ -104,6 +114,7 @@ class TrainingWorkflowConfig:
     background_artifacts: bool = True
     live_feed_interval_steps: int = 100
     warmup_live_feed_interval_steps: int = 400
+    early_stop_on_budget_exhausted: bool = False
 
 
 @dataclass
@@ -174,6 +185,7 @@ def _mpo_config_snapshot(mpo_config: MPOConfig) -> dict[str, object]:
         "cnn_embedding_dim": mpo_config.cnn_embedding_dim,
         "reward": {
             "enable_distance_reward": reward.enable_distance_reward,
+            "enable_image_quality_capture": reward.enable_image_quality_capture,
             "enable_outer_gate": reward.enable_outer_gate,
             "enable_energy": reward.enable_energy,
             "enable_cloud_penalty": reward.enable_cloud_penalty,
@@ -185,6 +197,7 @@ def _reward_config_flags(reward: RewardConfig) -> str:
     flags = []
     for name in (
         "enable_distance_reward",
+        "enable_image_quality_capture",
         "enable_outer_gate",
         "enable_energy",
         "enable_cloud_penalty",
@@ -230,8 +243,13 @@ def run_s01_training_preflight_gate(
     feature_config: ControllerFeatureConfig | None = None,
     force: bool = False,
     use_cache: bool = True,
+    integration_pytest: bool = False,
 ) -> bool:
-    """Inline feature checks plus full ML training pytest suite.
+    """Inline feature checks plus fast ML pytest subset (integration tests optional).
+
+    Default notebook path: inline checks + fast pytest (~3s on cache miss). Set
+    ``integration_pytest=True`` for full serial episode-runner tests (~80s), or
+    ``force=True`` to ignore session/disk cache.
 
     Returns True when checks ran; False when a valid cache entry was reused.
     """
@@ -239,6 +257,7 @@ def run_s01_training_preflight_gate(
         feature_config=feature_config or S01_TRAINING_FEATURE_CONFIG,
         force=force,
         use_cache=use_cache,
+        integration_pytest=integration_pytest,
     )
 
 
@@ -290,6 +309,7 @@ def feature_config_registry_table(
     feature_config: ControllerFeatureConfig,
     *,
     secondary_camera_bins: int,
+    n_mission_targets: int = 0,
 ) -> list[dict[str, object]]:
     """Rows describing each selected SimulationTimestepState key (edit point for features)."""
     rows: list[dict[str, object]] = []
@@ -314,6 +334,25 @@ def feature_config_registry_table(
                     "source_module": "autonomous_control/feature_selection.py",
                 }
             )
+    mission_keys = mission_scalar_key_names(
+        n_targets=int(n_mission_targets),
+        include_budget=feature_config.include_capture_budget,
+        include_bearings=feature_config.include_target_bearing_errors,
+    )
+    for key in mission_keys:
+        unit = _FEATURE_UNITS.get(key, _FEATURE_UNITS.get("target_bearing_error_rad", "—"))
+        if key.startswith("target_bearing_error_rad_"):
+            unit = _FEATURE_UNITS["target_bearing_error_rad"]
+        rows.append(
+            {
+                "group": "mission",
+                "timestep_key": key,
+                "state_dims": 1,
+                "unit": unit,
+                "encoder_path": "scalar → MLP branch",
+                "source_module": "autonomous_control/controller_observation.py",
+            }
+        )
     return rows
 
 
@@ -322,6 +361,7 @@ def controller_encoder_routing_table(
     *,
     secondary_camera_bins: int,
     mpo_config: MPOConfig | None = None,
+    n_mission_targets: int = 0,
 ) -> list[dict[str, object]]:
     """Rows describing how each feature group reaches the actor/critic trunk."""
     cfg = mpo_config if mpo_config is not None else MPOConfig()
@@ -329,7 +369,12 @@ def controller_encoder_routing_table(
     cnn_out = int(cfg.cnn_embedding_dim)
     rows: list[dict[str, object]] = []
 
-    scalar_keys = feature_config.attitude_keys + feature_config.orbit_keys
+    mission_keys = mission_scalar_key_names(
+        n_targets=int(n_mission_targets),
+        include_budget=feature_config.include_capture_budget,
+        include_bearings=feature_config.include_target_bearing_errors,
+    )
+    scalar_keys = feature_config.attitude_keys + feature_config.orbit_keys + mission_keys
     if scalar_keys:
         rows.append(
             {
@@ -388,6 +433,29 @@ def observation_code_legend_table() -> list[dict[str, object]]:
     ]
 
 
+def _episode_context_for_setup(
+    setup: TrainingWorkflowSetup,
+    *,
+    budget_remaining: float | None = None,
+) -> ControllerEpisodeContext | None:
+    if not setup.feature_config.needs_mission_scalars:
+        return None
+    resolved = setup.mission_setup.resolve(require_camera=False)
+    earth_radius_km = float(resolved.earth_radius.to(ureg.km).magnitude)
+    anchors = resolve_target_anchor_xy_km(
+        tuple(resolved.target_areas or ()),
+        earth_radius_km=earth_radius_km,
+    )
+    if budget_remaining is None:
+        budget_remaining = float(
+            TakePictureBudget.from_config(TakePictureConfig()).remaining
+        )
+    return ControllerEpisodeContext(
+        capture_budget_remaining=float(budget_remaining),
+        target_anchor_xy_km=anchors,
+    )
+
+
 def _initial_timestep_for_setup(setup: TrainingWorkflowSetup) -> SimulationTimestepState:
     from environment_definition.constants.SIMULATION import training_episode_simulation_config
     from simulation.stepper_factory import build_stepper
@@ -409,6 +477,14 @@ def feature_scalar_snapshot_table(
         timestep=ts,
         feature_config=setup.feature_config,
     )
+    episode_context = _episode_context_for_setup(setup)
+    mission_values: dict[str, float] = {}
+    if episode_context is not None:
+        mission_values = mission_scalar_values_from_context(
+            timestep=ts,
+            episode_context=episode_context,
+            feature_config=setup.feature_config,
+        )
     rows: list[dict[str, object]] = []
     scalar_index = 0
     for group, keys in (
@@ -427,6 +503,26 @@ def feature_scalar_snapshot_table(
                 }
             )
             scalar_index += 1
+    n_targets = len(setup.mission_setup.resolve(require_camera=False).target_areas or ())
+    mission_keys = mission_scalar_key_names(
+        n_targets=n_targets,
+        include_budget=setup.feature_config.include_capture_budget,
+        include_bearings=setup.feature_config.include_target_bearing_errors,
+    )
+    for key in mission_keys:
+        unit = _FEATURE_UNITS["target_bearing_error_rad"]
+        if key == "capture_budget_remaining":
+            unit = _FEATURE_UNITS["capture_budget_remaining"]
+        rows.append(
+            {
+                "scalar_index": scalar_index,
+                "group": "mission",
+                "timestep_key": key,
+                "value": float(mission_values[key]),
+                "unit": unit,
+            }
+        )
+        scalar_index += 1
     return rows
 
 
@@ -485,6 +581,7 @@ def display_feature_tables(
     *,
     secondary_camera_bins: int,
     mpo_config: MPOConfig | None = None,
+    n_mission_targets: int = 0,
 ) -> None:
     """Notebook helper: feature selection and multimodal encoder routing."""
     import pandas as pd
@@ -495,13 +592,16 @@ def display_feature_tables(
     layout = controller_observation_layout(
         feature_config=feature_config,
         secondary_camera_observation_line_n_bins=secondary_camera_bins,
+        n_mission_targets=int(n_mission_targets),
     )
     cfg = mpo_config if mpo_config is not None else MPOConfig()
     display(Markdown("### Controller feature selection (`ControllerFeatureConfig`)"))
     display(
         Markdown(
-            "Edit `FEATURE_CONFIG` in the notebook cell below, or change "
-            "`S01_TRAINING_FEATURE_CONFIG` in `s01_utils/training_workflow.py`."
+            "Edit `S01_TRAINING_FEATURE_CONFIG` in `s01_utils/training_workflow.py` "
+            "(timestep key tuples **and** `include_capture_budget` / "
+            "`include_target_bearing_errors`). Notebook 08 should assign "
+            "`FEATURE_CONFIG = tw.S01_TRAINING_FEATURE_CONFIG` rather than duplicating keys."
         )
     )
     display_notebook_dataframe(
@@ -509,6 +609,7 @@ def display_feature_tables(
             feature_config_registry_table(
                 feature_config,
                 secondary_camera_bins=secondary_camera_bins,
+                n_mission_targets=n_mission_targets,
             )
         )
     )
@@ -525,6 +626,7 @@ def display_feature_tables(
                 feature_config,
                 secondary_camera_bins=secondary_camera_bins,
                 mpo_config=cfg,
+                n_mission_targets=n_mission_targets,
             )
         )
     )
@@ -544,6 +646,7 @@ def display_feature_snapshot_tables(setup: TrainingWorkflowSetup) -> None:
         timestep=ts,
         feature_config=setup.feature_config,
         layout=setup.observation_layout,
+        episode_context=_episode_context_for_setup(setup),
     )
     vision_shapes = ", ".join(
         f"{key} {line.shape[0]} bins"
@@ -568,7 +671,7 @@ def build_training_workflow_setup(
     cfg = config if config is not None else TrainingWorkflowConfig()
     apply_global_seed(RandomnessConfig(seed=cfg.seed))
     capture_reward = RewardConfig(
-        enable_distance_reward=True,
+        enable_distance_reward=False,
         enable_image_quality_capture=True,
     )
     mission_setup = replace(
@@ -576,15 +679,17 @@ def build_training_workflow_setup(
         simulation_overrides=SimulationOverrides(reward_config=capture_reward),
     )
     resolved = mission_setup.resolve(require_camera=True)
+    n_targets = len(resolved.target_areas or ())
     secondary_bins = int(resolved.secondary_camera_observation_line_n_bins)
     obs_layout = controller_observation_layout(
         feature_config=cfg.feature_config,
         secondary_camera_observation_line_n_bins=secondary_bins,
+        n_mission_targets=n_targets,
     )
     max_episode_steps = _estimate_episode_steps(resolved)
     mpo_config = MPOConfig(
         warmup_episodes=cfg.warmup_episodes,
-        max_target_index=BASELINE_N_TARGETS - 1,
+        max_target_index=n_targets - 1,
         max_steps_per_episode=max_episode_steps,
         reward=capture_reward,
     )
@@ -592,6 +697,8 @@ def build_training_workflow_setup(
         secondary_camera_observation_line_n_bins=secondary_bins,
         reward_config=mpo_config.reward,
         feature_config=cfg.feature_config,
+        n_mission_targets=n_targets,
+        observation_layout=obs_layout,
     )
     agent = MPOAgent(env, config=mpo_config)
     encoder_output_dim = int(agent.pi.encoder.output_dim)
@@ -632,12 +739,15 @@ def build_training_workflow_setup(
                 "train_every_n_steps": cfg.train_every_n_steps,
                 "collect_states": cfg.collect_states,
                 "background_artifacts": cfg.background_artifacts,
+                "early_stop_on_budget_exhausted": cfg.early_stop_on_budget_exhausted,
             },
             "mpo": _mpo_config_snapshot(mpo_config),
             "features": {
                 "attitude_keys": list(cfg.feature_config.attitude_keys),
                 "orbit_keys": list(cfg.feature_config.orbit_keys),
                 "vision_keys": list(cfg.feature_config.vision_keys),
+                "include_capture_budget": cfg.feature_config.include_capture_budget,
+                "include_target_bearing_errors": cfg.feature_config.include_target_bearing_errors,
             },
             "observation": {
                 "scalar_dim": obs_layout.scalar_dim,
@@ -701,6 +811,7 @@ def print_training_setup_summary(setup: TrainingWorkflowSetup) -> None:
     print(f"  MPO LRs q/pi/eta:  {mpo.learning_rate_q}/{mpo.learning_rate_pi}/{mpo.learning_rate_eta}")
     print(f"  target_kl mu/sigma: {mpo.target_kl_mu}/{mpo.target_kl_sigma}")
     print(f"  reward flags:      {_reward_config_flags(mpo.reward)}")
+    print(f"  early stop:        {cfg.early_stop_on_budget_exhausted} (warmup/train; eval always full horizon)")
 
 
 def _episode_return(result: EpisodeResult) -> float:
@@ -771,6 +882,7 @@ def run_training_workflow(
         return setup.runner.run_serial(
             setup.agent,
             feature_config=setup.feature_config,
+            observation_layout=setup.observation_layout,
             progress_display=progress_display,
             train_every_n_steps=cfg.train_every_n_steps,
             collect_states=cfg.collect_states,
@@ -826,6 +938,7 @@ def run_training_workflow(
                         mode="warmup",
                         episode_idx=warmup_idx,
                         show_config_panel=warmup_idx == 0,
+                        early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
                         np_rng=np.random.default_rng(
                             derive_seed(cfg.seed, "warmup_episode", warmup_idx)
                         ),
@@ -860,6 +973,7 @@ def run_training_workflow(
                     train_updates_per_step=cfg.updates_per_step,
                     episode_idx=ep,
                     show_config_panel=ep == 0,
+                    early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
                     np_rng=np.random.default_rng(derive_seed(cfg.seed, "train_episode", ep)),
                 )
                 train_results.append(result)
@@ -895,6 +1009,7 @@ def run_training_workflow(
                     train_updates_per_step=0,
                     episode_idx=ep,
                     show_config_panel=ep == 0,
+                    early_stop_on_budget_exhausted=False,
                     np_rng=np.random.default_rng(derive_seed(cfg.seed, "eval_episode", ep)),
                 )
                 eval_results.append(result)

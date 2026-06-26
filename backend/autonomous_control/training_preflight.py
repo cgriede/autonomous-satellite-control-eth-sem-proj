@@ -50,7 +50,10 @@ from simulation.state_types import SimulationTimestepState
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 # Pytest modules that must pass before main ML training scripts run.
-PREFLIGHT_CACHE_VERSION = 1
+PREFLIGHT_CACHE_VERSION = 2
+
+# In-process digest from the last successful gate in this Python interpreter (notebook kernels).
+_SESSION_PASSED_DIGEST: str | None = None
 
 # Source modules exercised by inline checks; invalidate cache when these change.
 PREFLIGHT_SOURCE_PATHS: tuple[str, ...] = (
@@ -66,7 +69,7 @@ PREFLIGHT_SOURCE_PATHS: tuple[str, ...] = (
     "backend/environment_definition/constants/SIMULATION.py",
 )
 
-TRAINING_TEST_PATHS: tuple[str, ...] = (
+TRAINING_PREFLIGHT_FAST_TEST_PATHS: tuple[str, ...] = (
     "backend/tests/test_training_preflight.py",
     "backend/tests/test_mpo_training_features.py",
     "backend/tests/test_feature_selection.py",
@@ -74,8 +77,18 @@ TRAINING_TEST_PATHS: tuple[str, ...] = (
     "backend/tests/test_action_adapter.py",
     "backend/tests/test_warmup_cache.py",
     "backend/tests/test_notebook_warmup_bundle_cache.py",
+    # One cheap factory/stepper parity check (not the full serial-run suite).
+    "backend/tests/test_episode_runner.py::EpisodeRunnerStepperParityTest",
+)
+
+TRAINING_INTEGRATION_TEST_PATHS: tuple[str, ...] = (
     "backend/tests/test_training_runtime_episode_artifact.py",
-    "backend/tests/test_episode_runner.py",
+    "backend/tests/test_episode_runner.py::EpisodeRunnerRunSerialTest",
+)
+
+TRAINING_TEST_PATHS: tuple[str, ...] = (
+    *TRAINING_PREFLIGHT_FAST_TEST_PATHS,
+    *TRAINING_INTEGRATION_TEST_PATHS,
 )
 
 
@@ -393,13 +406,32 @@ def _file_stat_signature(path: Path) -> dict[str, int] | None:
     return {"mtime_ns": int(stat.st_mtime_ns), "size": int(stat.st_size)}
 
 
+def _fingerprint_file_rel_path(test_or_source_path: str) -> str:
+    """Map a pytest node id to its on-disk module path for cache invalidation."""
+    return test_or_source_path.split("::", 1)[0]
+
+
 def training_preflight_fingerprint_payload(
     *,
     feature_config: ControllerFeatureConfig | None = None,
     repo_root: Path | None = None,
+    test_paths: tuple[str, ...] | None = None,
+    integration_pytest: bool = False,
 ) -> dict[str, Any]:
     root = repo_root if repo_root is not None else _repo_root()
-    rel_paths = sorted(set(TRAINING_TEST_PATHS) | set(PREFLIGHT_SOURCE_PATHS))
+    selected_tests = (
+        test_paths
+        if test_paths is not None
+        else (
+            TRAINING_TEST_PATHS
+            if integration_pytest
+            else TRAINING_PREFLIGHT_FAST_TEST_PATHS
+        )
+    )
+    rel_paths = sorted(
+        {_fingerprint_file_rel_path(rel) for rel in selected_tests}
+        | set(PREFLIGHT_SOURCE_PATHS)
+    )
     files: dict[str, dict[str, int]] = {}
     for rel in rel_paths:
         sig = _file_stat_signature(root / rel)
@@ -409,7 +441,9 @@ def training_preflight_fingerprint_payload(
         "check_names": tuple(item.name for item in TRAINING_FEATURE_CHECKS),
         "feature_config": encode_feature_config_snapshot(feature_config),
         "files": files,
+        "integration_pytest": bool(integration_pytest),
         "preflight_cache_version": int(PREFLIGHT_CACHE_VERSION),
+        "test_paths": selected_tests,
     }
 
 
@@ -443,28 +477,51 @@ def _save_preflight_cache_entry(path: Path, *, digest: str) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def _mark_training_gate_passed(*, digest: str, cache_path: Path | None, use_cache: bool) -> None:
+    global _SESSION_PASSED_DIGEST
+    _SESSION_PASSED_DIGEST = digest
+    if use_cache:
+        cache_file = (
+            cache_path if cache_path is not None else default_training_preflight_cache_path()
+        )
+        _save_preflight_cache_entry(cache_file, digest=digest)
+
+
 def run_training_gate(
     *,
     skip_pytest: bool = False,
+    integration_pytest: bool = False,
     use_cache: bool = False,
     force: bool = False,
     feature_config: ControllerFeatureConfig | None = None,
     cache_path: Path | None = None,
 ) -> bool:
-    """Inline preflight checks plus optional full pytest suite.
+    """Inline preflight checks plus optional pytest suite.
 
-    When ``use_cache`` is True and the fingerprint matches a prior successful run,
-    skip all checks and return False. Otherwise run checks, update the cache, and
-    return True. CLI entry points leave ``use_cache`` at its default (False).
+    By default runs the **fast** pytest subset (~few seconds). Set
+    ``integration_pytest=True`` to also run full serial episode-runner tests
+    (~80s) — used by CLI train/eval scripts.
+
+    When ``use_cache`` is True and the fingerprint matches a prior successful run
+    (same notebook kernel or on-disk cache), skip all checks and return False.
+    CLI entry points leave ``use_cache`` at its default (False).
     """
+    global _SESSION_PASSED_DIGEST
     cache_file = cache_path if cache_path is not None else default_training_preflight_cache_path()
-    fingerprint = training_preflight_fingerprint_payload(feature_config=feature_config)
+    fingerprint = training_preflight_fingerprint_payload(
+        feature_config=feature_config,
+        integration_pytest=integration_pytest,
+    )
     digest = digest_for_training_preflight_fingerprint(fingerprint)
 
     if use_cache and not force:
+        if _SESSION_PASSED_DIGEST == digest:
+            print("Training preflight gate skipped (already passed this notebook session).")
+            return False
         cached = _load_preflight_cache_entry(cache_file)
         if cached is not None and cached.get("digest") == digest:
             passed_at = cached.get("passed_at_utc", "unknown time")
+            _SESSION_PASSED_DIGEST = digest
             print(
                 f"Training preflight gate skipped (config unchanged; cached pass from {passed_at})."
             )
@@ -472,16 +529,19 @@ def run_training_gate(
 
     run_training_preflight()
     if not skip_pytest:
-        run_training_pytest_suite()
+        run_training_pytest_suite(test_paths=TRAINING_PREFLIGHT_FAST_TEST_PATHS)
+        if integration_pytest:
+            run_training_pytest_suite(test_paths=TRAINING_INTEGRATION_TEST_PATHS)
 
-    if use_cache:
-        _save_preflight_cache_entry(cache_file, digest=digest)
+    _mark_training_gate_passed(digest=digest, cache_path=cache_path, use_cache=use_cache)
     return True
 
 
 __all__ = [
     "PREFLIGHT_SOURCE_PATHS",
     "TRAINING_FEATURE_CHECKS",
+    "TRAINING_INTEGRATION_TEST_PATHS",
+    "TRAINING_PREFLIGHT_FAST_TEST_PATHS",
     "TRAINING_TEST_PATHS",
     "TrainingFeatureCheck",
     "TrainingPreflightError",

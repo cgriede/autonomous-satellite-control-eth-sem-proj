@@ -73,7 +73,7 @@ def main() -> None:
 
     simulation_config = SimulationConfig(
         render_mode=render_mode,
-        controller_mode=args.controller_mode,
+        builtin_torque_policy=args.controller_mode,
     )
     simulation_series = _run_sat_simulation(simulation_config=simulation_config)
     _configure_matplotlib_backend(render_mode=render_mode)

@@ -380,15 +380,7 @@ def build_training_live_stats_rows(
     return rows
 
 
-def render_training_panel_html(
-    rows: list[tuple[str, str]],
-    *,
-    title: str = "Live stats",
-    border_style: str = "green",
-) -> str:
-    """Render a Rich table panel to standalone HTML for in-place notebook updates."""
-    from rich.console import Console
-    from rich.panel import Panel
+def _build_info_table(rows: list[tuple[str, str]]):
     from rich.table import Table
 
     table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
@@ -396,9 +388,72 @@ def render_training_panel_html(
     table.add_column("Value")
     for label, value in rows:
         table.add_row(label, value)
+    return table
+
+
+def _render_info_panel_html(
+    rows: list[tuple[str, str]],
+    *,
+    title: str,
+    border_style: str,
+) -> str:
+    from rich.console import Console
+    from rich.panel import Panel
+
+    from utils.notebook.display import wrap_notebook_rich_html
+
     console = Console(record=True, width=110)
-    console.print(Panel(table, title=f"[bold]{title}[/bold]", border_style=border_style))
-    return console.export_html(inline_styles=False)
+    console.print(
+        Panel(
+            _build_info_table(rows),
+            title=f"[bold]{title}[/bold]",
+            border_style=border_style,
+        )
+    )
+    return wrap_notebook_rich_html(console.export_html(inline_styles=False))
+
+
+def _display_info_panel(
+    rows: list[tuple[str, str]],
+    *,
+    title: str,
+    border_style: str,
+    file: Any | None = None,
+) -> None:
+    if _in_notebook():
+        from IPython.display import HTML, display
+
+        display(HTML(_render_info_panel_html(rows, title=title, border_style=border_style)))
+        return
+
+    out = sys.stdout if file is None else file
+    try:
+        from rich.console import Console
+        from rich.panel import Panel
+
+        console = Console(file=out)
+        console.print(
+            Panel(
+                _build_info_table(rows),
+                title=f"[bold]{title}[/bold]",
+                border_style=border_style,
+            )
+        )
+    except ImportError:
+        print(f"=== {title} ===", file=out)
+        for label, value in rows:
+            print(f"  {label}: {value}", file=out)
+        print(file=out)
+
+
+def render_training_panel_html(
+    rows: list[tuple[str, str]],
+    *,
+    title: str = "Live stats",
+    border_style: str = "green",
+) -> str:
+    """Render a Rich table panel to standalone HTML for in-place notebook updates."""
+    return _render_info_panel_html(rows, title=title, border_style=border_style)
 
 
 def print_training_context(
@@ -418,25 +473,12 @@ def print_training_context(
         agent=agent,
         episode_mode=episode_mode,
     )
-    out = sys.stdout if file is None else file
-
-    try:
-        from rich.console import Console
-        from rich.panel import Panel
-        from rich.table import Table
-
-        console = Console(file=out, force_jupyter=_in_notebook())
-        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
-        table.add_column("Parameter", style="cyan", no_wrap=True)
-        table.add_column("Value")
-        for label, value in rows:
-            table.add_row(label, value)
-        console.print(Panel(table, title="[bold]Training context[/bold]", border_style="green"))
-    except ImportError:
-        print("=== Training context ===", file=out)
-        for label, value in rows:
-            print(f"  {label}: {value}", file=out)
-        print(file=out)
+    _display_info_panel(
+        rows,
+        title="Training context",
+        border_style="green",
+        file=file,
+    )
 
 
 def print_simulation_info(
@@ -456,22 +498,9 @@ def print_simulation_info(
         agent=agent,
         episode_mode=episode_mode,
     )
-    out = sys.stdout if file is None else file
-
-    try:
-        from rich.console import Console
-        from rich.panel import Panel
-        from rich.table import Table
-
-        console = Console(file=out, force_jupyter=_in_notebook())
-        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 1))
-        table.add_column("Parameter", style="cyan", no_wrap=True)
-        table.add_column("Value")
-        for label, value in rows:
-            table.add_row(label, value)
-        console.print(Panel(table, title="[bold]Simulation info[/bold]", border_style="blue"))
-    except ImportError:
-        print("=== Simulation info ===", file=out)
-        for label, value in rows:
-            print(f"  {label}: {value}", file=out)
-        print(file=out)
+    _display_info_panel(
+        rows,
+        title="Simulation info",
+        border_style="blue",
+        file=file,
+    )

@@ -9,7 +9,7 @@ OFF_NADIR_HARD_LIMIT_DEG = 45.0 * ureg.deg
 SAFE_MODE_CRUISE_RATE_DEG_S = 0.35 * ureg.deg / ureg.s
 
 # No external torque accepted after nadir recovery.
-SAFE_MODE_LOCKOUT_S = 10.0 * ureg.s
+SAFE_MODE_LOCKOUT_S = 60.0 * ureg.s
 
 # Nadir pointing tolerance before lockout timer starts.
 NADIR_RECOVERY_TOLERANCE_DEG = 1.0 * ureg.deg

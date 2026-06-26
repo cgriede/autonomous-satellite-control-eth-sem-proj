@@ -44,7 +44,13 @@ from simulation.take_picture import TakePictureBudget, TakePictureConfig
 
 from .feature_selection import ControllerFeatureConfig
 
-from .controller_observation import build_controller_observation_from_timestep
+from .controller_observation import (
+    ControllerEpisodeContext,
+    ControllerObservationLayout,
+    build_controller_observation_from_timestep,
+    controller_observation_layout,
+    resolve_target_anchor_xy_km,
+)
 
 from .training_metrics import collect_episode_learning_stats, snapshot_metrics_start
 
@@ -79,6 +85,16 @@ class EpisodeRunner:
         self._setup = setup
 
         self._resolved = setup.resolve(require_camera=False)
+
+        earth_radius_km = float(self._resolved.earth_radius.to(self._resolved.ureg.km).magnitude)
+
+        self._target_anchor_xy_km = resolve_target_anchor_xy_km(
+
+            tuple(self._resolved.target_areas or ()),
+
+            earth_radius_km=earth_radius_km,
+
+        )
 
 
 
@@ -121,6 +137,8 @@ class EpisodeRunner:
         progress_display: TrainingProgressDisplay | None = None,
 
         early_stop_on_budget_exhausted: bool | None = None,
+
+        observation_layout: ControllerObservationLayout | None = None,
 
     ) -> EpisodeResult:
 
@@ -199,19 +217,59 @@ class EpisodeRunner:
 
 
 
+        feat_cfg = feature_config if feature_config is not None else ControllerFeatureConfig()
+
+        n_mission_targets = len(self._target_anchor_xy_km)
+
+        obs_layout = observation_layout
+
+        if obs_layout is None:
+
+            obs_layout = controller_observation_layout(
+
+                feature_config=feat_cfg,
+
+                secondary_camera_observation_line_n_bins=int(
+
+                    self._resolved.secondary_camera_observation_line_n_bins
+
+                ),
+
+                n_mission_targets=n_mission_targets,
+
+            )
+
+
+
+        def _episode_context() -> ControllerEpisodeContext | None:
+
+            if not feat_cfg.needs_mission_scalars:
+
+                return None
+
+            remaining = float(budget.remaining) if budget is not None else 0.0
+
+            return ControllerEpisodeContext(
+
+                capture_budget_remaining=remaining,
+
+                target_anchor_xy_km=self._target_anchor_xy_km,
+
+            )
+
+
+
         current_ts = stepper.current_timestep_state()
 
         obs = build_controller_observation_from_timestep(
 
             timestep=current_ts,
 
-            feature_config=feature_config,
+            feature_config=feat_cfg,
 
-            secondary_camera_observation_line_n_bins=int(
+            layout=obs_layout,
 
-                self._resolved.secondary_camera_observation_line_n_bins
-
-            ),
+            episode_context=_episode_context(),
 
         )
 
@@ -475,13 +533,11 @@ class EpisodeRunner:
 
                         timestep=next_ts,
 
-                        feature_config=feature_config,
+                        feature_config=feat_cfg,
 
-                        secondary_camera_observation_line_n_bins=int(
+                        layout=obs_layout,
 
-                            self._resolved.secondary_camera_observation_line_n_bins
-
-                        ),
+                        episode_context=_episode_context(),
 
                     )
 
@@ -493,13 +549,11 @@ class EpisodeRunner:
 
                         timestep=next_ts,
 
-                        feature_config=feature_config,
+                        feature_config=feat_cfg,
 
-                        secondary_camera_observation_line_n_bins=int(
+                        layout=obs_layout,
 
-                            self._resolved.secondary_camera_observation_line_n_bins
-
-                        ),
+                        episode_context=_episode_context(),
 
                     )
 

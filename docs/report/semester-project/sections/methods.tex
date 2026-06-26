@@ -8,7 +8,7 @@ The current mission is a single-satellite 2D polar overflight with a primary nad
 Altitude is sampled per episode; targets lie on a meridian stripe (see \texttt{environment\_definition/constants/MISSION.py}).
 
 \subsection{Observation and action}
-The gym environment (\texttt{SatelliteAttitudeControlEnv}) integrates attitude dynamics with step \SI{0.1}{\second}.
+Attitude dynamics are integrated in \texttt{SimulationStepper} with step $\Delta t = \SI{0.4}{\second}$ (\texttt{SIMULATION.simulation\_timestep}).
 The policy outputs three-axis reaction-wheel torque commands bounded by plant limits.
 Observations are assembled via explicit feature selection (\texttt{controller\_observation.py}); dimensions depend on enabled vision keys.
 

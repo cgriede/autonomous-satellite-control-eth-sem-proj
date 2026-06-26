@@ -25,10 +25,12 @@ VISION_OBSERVATION_LINE_KEYS: tuple[str, ...] = (
 @dataclass(frozen=True)
 class ControllerFeatureConfig:
     """
-    Grouped feature-key selection from ``SimulationTimestepState``.
+    Grouped feature-key selection from ``SimulationTimestepState`` plus optional
+    mission scalars computed in ``controller_observation`` (not on the timestep).
 
-    The returned input dictionary preserves grouped order:
-    ``attitude_keys -> orbit_keys -> wheel_keys -> vision_keys -> mission_keys``.
+    Timestep groups: ``attitude_keys``, ``orbit_keys``, ``vision_keys``.
+    Mission groups (via ``ControllerEpisodeContext``): ``include_capture_budget``,
+    ``include_target_bearing_errors`` (one signed bearing-error scalar per target [rad]).
     """
 
     attitude_keys: tuple[str, ...] = (
@@ -46,6 +48,12 @@ class ControllerFeatureConfig:
         "camera_observation_line_codes",
         "secondary_camera_observation_line_codes",
     )
+    include_capture_budget: bool = False
+    include_target_bearing_errors: bool = False
+
+    @property
+    def needs_mission_scalars(self) -> bool:
+        return self.include_capture_budget or self.include_target_bearing_errors
 
     @property
     def selected_keys(self) -> tuple[str, ...]:
@@ -54,6 +62,23 @@ class ControllerFeatureConfig:
             + self.orbit_keys
             + self.vision_keys
         )
+
+
+def mission_scalar_key_names(
+    *,
+    n_targets: int,
+    include_budget: bool,
+    include_bearings: bool,
+) -> tuple[str, ...]:
+    """Ordered mission scalar keys (not on ``SimulationTimestepState``)."""
+    if n_targets < 0:
+        raise ValueError("n_targets must be >= 0.")
+    keys: list[str] = []
+    if include_budget:
+        keys.append("capture_budget_remaining")
+    if include_bearings:
+        keys.extend(f"target_bearing_error_rad_{i}" for i in range(int(n_targets)))
+    return tuple(keys)
 
 
 def _to_plain_value(value: Any) -> Any:
@@ -95,5 +120,6 @@ def select_controller_inputs_from_timestep(
 __all__ = [
     "ControllerFeatureConfig",
     "VISION_OBSERVATION_LINE_KEYS",
+    "mission_scalar_key_names",
     "select_controller_inputs_from_timestep",
 ]

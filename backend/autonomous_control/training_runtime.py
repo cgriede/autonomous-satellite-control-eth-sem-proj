@@ -34,7 +34,7 @@ from .controller_observation import (
     ControllerObservationLayout,
     controller_observation_layout,
 )
-from .feature_selection import ControllerFeatureConfig, select_controller_inputs_from_timestep
+from .feature_selection import ControllerFeatureConfig, mission_scalar_key_names, select_controller_inputs_from_timestep
 from .reward import RewardConfig
 
 _OBSERVATION_CODE_ORDER: tuple[np.int8, ...] = (
@@ -49,6 +49,8 @@ _OBSERVATION_CODE_ORDER: tuple[np.int8, ...] = (
 def controller_observation_dim(
     feature_config: ControllerFeatureConfig | None = None,
     secondary_camera_observation_line_n_bins: int = 0,
+    *,
+    n_mission_targets: int = 0,
 ) -> int:
     """Fixed-size MPO state vector width for selected timestep keys.
 
@@ -56,6 +58,7 @@ def controller_observation_dim(
         secondary_camera_observation_line_n_bins: Bin count for the secondary camera
             observation line. Pass 200 for dual-camera s01 setups; 0 for single-camera
             (the secondary codes array will be empty and contribute 0 dimensions).
+        n_mission_targets: Mission target count for per-target bearing-error scalars.
     """
     cfg = feature_config if feature_config is not None else ControllerFeatureConfig()
     obs_dim = 0
@@ -73,6 +76,13 @@ def controller_observation_dim(
             )
         else:
             obs_dim += 1
+
+    mission_keys = mission_scalar_key_names(
+        n_targets=int(n_mission_targets),
+        include_budget=cfg.include_capture_budget,
+        include_bearings=cfg.include_target_bearing_errors,
+    )
+    obs_dim += len(mission_keys)
 
     return obs_dim
 
@@ -223,17 +233,22 @@ def make_attitude_control_env(
     reward_config: RewardConfig | None = None,
     feature_config: ControllerFeatureConfig | None = None,
     secondary_camera_observation_line_n_bins: int = 0,
+    n_mission_targets: int = 0,
+    observation_layout: ControllerObservationLayout | None = None,
 ) -> Any:
     _ = render_mode
     _ = reward_config
-    layout = controller_observation_layout(
-        feature_config=feature_config,
-        secondary_camera_observation_line_n_bins=secondary_camera_observation_line_n_bins,
+    cfg = feature_config if feature_config is not None else ControllerFeatureConfig()
+    layout = (
+        observation_layout
+        if observation_layout is not None
+        else controller_observation_layout(
+            feature_config=cfg,
+            secondary_camera_observation_line_n_bins=secondary_camera_observation_line_n_bins,
+            n_mission_targets=int(n_mission_targets),
+        )
     )
-    obs_dim = controller_observation_dim(
-        feature_config=feature_config,
-        secondary_camera_observation_line_n_bins=secondary_camera_observation_line_n_bins,
-    )
+    obs_dim = layout.scalar_dim + sum(layout.vision_seq_lens)
     high = np.full((obs_dim,), np.finfo(np.float32).max, dtype=np.float32)
     tau_max_nm = float(cast(Any, SATELLITE.reaction_wheel_max_torque).to(ureg.N * ureg.m).magnitude)
 

@@ -118,7 +118,7 @@ def main() -> None:
     args = parse_args()
     if not args.skip_preflight:
         try:
-            run_training_gate()
+            run_training_gate(integration_pytest=True)
         except TrainingPreflightError as exc:
             print(f"Training preflight failed:\n{exc}", file=sys.stderr)
             raise SystemExit(1) from exc

@@ -20,6 +20,8 @@ from environment_definition.constants.SIMULATION import (
 )
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from environment_definition.mission_profiles.s01_multiple_targets_fwd_fish import build_setup
+from environment_definition.constants.ATTITUDE_SAFETY import OFF_NADIR_HARD_LIMIT_DEG
+from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
 from simulation.attitude_controller import (
     NadirPointingGains,
     body_pointing_torque_nm,
@@ -27,6 +29,7 @@ from simulation.attitude_controller import (
     nadir_pointing_torque_nm,
     target_boresight_angle_rad,
     target_boresight_rate_rad_s,
+    target_pointing_safe_for_engage,
 )
 from simulation.state_types import SimulationStateSeries, SimulationTimestepState
 from simulation.stepper_factory import build_stepper
@@ -185,7 +188,8 @@ class BaselinePolicyAction:
 @dataclass
 class SequentialTargetBaselinePolicy:
     """
-    Scripted baseline: nadir coast until lead margin before each target, then target engage.
+    Scripted baseline: nadir coast until the orbit-φ window opens **and** target bearing
+    is within attitude-safety reach, then target engage.
 
     Emits PD torque requests (same helpers as AttitudePointingController) plus shutter
     commands on the training stack — policy requests only; safety applies torque.
@@ -217,7 +221,7 @@ class SequentialTargetBaselinePolicy:
         idx = min(max(0, self.active_target_index), self.n_targets - 1)
         return self.target_anchors[idx]
 
-    def should_engage(self, theta_orbit_rad: float) -> bool:
+    def in_phi_engage_window(self, theta_orbit_rad: float) -> bool:
         if self.active_target_index >= self.n_targets:
             return False
         phi_lo = float(self.target_leading_phi_lo_deg[self.active_target_index])
@@ -226,8 +230,53 @@ class SequentialTargetBaselinePolicy:
         engage_lo = phi_lo - float(self.lead_margin_deg)
         return engage_lo <= theta_deg <= phi_hi
 
-    def update_pointing_phase(self, theta_orbit_rad: float) -> None:
-        if self.pointing_phase == "nadir" and self.should_engage(theta_orbit_rad):
+    def should_engage(self, theta_orbit_rad: float) -> bool:
+        """Orbit-φ window only (legacy name). Prefer ``can_engage`` for full gating."""
+        return self.in_phi_engage_window(theta_orbit_rad)
+
+    def can_engage(
+        self,
+        state: SimulationTimestepState,
+        *,
+        sat_pos_xy_km: np.ndarray,
+        sat_inertia: Any,
+        tau_max_nm: float,
+    ) -> bool:
+        if not self.in_phi_engage_window(float(state.theta_orbit_rad)):
+            return False
+        idx = int(self.active_target_index)
+        if idx >= self.n_targets:
+            return False
+        anchor = np.asarray(self.target_anchors[idx], dtype=float)
+        omega_sat_q = float(state.omega_sat_rad_s) * ureg.rad / ureg.s
+        tau_max_q = (
+            float(tau_max_nm) * ureg.N * ureg.m
+            if tau_max_nm is not None
+            else REACTION_WHEEL_MAX_TORQUE
+        )
+        return target_pointing_safe_for_engage(
+            sat_pos_xy_km=np.asarray(sat_pos_xy_km, dtype=float),
+            ground_target_xy_km=anchor,
+            omega_sat=omega_sat_q,
+            tau_max=tau_max_q,
+            sat_inertia=sat_inertia,
+            off_nadir_limit=OFF_NADIR_HARD_LIMIT_DEG,
+        )
+
+    def update_pointing_phase(
+        self,
+        state: SimulationTimestepState,
+        *,
+        sat_pos_xy_km: np.ndarray,
+        sat_inertia: Any,
+        tau_max_nm: float,
+    ) -> None:
+        if self.pointing_phase == "nadir" and self.can_engage(
+            state,
+            sat_pos_xy_km=sat_pos_xy_km,
+            sat_inertia=sat_inertia,
+            tau_max_nm=tau_max_nm,
+        ):
             self.pointing_phase = "engage"
 
     def _gains(self, *, sat_inertia: Any, tau_max_nm: float) -> NadirPointingGains:

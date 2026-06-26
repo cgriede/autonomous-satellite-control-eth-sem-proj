@@ -176,9 +176,11 @@ def _worker_loop(
                     scalars_t, vision_t = controller_observation_to_tensors(obs, device=device)
                     with torch.no_grad():
                         dist = actor(scalars_t, vision_t)
-                        action_gaussian = dist.rsample() if train_mode else dist.mean
+                        action_gaussian = dist.sample() if train_mode else dist.mean
                         action_scaled = torch.tanh(action_gaussian) * action_scale + action_bias
-                    current_action_nm = float(action_scaled.detach().cpu().numpy().reshape(-1)[0])
+                    current_action_nm = float(
+                        action_scaled.detach().cpu().numpy().reshape(-1)[0]
+                    )
             next_ts = stepper.step(wheel_torque_cmd_nm=current_action_nm)
             next_obs = build_controller_observation_from_timestep(
                 timestep=next_ts,

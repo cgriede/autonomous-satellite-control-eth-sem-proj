@@ -40,7 +40,12 @@ def baseline_overflight_controller_tick(
 
     Returns ``(policy_action, gym_vector shape (2,), take_picture_cmd)``.
     """
-    policy.update_pointing_phase(float(state.theta_orbit_rad))
+    policy.update_pointing_phase(
+        state,
+        sat_pos_xy_km=sat_pos_xy_km,
+        sat_inertia=sat_inertia,
+        tau_max_nm=tau_max_nm,
+    )
     obs = policy.observe(state, sat_pos_xy_km=sat_pos_xy_km)
     action = policy.act(
         obs,

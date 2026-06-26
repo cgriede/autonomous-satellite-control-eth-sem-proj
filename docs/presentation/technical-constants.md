@@ -64,7 +64,7 @@ Source: `environment_definition/constants/ATTITUDE_SAFETY.py`, `simulation/attit
 - **Decel band (cruise → settle handoff):** `SAFE_MODE_DECEL_START_DEG` = 5.0° off-nadir.
 - **Stopped threshold:** `SAFE_MODE_OMEGA_STOP` = 0.1°/s (|ω_sat − ω_orbit| for phase transitions).
 - **Safe-mode cruise rate:** `SAFE_MODE_CRUISE_RATE_DEG_S` = 0.35°/s (added as slew command on top of orbit feedforward during CRUISE).
-- **Post-recovery lockout:** `SAFE_MODE_LOCKOUT_S` = 10 s (agent torque rejected; OBC nadir hold continues).
+- **Post-recovery lockout:** `SAFE_MODE_LOCKOUT_S` = 60 s (agent torque rejected; OBC nadir hold continues).
 - **Nadir target:** instantaneous `θ* = θ_orbit + π` with feedforward `ω_orbit`.
 - **Safe-mode intervals (agent cut throughout):** BRAKE → CRUISE → SETTLE → LOCKOUT.
   - **BRAKE:** `ω_cmd = 0`; advance when |ω_sat − ω_orbit| ≤ `SAFE_MODE_OMEGA_STOP`.

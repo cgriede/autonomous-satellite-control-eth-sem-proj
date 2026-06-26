@@ -66,13 +66,8 @@ class MPOAgent:
         self.action_high = torch.tensor(
             env.action_space.high, dtype=torch.float32, device=self.device
         )
-        # Per-dimension scaling for different activations:
-        # - Torque (dim 0): tanh outputs [-1, 1], scale to [action_low[0], action_high[0]]
-        # - Shutter (dim 1): sigmoid outputs [0, 1], scale to [action_low[1], action_high[1]]
-        self.torque_scale = (self.action_high[0] - self.action_low[0]) / 2
-        self.torque_bias = (self.action_high[0] + self.action_low[0]) / 2
-        self.shutter_scale = (self.action_high[1] - self.action_low[1])
-        self.shutter_bias = self.action_low[1]
+        self.action_scale = (self.action_high - self.action_low) / 2
+        self.action_bias = (self.action_high + self.action_low) / 2
 
         self.pi = Actor(
             self.action_low,
@@ -171,12 +166,8 @@ class MPOAgent:
         with torch.no_grad():
             dist_target = self.pi_target(next_scalars, next_vision)
             next_actions_samples = dist_target.sample((self.config.num_samples_q,))
-            # Apply per-dimension activations and scaling
-            next_torque_normalized = torch.tanh(next_actions_samples[..., 0:1])
-            next_torque_scaled = next_torque_normalized * self.torque_scale + self.torque_bias
-            next_shutter_normalized = torch.sigmoid(next_actions_samples[..., 1:2])
-            next_shutter_scaled = next_shutter_normalized * self.shutter_scale + self.shutter_bias
-            next_actions_rescaled = torch.cat([next_torque_scaled, next_shutter_scaled], dim=-1)
+            next_actions_tanh = torch.tanh(next_actions_samples)
+            next_actions_rescaled = next_actions_tanh * self.action_scale + self.action_bias
             next_actions_flat = next_actions_rescaled.reshape(
                 self.config.num_samples_q * self.config.batch_size, -1
             )
@@ -204,12 +195,8 @@ class MPOAgent:
 
         dist_online = self.pi(obs_scalars, obs_vision)
         actions_gaussian = dist_online.rsample((self.config.num_samples_pi,))
-        # Apply per-dimension activations and scaling
-        actions_torque_normalized = torch.tanh(actions_gaussian[..., 0:1])
-        actions_torque_scaled = actions_torque_normalized * self.torque_scale + self.torque_bias
-        actions_shutter_normalized = torch.sigmoid(actions_gaussian[..., 1:2])
-        actions_shutter_scaled = actions_shutter_normalized * self.shutter_scale + self.shutter_bias
-        actions_squashed = torch.cat([actions_torque_scaled, actions_shutter_scaled], dim=-1)
+        actions_tanh = torch.tanh(actions_gaussian)
+        actions_squashed = actions_tanh * self.action_scale + self.action_bias
         obs_scalars_expanded, obs_vision_expanded, _ = self._expand_obs_for_samples(
             obs_scalars, obs_vision, self.config.num_samples_pi
         )
@@ -222,10 +209,15 @@ class MPOAgent:
         self.metrics["eta"].append(float(eta.item()))
         weights = torch.softmax(q1_values_samples / eta, dim=0).squeeze(-1)
 
-        #BUG define actions tanh
         log_prob_gaussian = dist_online.log_prob(actions_gaussian).sum(-1)
         jacobian = torch.log(1 - actions_tanh.pow(2) + 1e-6).sum(-1)
         log_prob_samples = log_prob_gaussian - jacobian
+        # #region agent log
+        import json, time
+        from pathlib import Path
+        _dbg = Path(__file__).resolve().parents[2] / "debug-5a7091.log"
+        _dbg.open("a", encoding="utf-8").write(json.dumps({"sessionId":"5a7091","runId":"post-refactor","hypothesisId":"A","location":"controller_agent.py:train","message":"policy_loss_jacobian","data":{"jacobian_finite":bool(torch.isfinite(jacobian).all().item()),"actions_tanh_mean":float(actions_tanh.mean().item())},"timestamp":int(time.time()*1000)})+"\n")
+        # #endregion
         pi_loss = -(weights * log_prob_samples).mean()
         self.metrics["piloss"].append(float(pi_loss.item()))
 
@@ -295,24 +287,12 @@ class MPOAgent:
         with torch.no_grad():
             dist = self.pi(scalars, vision)
             if train:
-                # exploration during data collection
                 action_gaussian = dist.sample()
             else:
-                # deterministic eval
                 action_gaussian = dist.mean
+            action_scaled = torch.tanh(action_gaussian) * self.action_scale + self.action_bias
 
-            # Apply per-dimension activation functions and scale to action space bounds:
-            # - Torque (dim 0): tanh normalizes to [-1, 1], then scale to [-tau_max, tau_max]
-            # - Shutter (dim 1): sigmoid normalizes to [0, 1], then scale to [0, 1]
-            action_torque_normalized = torch.tanh(action_gaussian[..., 0:1])
-            action_torque_scaled = action_torque_normalized * self.torque_scale + self.torque_bias
-
-            action_shutter_normalized = torch.sigmoid(action_gaussian[..., 1:2])
-            action_shutter_scaled = action_shutter_normalized * self.shutter_scale + self.shutter_bias
-
-            action_final = torch.cat([action_torque_scaled, action_shutter_scaled], dim=-1)
-
-        return action_final.cpu().numpy().reshape(-1).astype(np.float64)
+        return action_scaled.cpu().numpy().reshape(-1).astype(np.float64)
 
     def store(
         self, transition: tuple[ControllerObservation, np.ndarray, float, ControllerObservation, bool]

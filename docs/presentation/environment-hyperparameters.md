@@ -35,6 +35,7 @@ Source: `utils/geometry/orbit_disk_polar_meridian.py`, `utils/geometry/polar_mer
 - **Not** the renderer north-polar azimuthal map (`geodesic_helpers.polar_azimuthal_plane_xy_km_to_lon_lat_deg`).
 - **Clouds:** `SIMULATION.Cloud` uses `base_altitude`, `top_altitude`, and `GeodeticLonLat` endpoints (`start_location`, `end_location`). Rainforest sampling (`s01_utils/cloud_formation.py`): integer-km start on formation path, extent 1–100 km, base 4–12 km, thickness 1–16 km, `top = min(base + thickness, 20 km)`. Simulation converts LLA → disk φ via `orbit_disk_polar_meridian` at kernel init.
 - **S01 baseline overflight clouds (notebook 07, `s01_utils/baseline_overflight.py`):** seeded clouds along the 50-target meridian corridor (first target leading edge → last target trailing edge), `cloud_seed = 0`. Bounds: `cloud_number_bounds = (15, 30)`, `cloud_range_bounds = 1–80 km`, `cloud_base_altitude_bounds = 4–12 km`, `cloud_thickness_bounds = 1–16 km`, `max_top_altitude = 20 km`. Default seed yields 27 cloud patches that partially/fully occlude some captures (reduces per-bin target coverage and adds `camera_cloud_blocked_fraction`).
+- **S01 baseline engage gate:** `SequentialTargetBaselinePolicy` enters target engage only when the orbit-φ window is open **and** `target_pointing_safe_for_engage` is true — projected off-nadir at the target boresight plus braking distance stays below `OFF_NADIR_HARD_LIMIT_DEG` (45°). Source: `simulation/attitude_controller.py`, `s01_utils/baseline_overflight.py`.
 
 ---
 
@@ -55,11 +56,12 @@ Source: `environment_definition/constants/SIMULATION.py`.
 
 # MPO training episodes (`EpisodeRunner`)
 
-Source: `environment_definition/constants/SIMULATION.py` (`training_episode_simulation_config`), `autonomous_control/episode_runner.py`.
+Source: `environment_definition/constants/SIMULATION.py` (`training_episode_simulation_config`), `autonomous_control/episode_runner.py`, `notebooks/s01/s01_utils/training_workflow.py`.
 
 - **Torque path:** external policy (`torque_command_source="external"`); warmup uses sequential baseline overflight (`SequentialTargetBaselinePolicy`), train/eval use `MPOAgent.get_action`. Both request torque; `AttitudeSafetyController` arbitrates before the wheel.
 - **Attitude safety:** `attitude_controller_enabled=True` — `AttitudeSafetyController` arbitrates every external torque command (off-nadir taper, safe-mode takeover) before the reaction-wheel plant.
 - **Replay buffer:** stores the **policy request** `[torque_request_nm, shutter_gym]` (shape `(2,)`); applied torque after arbitration is in `SimulationStateSeries.wheel_torque_cmd_nm`.
+- **Early stop on budget:** `TrainingWorkflowConfig.early_stop_on_budget_exhausted` (default `False`). When enabled, warmup/train episodes truncate once `TakePictureBudget.remaining == 0`; eval always runs the full configured horizon.
 
 ---
 
