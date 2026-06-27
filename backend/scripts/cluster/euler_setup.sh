@@ -4,12 +4,12 @@
 #
 # ETH guidance (https://docs.hpc.ethz.ch/software/package-managers/conda/):
 #   - Install conda envs in $HOME (not $SCRATCH /cluster/work — many small files hurt Lustre).
-#   - Use $SCRATCH for large short-lived run outputs (auto-deleted after ~15 days).
+#   - Training run outputs default to $REPO_ROOT/data (inside your git clone).
 #   - Use sbatch for all compute; never run training on login nodes.
 
 set -euo pipefail
 
-REPO_ROOT="${1:-${HOME}/auto-sat-train/autonomous-satellite-control-eth-sem-proj}"
+REPO_ROOT="${1:-${HOME}/auto-sat-train}"
 ENV_NAME="${AUTO_SAT_CONDA_ENV:-auto-sat}"
 
 echo "Repo target: ${REPO_ROOT}"
@@ -39,6 +39,7 @@ pip install -r "${REPO_ROOT}/requirements.txt"
 # CUDA wheels: pick the index matching the GPU driver on Euler (shareholder GPU nodes).
 pip install torch --index-url https://download.pytorch.org/whl/cu124
 
-mkdir -p "${SCRATCH:-${HOME}/scratch}/auto-sat-runs"
-echo "Run outputs (set in sbatch): AUTO_SAT_MODELS_ROOT=${SCRATCH}/auto-sat-runs"
+mkdir -p "${REPO_ROOT}/data"
+mkdir -p "${REPO_ROOT}/backend/scripts/cluster/cluster_logs"
+echo "Run outputs (set in sbatch): AUTO_SAT_MODELS_ROOT=${REPO_ROOT}/data"
 echo "Setup done. Submit with:  cd ${REPO_ROOT}/backend/scripts/cluster && sbatch euler_train.sbatch"

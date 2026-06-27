@@ -6,25 +6,33 @@ Docs: [HPC getting started](https://docs.hpc.ethz.ch/tutorials/getting-started/)
 
 ```bash
 # login node — once
-cd ~/auto-sat-train
-git clone <remote> autonomous-satellite-control-eth-sem-proj
-bash autonomous-satellite-control-eth-sem-proj/backend/scripts/cluster/euler_setup.sh
+cd ~
+git clone <remote> auto-sat-train
+bash auto-sat-train/backend/scripts/cluster/euler_setup.sh
 
 # submit job (always sbatch, never run training on login nodes)
-cd autonomous-satellite-control-eth-sem-proj/backend/scripts/cluster
+cd auto-sat-train/backend/scripts/cluster
+mkdir -p cluster_logs
 sbatch euler_train.sbatch
 squeue -u "$USER"
 ```
+
+Set `AUTO_SAT_REPO` if your clone lives elsewhere.
 
 ## Environment install (ETH rules)
 
 | What | Where |
 |------|--------|
 | Conda / `auto-sat` env | `$HOME` (you already have `~/miniconda3`) |
-| Training runs, videos, checkpoints | `$SCRATCH/auto-sat-runs` via `AUTO_SAT_MODELS_ROOT` |
+| Training runs, videos, checkpoints | `$REPO_ROOT/data` via `AUTO_SAT_MODELS_ROOT` (default: `~/auto-sat-train/data`) |
+| Slurm stdout/stderr | `backend/scripts/cluster/cluster_logs/` |
 | Optional fast temp I/O | Node `$TMPDIR` — request with `#SBATCH --tmp=10g` |
 
 Do **not** put conda envs on `$SCRATCH` or `/cluster/work` (many small files).
+
+## Run output retention
+
+`data/` lives in your repo clone under `$HOME`, so runs persist until you delete them (unlike `$SCRATCH`, which ETH auto-purges after ~15 days). `data/` is gitignored — sync checkpoints elsewhere if you need backups.
 
 ## GPU
 
@@ -32,4 +40,16 @@ GPUs require a **shareholder** account ([shareholders](https://docs.hpc.ethz.ch/
 
 ## Scratch sizing
 
-`$SCRATCH` holds up to ~2.5 TB per user; files older than ~15 days are deleted. Start without `--tmp`; add `--tmp=10g` only if you need node-local scratch for heavy temp I/O.
+`$SCRATCH` is unused for training outputs by default. Add `#SBATCH --tmp=10g` only if you need node-local scratch for heavy temp I/O during a job.
+
+## Episode video export
+
+Training exports MP4s via matplotlib's FFMpegWriter, which requires a system `ffmpeg` on `PATH`. `euler_train.sbatch` loads `stack/2024-06`, `gcc/12.2.0`, and `ffmpeg/6.0` after conda activate. On a login node, smoke-test with:
+
+```bash
+module load stack/2024-06 gcc/12.2.0 ffmpeg/6.0
+conda activate auto-sat
+python -c "import matplotlib.animation as a; print('ffmpeg writer', a.writers.is_available('ffmpeg'))"
+```
+
+Expected: `ffmpeg writer True`.
