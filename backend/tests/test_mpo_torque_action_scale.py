@@ -27,10 +27,9 @@ class _SaturatedPi(torch.nn.Module):
 
 
 class MpoTorqueActionScaleTest(unittest.TestCase):
-    def test_tanh_saturation_maps_to_action_space_torque_bounds(self):
+    def test_tanh_saturation_maps_to_normalized_torque_bounds(self):
         env = make_attitude_control_env()
         agent = MPOAgent(env, config=MPOConfig())
-        tau_max = float(env.action_space.high[0])
         obs = ControllerObservation(
             scalars=np.zeros(agent.layout.scalar_dim, dtype=np.float32),
             vision=tuple(np.zeros(n, dtype=np.int8) for n in agent.layout.vision_seq_lens),
@@ -38,11 +37,11 @@ class MpoTorqueActionScaleTest(unittest.TestCase):
 
         agent.pi = _SaturatedPi(gaussian_mean=10.0)
         out_pos = agent.get_action(obs, train=False)
-        self.assertAlmostEqual(float(out_pos[0]), tau_max, places=4)
+        self.assertAlmostEqual(float(out_pos[0]), 1.0, places=4)
 
         agent.pi = _SaturatedPi(gaussian_mean=-10.0)
         out_neg = agent.get_action(obs, train=False)
-        self.assertAlmostEqual(float(out_neg[0]), -tau_max, places=4)
+        self.assertAlmostEqual(float(out_neg[0]), -1.0, places=4)
 
 
 if __name__ == "__main__":

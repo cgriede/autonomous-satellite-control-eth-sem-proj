@@ -264,8 +264,8 @@ def make_attitude_control_env(
         observation_space=spaces.Box(-high, high, dtype=np.float32),
         observation_layout=layout,
         action_space=spaces.Box(
-            low=np.array([-tau_max_nm, -1.0], dtype=np.float32),
-            high=np.array([tau_max_nm, 1.0], dtype=np.float32),
+            low=np.array([-1.0, -1.0], dtype=np.float32),
+            high=np.array([1.0, 1.0], dtype=np.float32),
             shape=(2,),
             dtype=np.float32,
         ),

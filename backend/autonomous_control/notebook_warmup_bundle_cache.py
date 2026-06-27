@@ -17,13 +17,14 @@ from typing import Any
 import numpy as np
 
 from environment_definition.constants import SIMULATION
+from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
 from paths import MODELS_ROOT
 
 from autonomous_control.config.randomness import derive_seed
 from autonomous_control.feature_selection import ControllerFeatureConfig
 from autonomous_control.training_runtime import EpisodeResult, run_episode
 
-NB_WARMUP_BUNDLE_VERSION = 4
+NB_WARMUP_BUNDLE_VERSION = 6
 _EPISODES_FILENAME = "episodes.pkl.gz"
 _META_FILENAME = "meta.json"
 
@@ -68,6 +69,10 @@ def warmup_fingerprint_payload(
     feature_config: ControllerFeatureConfig | None,
     early_stop_on_budget_exhausted: bool = False,
     n_mission_targets: int = 0,
+    warmup_seed_tag: str = "nb_warmup",
+    secondary_camera_observation_line_n_bins: int = 0,
+    mission_profile: str = "generic",
+    warmup_targets_per_episode: int = 0,
 ) -> dict[str, Any]:
     return {
         "base_seed": int(base_seed),
@@ -83,6 +88,12 @@ def warmup_fingerprint_payload(
         "attitude_controller_enabled": True,
         "early_stop_on_budget_exhausted": bool(early_stop_on_budget_exhausted),
         "n_mission_targets": int(n_mission_targets),
+        "warmup_seed_tag": str(warmup_seed_tag),
+        "secondary_camera_observation_line_n_bins": int(
+            secondary_camera_observation_line_n_bins
+        ),
+        "mission_profile": str(mission_profile),
+        "warmup_targets_per_episode": int(warmup_targets_per_episode),
     }
 
 
@@ -124,6 +135,7 @@ def preload_warmup_buffer_from_episodes(agent: Any, episodes: list[EpisodeResult
         action_size = int(agent.buffer.actions.shape[1])
     else:
         action_size = int(getattr(agent, "action_size", 1))
+    tau_max_nm = float(REACTION_WHEEL_MAX_TORQUE.to("N*m").magnitude)
     n_stored = 0
     for ep in episodes:
         series = ep.simulation_series
@@ -144,10 +156,11 @@ def preload_warmup_buffer_from_episodes(agent: Any, episodes: list[EpisodeResult
             step_k = i + 1
             torque_nm = float(agent_cmds[step_k])
             if action_size == 1:
-                action = np.asarray([torque_nm], dtype=np.float32)
+                action = np.asarray([float(np.clip(torque_nm / tau_max_nm, -1.0, 1.0))], dtype=np.float32)
             elif action_size == 2:
+                torque_norm = float(np.clip(torque_nm / tau_max_nm, -1.0, 1.0))
                 shutter_gym = 1.0 if step_k in shutter_steps else -1.0
-                action = np.asarray([torque_nm, shutter_gym], dtype=np.float32)
+                action = np.asarray([torque_norm, shutter_gym], dtype=np.float32)
             else:
                 raise ValueError(f"Unsupported action_size for warmup preload: {action_size}")
             done = i == n - 1

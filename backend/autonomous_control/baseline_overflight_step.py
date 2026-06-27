@@ -15,13 +15,15 @@ def baseline_policy_action_to_gym_vector(
     action: Any,
     *,
     torque_request_nm: float | None = None,
+    tau_max_nm: float,
 ) -> np.ndarray:
-    """Map baseline policy action to MPO-compatible 2D gym vector."""
+    """Map baseline policy action to MPO-compatible normalized gym vector ``[torque_norm, shutter]``."""
     tau = float(
         torque_request_nm if torque_request_nm is not None else action.torque_request_nm
     )
+    tau_norm = float(np.clip(tau / float(tau_max_nm), -1.0, 1.0))
     shutter_gym = 1.0 if bool(action.take_picture) else -1.0
-    return np.array([tau, shutter_gym], dtype=np.float32)
+    return np.array([tau_norm, shutter_gym], dtype=np.float32)
 
 
 def baseline_overflight_controller_tick(
@@ -56,7 +58,9 @@ def baseline_overflight_controller_tick(
         sat_inertia=sat_inertia,
         tau_max_nm=float(tau_max_nm),
     )
-    gym_vector = baseline_policy_action_to_gym_vector(action)
+    gym_vector = baseline_policy_action_to_gym_vector(
+        action, tau_max_nm=float(tau_max_nm)
+    )
     take_picture_cmd = bool(action.take_picture)
     return action, gym_vector, take_picture_cmd
 

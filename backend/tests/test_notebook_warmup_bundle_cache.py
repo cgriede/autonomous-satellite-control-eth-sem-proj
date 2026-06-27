@@ -218,7 +218,10 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
             np.testing.assert_array_equal(loaded[0].simulation_series.t_s, ep.simulation_series.t_s)
 
     def test_preload_buffer_torques_match_series(self):
+        from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
+
         layout = make_attitude_control_env().observation_layout
+        tau_max = float(REACTION_WHEEL_MAX_TORQUE.to("N*m").magnitude)
         n_bins = int(SIMULATION.camera_observation_line_n_bins)
         ep = _synthetic_episode(n_frames=6, n_bins=n_bins)
         agent = _RecordingAgent(layout=layout, action_size=2)
@@ -228,8 +231,9 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
         shutter_steps = set(ep.simulation_series.metadata.take_picture_cmd_steps or ())
         for i in range(ep.steps):
             step_k = i + 1
-            torque = float(ep.simulation_series.wheel_torque_agent_cmd_nm[step_k])
-            self.assertAlmostEqual(float(agent.buffer.actions[i, 0]), torque)
+            torque_nm = float(ep.simulation_series.wheel_torque_agent_cmd_nm[step_k])
+            expected_torque_norm = float(np.clip(torque_nm / tau_max, -1.0, 1.0))
+            self.assertAlmostEqual(float(agent.buffer.actions[i, 0]), expected_torque_norm)
             expected_shutter = 1.0 if step_k in shutter_steps else -1.0
             self.assertAlmostEqual(float(agent.buffer.actions[i, 1]), expected_shutter)
             self.assertAlmostEqual(float(agent.buffer.rewards[i]), float(ep.simulation_series.simulation_reward[i + 1]))

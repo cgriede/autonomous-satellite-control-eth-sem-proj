@@ -18,51 +18,60 @@ class AutonomousControllerAction:
     active_observation: bool
 
 POLICY_RAW_DIM = 2
+DEFAULT_SHUTTER_THRESHOLD = 0.5
+
+
+def shutter_gym_to_unit_interval(shutter_gym: float) -> float:
+    """Map policy shutter dim in [-1, 1] to decision interval [0, 1]."""
+    return float(0.5 * (np.clip(float(shutter_gym), -1.0, 1.0) + 1.0))
+
+
+def shutter_cmd_from_gym(shutter_gym: float, *, threshold: float = DEFAULT_SHUTTER_THRESHOLD) -> bool:
+    """Boolean shutter command: values mapped to [0, 1] above ``threshold`` fire."""
+    return shutter_gym_to_unit_interval(shutter_gym) > float(threshold)
 
 
 def raw_policy_to_action(
     raw: np.ndarray,
     *,
     tau_limit: Any = REACTION_WHEEL_MAX_TORQUE,
-    active_threshold: float = 0.5,
+    active_threshold: float = DEFAULT_SHUTTER_THRESHOLD,
 ) -> AutonomousControllerAction:
-    """Map MPO gym action tensor to simulation/controller commands.
+    """Map normalized MPO action vector to simulation/controller commands.
 
-    MPO keeps a single tanh-squashed action vector. This adapter applies the
-    per-dimension simulation semantics at the ML/simulation boundary:
-    - dim 0 (torque): continuous N*m, clipped to hardware limit
-    - dim 1 (shutter): tanh gym value mapped to [0, 1], then thresholded
+    Policy / replay buffer semantics (both dims in [-1, 1]):
+    - dim 0 (torque): fraction of RW max torque request (-1 = full reverse, +1 = full forward)
+    - dim 1 (shutter): continuous pre-threshold signal; cmd is bool via ``shutter_cmd_from_gym``
     """
     if raw.shape != (POLICY_RAW_DIM,):
         raise ValueError(f"Expected raw shape ({POLICY_RAW_DIM},), got {raw.shape}.")
 
     tau_max = float(tau_limit.to(ureg.N * ureg.m).magnitude)
-    t = float(np.clip(raw[0], -tau_max, tau_max))
-    torque = t * ureg.N * ureg.m
-    
-    
-    #Map MPO gym shutter dim (tanh-squashed in [-1, 1]) to [0, 1] at sim boundary.
-    shutter_signal = float(0.5 * (np.clip(raw[1], -1.0, 1.0) + 1.0))
-    active = bool(shutter_signal > active_threshold)
+    torque_norm = float(np.clip(raw[0], -1.0, 1.0))
+    torque_nm = torque_norm * tau_max
+    torque = torque_nm * ureg.N * ureg.m
+    active = shutter_cmd_from_gym(float(raw[1]), threshold=active_threshold)
 
     return AutonomousControllerAction(wheel_torque_cmd=torque, active_observation=active)
 
 
 def to_gym_action_array(
-    action: AutonomousControllerAction,
-    *,
-    take_picture_signal: float,
+    raw: np.ndarray,
 ) -> np.ndarray:
-    """Map controller action to gym/MPO buffer vector ``[torque_nm, take_picture]``."""
-    tau_nm = float(action.wheel_torque_cmd.to(ureg.N * ureg.m).magnitude)
-    return np.array([tau_nm, float(take_picture_signal)], dtype=np.float32)
+    """Store normalized policy output for MPO replay: ``[torque_norm, shutter_gym]`` in [-1, 1]."""
+    if raw.shape != (POLICY_RAW_DIM,):
+        raise ValueError(f"Expected raw shape ({POLICY_RAW_DIM},), got {raw.shape}.")
+    return np.array(
+        [float(np.clip(raw[0], -1.0, 1.0)), float(np.clip(raw[1], -1.0, 1.0))],
+        dtype=np.float32,
+    )
 
 
 def policy_output_to_gym_action(
     raw: np.ndarray,
     *,
     tau_limit: Any | None = None,
-    active_threshold: float = 0.5,
+    active_threshold: float = DEFAULT_SHUTTER_THRESHOLD,
 ) -> tuple[AutonomousControllerAction, np.ndarray]:
     """Parse policy output and return controller action plus stored gym action vector."""
     if tau_limit is None:
@@ -72,6 +81,17 @@ def policy_output_to_gym_action(
         tau_limit=tau_limit,
         active_threshold=active_threshold,
     )
-    signal = float(raw[1]) if raw.shape == (POLICY_RAW_DIM,) else -1.0
-    return parsed, to_gym_action_array(parsed, take_picture_signal=signal)
+    stored = to_gym_action_array(raw)
+    return parsed, stored
 
+
+__all__ = [
+    "AutonomousControllerAction",
+    "DEFAULT_SHUTTER_THRESHOLD",
+    "POLICY_RAW_DIM",
+    "policy_output_to_gym_action",
+    "raw_policy_to_action",
+    "shutter_cmd_from_gym",
+    "shutter_gym_to_unit_interval",
+    "to_gym_action_array",
+]

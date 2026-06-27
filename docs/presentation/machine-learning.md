@@ -48,8 +48,11 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
   - `capture_budget_remaining` — pictures left this episode (dimensionless count).
   - `target_bearing_error_rad_i` — signed pointing error toward mission target *i* [rad], one per `len(target_areas)`; `wrap_pi(θ_boresight,i − body_z_angle_rad)`; 0 when aligned over target *i*.
 - Source: `S01_TRAINING_FEATURE_CONFIG` in `notebooks/s01/s01_utils/training_workflow.py`, `autonomous_control/controller_observation.py`.
-- **MPO action (2-D):** `[torque_request_nm, shutter_gym]` — torque clipped to ±`tau_max`; shutter fires when gym dim > 0 (MPO: after `tanh` + threshold). Source: `autonomous_control/action_adapter.py`, `autonomous_control/episode_runner.py`.
-- **Warmup:** notebook-07 `SequentialTargetBaselinePolicy` only; buffer stores the same 2-D request vector (`shutter_gym` = `+1` on capture steps, `-1` otherwise). Same sim config and safety stack as train/eval.
+- **MPO action (2-D, gym space `[-1, 1]²`):** policy outputs `[torque_norm, shutter_gym]`; replay buffer stores the same normalized vector via `to_gym_action_array`.
+  - **Torque:** `torque_norm ∈ [-1, 1]` → `wheel_torque_cmd = torque_norm × τ_max` [N·m] (`REACTION_WHEEL_MAX_TORQUE`).
+  - **Shutter:** continuous `shutter_gym ∈ [-1, 1]` → map to `[0, 1]` via `0.5 × (shutter_gym + 1)`; boolean cmd when mapped value **>** `0.5` (`DEFAULT_SHUTTER_THRESHOLD`).
+  - Source: `autonomous_control/action_adapter.py`, `autonomous_control/training_runtime.py` (`make_attitude_control_env`).
+- **Warmup:** notebook-07 `SequentialTargetBaselinePolicy`; buffer stores `[torque_norm, shutter_gym]` with `shutter_gym = +1` on capture steps, `-1` otherwise. Same sim config and safety stack as train/eval.
 
 ---
 
@@ -70,6 +73,16 @@ Source: `autonomous_control/episode_runner.py`, `notebooks/s01/s01_utils/trainin
 
 - MPO policy/critic implementation lives in `autonomous_control/controller_agent.py` (`MPOAgent`).
 - Main training/eval orchestration lives in `scripts/train_sat_agent.py` and `scripts/eval_sat_agent.py`.
+
+---
+
+# Vision 1D-CNN encoder (MPO)
+
+Source: `autonomous_control/mpo_config.py` (`MPOConfig.num_cnn_layers`), `autonomous_control/CNN_1d.py` (`cnn_vision_conv_stack`).
+
+- **`num_cnn_layers`:** selectable depth **1**, **2** (default), or **3** for each camera observation-line encoder.
+- **Kernel size by depth:** 1 layer → **k=3**, 2 layers → **k=5** (each layer), 3 layers → **k=7** (each layer).
+- **Channels / stride:** `(16)`, `(16, 32)`, or `(16, 32, 64)` with stride **2** per layer; output embedding **`cnn_embedding_dim` = 32**; code embedding **`code_embed_dim` = 8**.
 
 ---
 
