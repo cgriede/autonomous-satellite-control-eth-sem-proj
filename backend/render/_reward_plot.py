@@ -47,16 +47,15 @@ def _build_capture_reward_panel(
     ax.set_xlim(float(t_arr[0]), float(t_arr[-1]))
     ax.set_ylim(0.0, y_max + pad)
 
-    cmd_markers = None
+    cmd_vlines = None
     if cmd_times_s:
-        y_cmd = y_max + 0.04 * pad
-        (cmd_markers,) = ax.plot(
+        cmd_vlines = ax.vlines(
             list(cmd_times_s),
-            [y_cmd] * len(cmd_times_s),
-            linestyle="None",
-            marker="v",
-            markersize=5,
-            color=_TAKE_PICTURE_CMD_COLOR,
+            ymin=0.0,
+            ymax=max(0.02 * (y_max + pad), 0.5),
+            colors=_TAKE_PICTURE_CMD_COLOR,
+            linewidth=0.8,
+            alpha=0.85,
             zorder=3,
         )
 
@@ -65,12 +64,14 @@ def _build_capture_reward_panel(
         [],
         [],
         color="gold",
-        linewidth=1.0,
-        drawstyle="steps-post",
+        linewidth=0.0,
+        marker="o",
+        markersize=4,
+        linestyle="None",
         label="applied",
-        zorder=2,
+        zorder=4,
     )
-    (cursor,) = ax.plot([], [], color="yellow", marker="o", markersize=3, linestyle="None", zorder=4)
+    (cursor,) = ax.plot([], [], color="yellow", marker="o", markersize=3, linestyle="None", zorder=5)
 
     legend_handles: list = [latent_line, applied_line]
     if cmd_times_s:
@@ -88,7 +89,7 @@ def _build_capture_reward_panel(
         "latent_line": latent_line,
         "applied_line": applied_line,
         "cursor": cursor,
-        "cmd_markers": cmd_markers,
+        "cmd_vlines": cmd_vlines,
         "t_s": t_arr,
         "latent_reward": latent,
         "applied_reward": applied,
@@ -102,5 +103,11 @@ def update_reward_panel(artists: dict, sim_idx: int) -> None:
     latent = artists["latent_reward"]
     applied = artists["applied_reward"]
     artists["latent_line"].set_data(t_s[: k + 1], latent[: k + 1])
-    artists["applied_line"].set_data(t_s[: k + 1], applied[: k + 1])
+    prefix_t = t_s[: k + 1]
+    prefix_applied = applied[: k + 1]
+    applied_mask = prefix_applied > 0.0
+    if np.any(applied_mask):
+        artists["applied_line"].set_data(prefix_t[applied_mask], prefix_applied[applied_mask])
+    else:
+        artists["applied_line"].set_data([], [])
     artists["cursor"].set_data([t_s[k]], [latent[k]])

@@ -69,9 +69,7 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
     theta_txt = _fmt(scene.get("theta_orbit_deg", float("nan")), "\u00b0", "{:+.1f}")
 
     intersection_pct = float(scene.get("target_intersection_pct", float("nan")))
-    novelty_pct = float(scene.get("target_novelty_pct", float("nan")))
     inview_txt = _fmt(intersection_pct, "%", "{:.0f}")
-    novelty_txt = _fmt(novelty_pct, "%", "{:.0f}")
 
     lines = [
         "ORBIT",
@@ -85,7 +83,7 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
         f"  swath {swath_txt}   smear {smear_txt}",
         f"  quality {quality_txt}   blocked {blocked_txt}",
         "TARGET",
-        f"  in-view {inview_txt}   novelty {novelty_txt}",
+        f"  in-view {inview_txt}",
         f"  center {scene['intersection_text']}",
     ]
 
