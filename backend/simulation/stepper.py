@@ -91,7 +91,6 @@ class SimulationStepper:
         sat_motion_span_scale: float,
         sat_z_offset_deg: float,
         ureg: Any,
-        camera_pixel_ray_samples: int = 96,
         camera_observation_line_n_bins: int | None = None,
         reward_config: RewardConfig | None = None,
         clouds: tuple | None = None,
@@ -275,7 +274,6 @@ class SimulationStepper:
         _, _vf = calculate_fov_angles()
         self._camera_vertical_fov_rad = float(_vf.to(ureg.rad).magnitude)
         self._dt = self._sim_dt_s * ureg.s
-        self._camera_pixel_ray_samples = int(camera_pixel_ray_samples)
         self._reward_cfg = reward_config if reward_config is not None else RewardConfig()
         self._target_region_bounds_deg = target_areas_disk_phi_bounds_deg(self._target_areas)
         phi_lo_deg, phi_hi_deg = target_areas_envelope_disk_phi_bounds_deg(self._target_areas)
@@ -350,6 +348,13 @@ class SimulationStepper:
     @property
     def current_index(self) -> int:
         return int(self._index)
+
+    @property
+    def safe_mode_takeover_count(self) -> int:
+        """Episode cumulative count of ``SAFE_MODE_TAKEOVER`` attitude-safety events."""
+        return sum(
+            1 for event in self.attitude_safety_events if event.get("event") == "SAFE_MODE_TAKEOVER"
+        )
 
     def should_update_controller(self) -> bool:
         return (self._index % self._controller_interval_steps) == 0
@@ -631,7 +636,6 @@ class SimulationStepper:
             sim_total_s=self._sim_total_s,
             n_bins=int(self._camera_observation_line_codes.shape[1]),
             n_clouds=int(self._cloud_arc_radius_km.shape[1]),
-            camera_pixel_ray_samples=self._camera_pixel_ray_samples,
             clouds=self._clouds,
             camera_kernel_backend=self._camera_kernel_backend,
             n_bins_secondary=self._n_bins_secondary,
@@ -821,7 +825,6 @@ def run_baseline_rollout(
     sat_motion_span_scale: float,
     sat_z_offset_deg: float,
     ureg: Any,
-    camera_pixel_ray_samples: int = 96,
     camera_observation_line_n_bins: int | None = None,
     reward_config: RewardConfig | None = None,
     show_progress: bool = True,
@@ -847,7 +850,6 @@ def run_baseline_rollout(
         sat_motion_span_scale=sat_motion_span_scale,
         sat_z_offset_deg=sat_z_offset_deg,
         ureg=ureg,
-        camera_pixel_ray_samples=camera_pixel_ray_samples,
         camera_observation_line_n_bins=camera_observation_line_n_bins,
         reward_config=reward_config,
     )

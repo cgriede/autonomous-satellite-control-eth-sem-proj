@@ -140,6 +140,8 @@ class EpisodeRunner:
 
         observation_layout: ControllerObservationLayout | None = None,
 
+        warmup_capture_target_range: tuple[int, int] | None = None,
+
     ) -> EpisodeResult:
 
         """Run one episode and return EpisodeResult with SimulationStateSeries."""
@@ -187,7 +189,18 @@ class EpisodeRunner:
         overflight_policy: Any | None = None
 
         if mode == "warmup":
-            overflight_policy = _build_warmup_overflight_policy(self._setup, self._resolved)
+            capture_start, capture_end = 0, max(0, len(self._target_anchor_xy_km) - 1)
+            if warmup_capture_target_range is not None:
+                capture_start, capture_end = (
+                    int(warmup_capture_target_range[0]),
+                    int(warmup_capture_target_range[1]),
+                )
+            overflight_policy = _build_warmup_overflight_policy(
+                self._setup,
+                self._resolved,
+                capture_target_start=capture_start,
+                capture_target_end=capture_end,
+            )
 
 
 
@@ -579,6 +592,10 @@ class EpisodeRunner:
 
                         done=done,
 
+                        capture_budget_remaining=(
+                            int(budget.remaining) if budget is not None else None
+                        ),
+                        safe_mode_activations=int(stepper.safe_mode_takeover_count),
                     )
 
 
@@ -719,7 +736,13 @@ class EpisodeRunner:
 _WARMUP_OVERFLIGHT_CONTROLLERS = frozenset({"baseline", "overflight"})
 
 
-def _build_warmup_overflight_policy(setup: EnvironmentSetup, resolved: Any) -> Any:
+def _build_warmup_overflight_policy(
+    setup: EnvironmentSetup,
+    resolved: Any,
+    *,
+    capture_target_start: int = 0,
+    capture_target_end: int | None = None,
+) -> Any:
     """Build notebook-07 sequential baseline policy for warmup episodes."""
     import sys
     from pathlib import Path
@@ -730,7 +753,12 @@ def _build_warmup_overflight_policy(setup: EnvironmentSetup, resolved: Any) -> A
     from s01_utils.baseline_overflight import build_overflight_policy
 
     earth_radius_km = float(resolved.earth_radius.to(resolved.ureg.km).magnitude)
-    return build_overflight_policy(setup, earth_radius_km=earth_radius_km)
+    return build_overflight_policy(
+        setup,
+        earth_radius_km=earth_radius_km,
+        capture_target_start=capture_target_start,
+        capture_target_end=capture_target_end,
+    )
 
 
 def _infer_torque_policy_label(agent: Any, mode: str) -> str:

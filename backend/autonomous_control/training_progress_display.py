@@ -113,17 +113,20 @@ class TrainingProgressDisplay:
         reward: float,
         episode_return: float,
         done: bool,
+        capture_budget_remaining: int | None = None,
+        safe_mode_activations: int | None = None,
     ) -> None:
         if self._step_bar is None:
             return
         self._step_bar.update(1)
         interval = self._live_feed_interval()
         if (step % interval) == 0 or done:
-            self._step_bar.set_postfix(
-                reward=f"{reward:.3f}",
-                total=f"{episode_return:.1f}",
-                refresh=False,
-            )
+            postfix: dict[str, str] = {"return": f"{episode_return:.1f}"}
+            if capture_budget_remaining is not None:
+                postfix["budget"] = str(int(capture_budget_remaining))
+            if safe_mode_activations is not None:
+                postfix["safe"] = str(int(safe_mode_activations))
+            self._step_bar.set_postfix(**postfix, refresh=False)
             self._step_bar.refresh()
             self._emit_live_update(
                 ts,
@@ -131,6 +134,8 @@ class TrainingProgressDisplay:
                 reward=reward,
                 episode_return=episode_return,
                 done=done,
+                capture_budget_remaining=capture_budget_remaining,
+                safe_mode_activations=safe_mode_activations,
             )
 
     def end_episode(self) -> None:
@@ -160,6 +165,8 @@ class TrainingProgressDisplay:
         reward: float,
         episode_return: float,
         done: bool,
+        capture_budget_remaining: int | None = None,
+        safe_mode_activations: int | None = None,
     ) -> None:
         if self._config.show_live_stats:
             self._show_live_stats(
@@ -168,6 +175,8 @@ class TrainingProgressDisplay:
                 reward=reward,
                 episode_return=episode_return,
                 done=done,
+                capture_budget_remaining=capture_budget_remaining,
+                safe_mode_activations=safe_mode_activations,
             )
         if self._config.show_camera_feed:
             primary = np.asarray(ts.camera_observation_line_codes, dtype=np.int8)
@@ -191,6 +200,8 @@ class TrainingProgressDisplay:
         reward: float,
         episode_return: float,
         done: bool,
+        capture_budget_remaining: int | None = None,
+        safe_mode_activations: int | None = None,
     ) -> None:
         rows = build_training_live_stats_rows(
             ts,
@@ -203,6 +214,8 @@ class TrainingProgressDisplay:
             episode_total=self._episode_total,
             agent=self._agent,
             metrics_start=self._metrics_start,
+            capture_budget_remaining=capture_budget_remaining,
+            safe_mode_activations=safe_mode_activations,
         )
         if done:
             rows.append(("status", "episode done"))
@@ -216,6 +229,8 @@ class TrainingProgressDisplay:
                 episode_return=float(episode_return),
                 phase=self._mode,
                 done=bool(done),
+                capture_budget_remaining=capture_budget_remaining,
+                safe_mode_activations=safe_mode_activations,
             )
 
         if self._in_notebook:

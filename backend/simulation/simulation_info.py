@@ -6,11 +6,30 @@ from typing import Any
 
 import numpy as np
 
+from environment_definition.constants.ATTITUDE_SAFETY import (
+    OFF_NADIR_HARD_LIMIT_DEG,
+    SAFE_MODE_LOCKOUT_S,
+)
 from environment_definition.constants.SATELLITE import CAMERA_EXPOSURE_TIME
 from utils.units.require_compatible_unit import require_compatible_units
 
 from .state_types import SimulationTimestepState
 from .stepper import SimulationStepper
+
+_PILOT_KIND_LABELS: dict[str, str] = {
+    "sequential_target_baseline": "Sequential baseline",
+    "random_torque_agent": "Random torque",
+    "max_torque_sweep_agent": "Max-torque sweep",
+    "delayed_max_torque": "Delayed max torque",
+    "zero_torque": "Zero torque",
+    "MPOAgent": "MPOAgent",
+}
+
+_ROLLOUT_PHASE_LABELS: dict[str, str] = {
+    "warmup": "warmup",
+    "train": "training",
+    "eval": "evaluation",
+}
 
 
 def _format_exposure_for_display(exposure_time: Any, ureg: Any) -> str:
@@ -48,22 +67,78 @@ def _agent_descriptor(agent: Any | None) -> str | None:
     return " | ".join(parts)
 
 
-def _reward_summary(reward_config: Any) -> str:
+def _pilot_kind_label(meta: Any, agent: Any | None) -> str:
+    """Human-readable pilot/controller name (torque + shutter policy)."""
+    raw = meta.torque_policy_label or meta.builtin_torque_policy
+    if raw:
+        base = str(raw).split(":")[0]
+        if base in _PILOT_KIND_LABELS:
+            return _PILOT_KIND_LABELS[base]
+        return str(base).replace("_", " ")
+    if agent is not None:
+        name = type(agent).__name__
+        return _PILOT_KIND_LABELS.get(name, name)
+    return "unknown"
+
+
+def _rollout_phase_label(episode_mode: str | None) -> str | None:
+    if episode_mode is None:
+        return None
+    return _ROLLOUT_PHASE_LABELS.get(str(episode_mode).lower(), str(episode_mode))
+
+
+def _reward_program_rows(reward_config: Any) -> list[tuple[str, str]]:
+    """Describe reward terms that are actually active for this episode."""
     if reward_config is None:
-        return "defaults"
-    flags = []
-    for name in (
-        "enable_distance_reward",
-        "enable_outer_gate",
-        "enable_energy",
-        "enable_area_intersection",
-        "enable_area_novelty",
-        "enable_cloud_penalty",
-        "enable_secondary_cloud_penalty",
-    ):
-        if getattr(reward_config, name, False):
-            flags.append(name.removeprefix("enable_"))
-    return ", ".join(flags) if flags else "all core terms off"
+        return [("reward program", "defaults")]
+
+    rows: list[tuple[str, str]] = []
+    if getattr(reward_config, "enable_image_quality_capture", False):
+        rows.append(
+            (
+                "reward (capture)",
+                "applied on shutter: coverage × quality × (1 − clouds); latent every step",
+            )
+        )
+    if getattr(reward_config, "enable_distance_reward", False):
+        outer = "on" if getattr(reward_config, "enable_outer_gate", False) else "off"
+        rows.append(("reward (distance band)", f"LOS band shaping · outer gate {outer}"))
+    if getattr(reward_config, "enable_area_intersection", False):
+        rows.append(("reward (area intersection)", "on"))
+    if getattr(reward_config, "enable_area_novelty", False):
+        rows.append(("reward (area novelty)", "on"))
+    if getattr(reward_config, "enable_energy", False):
+        rows.append(("reward (energy)", "wheel momentum penalty"))
+    if getattr(reward_config, "enable_cloud_penalty", False):
+        rows.append(("reward (cloud penalty)", "primary observation line"))
+    if getattr(reward_config, "enable_secondary_cloud_penalty", False):
+        rows.append(("reward (cloud penalty)", "secondary strip"))
+
+    if rows:
+        return rows
+    return [("reward program", "no active terms")]
+
+
+def _attitude_safety_rows(stepper: SimulationStepper, ureg: Any) -> list[tuple[str, str]]:
+    hard_limit_deg = float(OFF_NADIR_HARD_LIMIT_DEG.to(ureg.deg).magnitude)
+    lockout_s = float(SAFE_MODE_LOCKOUT_S.to(ureg.s).magnitude)
+    rw_rate_deg_s = float(
+        stepper._reaction_wheel.max_manouver_rate.to(ureg.deg / ureg.s).magnitude
+    )
+    return [
+        (
+            "attitude safe-mode limit",
+            f"off-nadir > {hard_limit_deg:.0f} deg → brake, nadir recovery, then lockout",
+        ),
+        (
+            "attitude safe-mode lockout",
+            f"{lockout_s:.0f} s with no agent torque after nadir recovery",
+        ),
+        (
+            "attitude RW rate limit",
+            f"|omega_sat| > {rw_rate_deg_s:.2f} deg/s → block opposing torque",
+        ),
+    ]
 
 
 def _camera_mount_lines(
@@ -73,7 +148,6 @@ def _camera_mount_lines(
     altitude: Any,
     ureg: Any,
     n_bins: int,
-    pixel_ray_samples: int | None,
     vertical_fov_rad: float | None,
     include_exposure: bool,
     reward_role: str,
@@ -85,24 +159,21 @@ def _camera_mount_lines(
     tilt_deg = float(mount.tilt_off_nadir.to(ureg.deg).magnitude)
     gsd_m = float(cam.gsd_at(altitude).to(ureg.m).magnitude)
     rows: list[tuple[str, str]] = [
-        ("role", reward_role),
-        ("tilt off nadir", f"{tilt_deg:.2f} deg"),
-        ("FOV (cross x along)", f"{fov_x_deg:.2f} deg x {fov_y_deg:.2f} deg"),
-        ("resolution", f"{cam.n_pixels_x} x {cam.n_pixels_y} px"),
-        ("pixel pitch", f"{float(cam.pixel_size.to(ureg.um).magnitude):.2f} um"),
-        ("focal length", f"{float(cam.focal_length.to(ureg.mm).magnitude):.1f} mm"),
-        (f"GSD @ {alt_km:.1f} km", f"{gsd_m:.3f} m"),
-        ("observation line bins", str(n_bins)),
+        (label, ""),
+        ("  role", reward_role),
+        ("  tilt off nadir", f"{tilt_deg:.2f} deg"),
+        ("  FOV (cross x along)", f"{fov_x_deg:.2f} deg x {fov_y_deg:.2f} deg"),
+        ("  resolution", f"{cam.n_pixels_x} x {cam.n_pixels_y} px"),
+        ("  pixel pitch", f"{float(cam.pixel_size.to(ureg.um).magnitude):.2f} um"),
+        ("  focal length", f"{float(cam.focal_length.to(ureg.mm).magnitude):.1f} mm"),
+        (f"  GSD @ {alt_km:.1f} km", f"{gsd_m:.3f} m"),
+        ("  observation line bins", str(n_bins)),
     ]
-    if pixel_ray_samples is not None:
-        rows.append(("strip ray samples", str(pixel_ray_samples)))
     if vertical_fov_rad is not None:
-        rows.append(
-            ("sim vertical FOV", f"{np.rad2deg(vertical_fov_rad):.3f} deg"),
-        )
+        rows.append(("  sim vertical FOV", f"{np.rad2deg(vertical_fov_rad):.3f} deg"))
     if include_exposure:
-        rows.append(("exposure time", _format_exposure_for_display(cam.exposure_time, ureg)))
-    return [(f"{label} - {k}", v) for k, v in rows]
+        rows.append(("  exposure time", _format_exposure_for_display(cam.exposure_time, ureg)))
+    return rows
 
 
 def build_simulation_info_rows(
@@ -120,7 +191,6 @@ def build_simulation_info_rows(
     configured_ctrl_s = float(stepper._configured_controller_interval_s)
     effective_ctrl_s = float(stepper.effective_controller_update_interval_s)
     ctrl_steps = int(stepper.controller_update_interval_steps)
-    sim_cfg = simulation_config if simulation_config is not None else stepper._sim_config
 
     rows: list[tuple[str, str]] = [
         ("episode duration", f"{meta.sim_total_s:.2f} s"),
@@ -128,45 +198,26 @@ def build_simulation_info_rows(
         ("integration steps", f"{stepper.total_steps} (+1 state samples)"),
         ("orbit altitude", f"{alt_km:.2f} km"),
         ("orbit period", f"{meta.orbit_period_s:.1f} s"),
-        ("theta center offset", f"{np.rad2deg(stepper._theta_center_rad):.2f} deg"),
         ("episode theta start (rel. center)", f"{meta.start_angle_deg:.3f} deg"),
         ("episode theta end (rel. center)", f"{meta.end_angle_deg:.3f} deg"),
         ("sat motion span scale", f"{stepper._sat_motion_span_scale:.3f}"),
-        ("sat z offset", f"{stepper._sat_z_offset_deg:.2f} deg"),
+        ("target areas", str(len(stepper._target_areas))),
+        ("cloud patches", str(len(stepper._clouds))),
+        ("render mode", str(meta.render_mode)),
+        ("pilot", _pilot_kind_label(meta, agent)),
     ]
+    rollout = _rollout_phase_label(episode_mode)
+    if rollout is not None:
+        rows.append(("rollout", rollout))
     rows.extend(
         [
-            ("target areas", str(len(stepper._target_areas))),
-            ("target phi stripe", f"{stepper._stripe_phi_min_deg:.2f} deg .. {stepper._stripe_phi_max_deg:.2f} deg"),
-            ("cloud patches", str(len(stepper._clouds))),
-            ("render mode", str(meta.render_mode)),
-            ("torque command source", str(meta.torque_command_source)),
-            (
-                "torque policy",
-                str(meta.torque_policy_label or meta.builtin_torque_policy or meta.controller_mode),
-            ),
-            (
-                "attitude controller",
-                "enabled" if meta.attitude_controller_enabled else "disabled",
-            ),
-            ("control stack (display)", str(meta.controller_mode)),
-            ("controller seed", "-" if getattr(sim_cfg, "controller_seed", None) is None else str(sim_cfg.controller_seed)),
             ("controller update (configured)", f"{configured_ctrl_s:g} s"),
             ("controller update (effective)", f"{effective_ctrl_s:g} s ({ctrl_steps} steps)"),
             ("reaction-wheel torque max", f"{tau_max_nm:.4f} N*m" if tau_max_nm is not None else "-"),
-            (
-                "attitude safety cutoff",
-                f"|omega_sat| > {float(stepper._reaction_wheel.max_manouver_rate.to(ureg.deg / ureg.s).magnitude):.2f} deg/s -> block opposing torque",
-            ),
-            ("camera kernel backend", str(stepper._camera_kernel_backend)),
-            ("reward shaping", _reward_summary(stepper._reward_cfg)),
         ]
     )
-    if episode_mode is not None:
-        rows.append(("episode runner mode", episode_mode))
-    agent_line = _agent_descriptor(agent)
-    if agent_line is not None:
-        rows.append(("agent", agent_line))
+    rows.extend(_attitude_safety_rows(stepper, ureg))
+    rows.extend(_reward_program_rows(stepper._reward_cfg))
 
     n_bins_primary = int(stepper._camera_observation_line_codes.shape[1])
     if len(stepper._cameras) >= 1:
@@ -177,23 +228,22 @@ def build_simulation_info_rows(
                 altitude=stepper._satellite_altitude,
                 ureg=ureg,
                 n_bins=n_bins_primary,
-                pixel_ray_samples=stepper._camera_pixel_ray_samples,
                 vertical_fov_rad=stepper._camera_vertical_fov_rad,
                 include_exposure=True,
-                reward_role="shapes reward (observation line + strip)",
+                reward_role="shapes reward (observation line + cloud fraction)",
             )
         )
     else:
         rows.extend(
             [
-                ("Camera 1 (primary)", "default nadir pinhole (no explicit mount)"),
-                ("Camera 1 · observation line bins", str(n_bins_primary)),
-                ("Camera 1 · strip ray samples", str(stepper._camera_pixel_ray_samples)),
+                ("Camera 1 (primary)", ""),
+                ("  mount", "default nadir pinhole (no explicit mount)"),
+                ("  observation line bins", str(n_bins_primary)),
                 (
-                    "Camera 1 · sim vertical FOV",
+                    "  sim vertical FOV",
                     f"{np.rad2deg(stepper._camera_vertical_fov_rad):.3f} deg",
                 ),
-                ("Camera 1 · exposure time", _format_exposure_for_display(CAMERA_EXPOSURE_TIME, ureg)),
+                ("  exposure time", _format_exposure_for_display(CAMERA_EXPOSURE_TIME, ureg)),
             ]
         )
 
@@ -205,7 +255,6 @@ def build_simulation_info_rows(
                 altitude=stepper._satellite_altitude,
                 ureg=ureg,
                 n_bins=stepper._n_bins_secondary,
-                pixel_ray_samples=None,
                 vertical_fov_rad=stepper._secondary_vertical_fov_rad,
                 include_exposure=False,
                 reward_role="cloud/context only (no exposure in reward)",
@@ -235,19 +284,12 @@ def build_training_context_rows(
     n_bins_primary = int(stepper._camera_observation_line_codes.shape[1])
     n_bins_secondary = int(stepper._n_bins_secondary) if stepper._has_secondary else 0
 
-    rows: list[tuple[str, str]] = []
-    if episode_mode is not None:
-        rows.append(("episode runner mode", str(episode_mode)))
-    agent_line = _agent_descriptor(agent)
-    if agent_line is not None:
-        rows.append(("agent", agent_line))
-    rows.append(
-        (
-            "control stack",
-            f"{meta.torque_policy_label or meta.controller_mode} "
-            f"(attitude controller {'on' if meta.attitude_controller_enabled else 'off'})",
-        )
-    )
+    rows: list[tuple[str, str]] = [
+        ("pilot", _pilot_kind_label(meta, agent)),
+    ]
+    rollout = _rollout_phase_label(episode_mode)
+    if rollout is not None:
+        rows.append(("rollout", rollout))
     rows.extend(
         [
             (
@@ -263,11 +305,10 @@ def build_training_context_rows(
                     else ""
                 ),
             ),
-            ("reward shaping", _reward_summary(stepper._reward_cfg)),
             (
                 "mission",
                 f"alt {alt_km:.1f} km · θ {meta.start_angle_deg:.1f}°..{meta.end_angle_deg:.1f}° · "
-                f"{len(stepper._target_areas)} target stripe · {len(stepper._clouds)} clouds",
+                f"{len(stepper._target_areas)} targets · {len(stepper._clouds)} clouds",
             ),
             (
                 "observation",
@@ -280,6 +321,7 @@ def build_training_context_rows(
             ),
         ]
     )
+    rows.extend(_reward_program_rows(stepper._reward_cfg))
     return rows
 
 
@@ -323,6 +365,8 @@ def build_training_live_stats_rows(
     episode_total: int | None = None,
     agent: Any | None = None,
     metrics_start: Any | None = None,
+    capture_budget_remaining: int | None = None,
+    safe_mode_activations: int | None = None,
 ) -> list[tuple[str, str]]:
     """Rows that change during rollout — for periodic live training panels."""
     pct = 100.0 * float(step) / max(1, int(total_steps))
@@ -334,11 +378,18 @@ def build_training_live_stats_rows(
         ("episode", ep_label),
         ("step", f"{step} / {total_steps} ({pct:.1f}%)"),
         ("sim time", f"{float(ts.sim_time_s):.1f} s"),
-        ("step reward", f"{reward:.4f}"),
-        ("episode return", f"{episode_return:.2f}"),
-        ("body z angle", f"{float(ts.body_z_angle_rad):.4f} rad"),
-        ("omega sat", f"{float(ts.omega_sat_rad_s):.4f} rad/s"),
+        ("reward", f"{episode_return:.2f}"),
     ]
+    if capture_budget_remaining is not None:
+        rows.append(("shutter budget", f"{int(capture_budget_remaining)} remaining"))
+    if safe_mode_activations is not None:
+        rows.append(("safe mode activations", f"{int(safe_mode_activations)}"))
+    rows.extend(
+        [
+            ("body z angle", f"{float(ts.body_z_angle_rad):.4f} rad"),
+            ("omega sat", f"{float(ts.omega_sat_rad_s):.4f} rad/s"),
+        ]
+    )
 
     smear = float(ts.primary_camera_image_smear_px)
     quality = float(ts.primary_camera_image_quality)

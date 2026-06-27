@@ -167,6 +167,8 @@ class RunTelemetryWriter:
         episode_return: float | None = None,
         phase: str | None = None,
         done: bool | None = None,
+        capture_budget_remaining: int | None = None,
+        safe_mode_activations: int | None = None,
     ) -> None:
         record = {
             "event": "step_snapshot",
@@ -183,6 +185,10 @@ class RunTelemetryWriter:
             record["phase"] = str(phase)
         if done is not None:
             record["done"] = bool(done)
+        if capture_budget_remaining is not None:
+            record["capture_budget_remaining"] = int(capture_budget_remaining)
+        if safe_mode_activations is not None:
+            record["safe_mode_activations"] = int(safe_mode_activations)
         with self._lock:
             self._write_event(record)
             self._write_latest(record)
