@@ -150,6 +150,18 @@ def geodetic_lonlat_deg(location: Any) -> tuple[float, float]:
     return float(lat_q.to(ureg.deg).magnitude), float(lon_q.to(ureg.deg).magnitude)
 
 
+def track_offset_deg_from_disk_xy_km(
+    xy_km: np.ndarray,
+    *,
+    ell: Any | None = None,
+) -> float:
+    """Along-track offset δ [deg] for a subsatellite / ground point on the orbit disk."""
+    from utils.geometry.orbit_disk_wgs84 import disk_xy_km_to_geodetic_deg
+
+    lon_deg, lat_deg = disk_xy_km_to_geodetic_deg(np.asarray(xy_km, dtype=float), ell=ell)
+    return track_offset_deg_from_geodetic_deg(float(lat_deg), float(lon_deg))
+
+
 def track_offset_deg_from_latitude_only_deg(lat_deg: float) -> float:
     """
     Map latitude [deg] to track offset when longitude is implied by the meridian rule.

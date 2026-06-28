@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import sys
 import warnings
+from pathlib import Path
 
 from typing import Any
 
@@ -53,32 +54,6 @@ from .controller_observation import (
 )
 
 from .training_metrics import collect_episode_learning_stats, snapshot_metrics_start
-
-
-def _dbg846e2b(*, hypothesis_id: str, location: str, message: str, data: dict[str, Any]) -> None:
-    # #region agent log
-    try:
-        import json
-        import time
-        from pathlib import Path
-
-        _log = Path(__file__).resolve().parents[2] / "debug-846e2b.log"
-        _log.open("a", encoding="utf-8").write(
-            json.dumps(
-                {
-                    "sessionId": "846e2b",
-                    "hypothesisId": hypothesis_id,
-                    "location": location,
-                    "message": message,
-                    "data": data,
-                    "timestamp": int(time.time() * 1000),
-                }
-            )
-            + "\n"
-        )
-    except OSError:
-        pass
-    # #endregion
 
 
 from .training_progress_display import TrainingProgressDisplay
@@ -167,7 +142,7 @@ class EpisodeRunner:
 
         observation_layout: ControllerObservationLayout | None = None,
 
-        warmup_capture_target_range: tuple[int, int] | None = None,
+        warmup_capture_targets: tuple[int, ...] | None = None,
 
     ) -> EpisodeResult:
 
@@ -216,29 +191,13 @@ class EpisodeRunner:
         overflight_policy: Any | None = None
 
         if mode == "warmup":
-            capture_start, capture_end = 0, max(0, len(self._target_anchor_xy_km) - 1)
-            if warmup_capture_target_range is not None:
-                capture_start, capture_end = (
-                    int(warmup_capture_target_range[0]),
-                    int(warmup_capture_target_range[1]),
-                )
+            capture_targets: tuple[int, ...] | None = warmup_capture_targets
+            if capture_targets is None:
+                capture_targets = tuple(range(len(self._target_anchor_xy_km)))
             overflight_policy = _build_warmup_overflight_policy(
                 self._setup,
                 self._resolved,
-                capture_target_start=capture_start,
-                capture_target_end=capture_end,
-            )
-            _dbg846e2b(
-                hypothesis_id="H4",
-                location="episode_runner.py:warmup_policy",
-                message="warmup capture slice",
-                data={
-                    "mode": mode,
-                    "capture_start": int(capture_start),
-                    "capture_end": int(capture_end),
-                    "policy_start": int(getattr(overflight_policy, "active_target_index", -1)),
-                    "policy_end": int(getattr(overflight_policy, "capture_target_end", -1)),
-                },
+                capture_targets=capture_targets,
             )
 
 
@@ -265,7 +224,7 @@ class EpisodeRunner:
 
         if early_stop_on_budget_exhausted is None:
 
-            early_stop_on_budget_exhausted = capture_enabled and mode in {"warmup", "train"}
+            early_stop_on_budget_exhausted = False
 
 
 
@@ -300,12 +259,19 @@ class EpisodeRunner:
                 return None
 
             remaining = float(budget.remaining) if budget is not None else 0.0
+            captured = (
+                frozenset(budget.captured_target_indices)
+                if budget is not None
+                else frozenset()
+            )
 
             return ControllerEpisodeContext(
 
                 capture_budget_remaining=remaining,
 
                 target_anchor_xy_km=self._target_anchor_xy_km,
+
+                captured_target_indices=captured,
 
             )
 
@@ -338,9 +304,8 @@ class EpisodeRunner:
         episode_return = 0.0
 
         steps = 0
+        pilot_store_count = 0
         ended_early_on_budget = False
-        warmup_shutter_cmds = 0
-        warmup_shutter_applied = 0
 
         train_mode = mode in {"warmup", "train"}
 
@@ -456,7 +421,11 @@ class EpisodeRunner:
 
                 take_picture_cmd = False
 
+                pilot_command_issued = False
+
                 if stepper.should_update_controller():
+
+                    pilot_command_issued = True
 
                     if mode == "warmup":
 
@@ -491,18 +460,6 @@ class EpisodeRunner:
                         current_action_nm = float(_action.torque_request_nm)
 
                         current_take_picture_signal = float(stored_action[1])
-                        if take_picture_cmd:
-                            warmup_shutter_cmds += 1
-                            _dbg846e2b(
-                                hypothesis_id="H2",
-                                location="episode_runner.py:baseline_tick",
-                                message="baseline shutter cmd at controller tick",
-                                data={
-                                    "step": int(steps),
-                                    "sim_idx": int(ctrl_state.step_idx),
-                                    "active_target": int(getattr(overflight_policy, "active_target_index", -1)),
-                                },
-                            )
 
                     else:
 
@@ -561,18 +518,6 @@ class EpisodeRunner:
                 if take_picture_cmd and budget is not None:
 
                     capture = stepper.apply_shutter_capture(cmd_step, budget)
-                    if mode == "warmup":
-                        warmup_shutter_applied += 1
-                        _dbg846e2b(
-                            hypothesis_id="H3",
-                            location="episode_runner.py:apply_shutter",
-                            message="shutter applied",
-                            data={
-                                "cmd_step": int(cmd_step),
-                                "budget_remaining": int(budget.remaining),
-                                "picture_taken": bool(capture.override.picture_taken),
-                            },
-                        )
 
                     next_ts = stepper.current_timestep_state()
 
@@ -665,17 +610,25 @@ class EpisodeRunner:
 
 
 
-                if mode in {"warmup", "train"} and hasattr(agent, "store"):
+                if (
+                    pilot_command_issued
+                    and mode in {"warmup", "train"}
+                    and hasattr(agent, "store")
+                ):
 
                     agent.store((obs, stored_action.copy(), reward, next_obs, done))
 
-                    if mode == "train" and ((steps + 1) % train_stride) == 0:
+                    if mode == "train":
 
-                        for _ in range(train_updates_per_step):
+                        pilot_store_count += 1
 
-                            if hasattr(agent, "train"):
+                        if (pilot_store_count % train_stride) == 0:
 
-                                agent.train()
+                            for _ in range(train_updates_per_step):
+
+                                if hasattr(agent, "train"):
+
+                                    agent.train()
 
 
 
@@ -708,27 +661,6 @@ class EpisodeRunner:
             if progress_display is not None:
 
                 progress_display.end_episode()
-
-            if mode == "warmup" and overflight_policy is not None:
-                _dbg846e2b(
-                    hypothesis_id="H1",
-                    location="episode_runner.py:warmup_episode_end",
-                    message="warmup shutter summary",
-                    data={
-                        "steps": int(steps),
-                        "episode_return": float(episode_return),
-                        "warmup_shutter_cmds": int(warmup_shutter_cmds),
-                        "warmup_shutter_applied": int(warmup_shutter_applied),
-                        "budget_remaining": int(budget.remaining) if budget is not None else None,
-                        "policy_cmd_steps": len(getattr(overflight_policy, "cmd_steps", []) or []),
-                        "capture_start": int(getattr(overflight_policy, "capture_target_start", -1)),
-                        "capture_end": int(getattr(overflight_policy, "capture_target_end", -1)),
-                        "final_active_target": int(getattr(overflight_policy, "active_target_index", -1)),
-                        "shuttered_indices": sorted(getattr(overflight_policy, "_shuttered", set()) or []),
-                    },
-                )
-
-
 
         if ended_early_on_budget:
             early_msg = (
@@ -824,8 +756,7 @@ def _build_warmup_overflight_policy(
     setup: EnvironmentSetup,
     resolved: Any,
     *,
-    capture_target_start: int = 0,
-    capture_target_end: int | None = None,
+    capture_targets: tuple[int, ...] | None = None,
 ) -> Any:
     """Build notebook-07 sequential baseline policy for warmup episodes."""
     import sys
@@ -840,8 +771,7 @@ def _build_warmup_overflight_policy(
     return build_overflight_policy(
         setup,
         earth_radius_km=earth_radius_km,
-        capture_target_start=capture_target_start,
-        capture_target_end=capture_target_end,
+        capture_targets=capture_targets,
     )
 
 

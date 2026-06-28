@@ -86,6 +86,42 @@ def geodetic_deg_in_target_areas(
     ) is not None
 
 
+def batch_geodetic_target_area_indices(
+    lon_deg: np.ndarray,
+    lat_deg: np.ndarray,
+    offset_ranges: tuple[tuple[float, float], ...],
+) -> np.ndarray:
+    """Per-point target index, or -1 when no area contains the geodetic point."""
+    lon_arr = np.asarray(lon_deg, dtype=float).reshape(-1)
+    lat_arr = np.asarray(lat_deg, dtype=float).reshape(-1)
+    if lon_arr.shape != lat_arr.shape:
+        raise ValueError("lon_deg and lat_deg must have the same shape.")
+    n = lon_arr.shape[0]
+    result = np.full(n, -1, dtype=np.int32)
+    if n == 0 or not offset_ranges:
+        return result
+
+    offsets = np.full(n, np.nan, dtype=float)
+    for i in range(n):
+        try:
+            offsets[i] = track_offset_deg_from_geodetic_deg(float(lat_arr[i]), float(lon_arr[i]))
+        except ValueError:
+            continue
+
+    valid = np.isfinite(offsets)
+    if not np.any(valid):
+        return result
+
+    lo = np.array([r[0] for r in offset_ranges], dtype=float)
+    hi = np.array([r[1] for r in offset_ranges], dtype=float)
+    in_range = (offsets[:, None] >= lo[None, :]) & (offsets[:, None] <= hi[None, :])
+    has_match = in_range.any(axis=1)
+    first_idx = np.argmax(in_range, axis=1)
+    matched = np.where(has_match, first_idx, -1)
+    result[valid] = matched[valid]
+    return result
+
+
 def geodetic_target_area_index(
     *,
     lon_deg: float,
@@ -173,6 +209,16 @@ def target_areas_envelope_disk_phi_bounds_deg(
     return min(lo for lo, _ in per_area), max(hi for _, hi in per_area)
 
 
+def observation_target_area_midpoint_geodetic_deg(area: Any) -> tuple[float, float]:
+    """Geodetic midpoint of one target band on the pole-meridian model (δ, branch-aware)."""
+    lat_a, lon_a = _area_endpoint_geodetic_deg(area, which="min")
+    lat_b, lon_b = _area_endpoint_geodetic_deg(area, which="max")
+    off_a = track_offset_deg_from_geodetic_deg(lat_a, lon_a)
+    off_b = track_offset_deg_from_geodetic_deg(lat_b, lon_b)
+    off_mid = 0.5 * (float(off_a) + float(off_b))
+    return geodetic_deg_from_track_offset_deg(off_mid)
+
+
 def target_areas_midpoint_disk_xy_km_on_sphere(
     target_areas: tuple,
     *,
@@ -180,14 +226,23 @@ def target_areas_midpoint_disk_xy_km_on_sphere(
     lon_deg: float | None = None,
     ell: Ellipsoid | None = None,
 ) -> np.ndarray:
-    """Mid-latitude anchor between the first and last target bands on the rendering sphere."""
+    """Mid-track-offset anchor between the first and last target bands on the rendering sphere."""
     e = WGS84_ELLIPSOID if ell is None else ell
-    lon = float(LON_GLOBAL.to(ureg.deg).magnitude) if lon_deg is None else float(lon_deg)
     first = target_areas[0]
     last = target_areas[-1]
-    lat_mid_deg = 0.5 * (
-        float(first.lat_min.to(ureg.deg).magnitude) + float(last.lat_max.to(ureg.deg).magnitude)
-    )
+    if lon_deg is not None:
+        lat_mid_deg = 0.5 * (
+            float(first.lat_min.to(ureg.deg).magnitude)
+            + float(last.lat_max.to(ureg.deg).magnitude)
+        )
+        lon = float(lon_deg)
+    else:
+        lat_a, lon_a = _area_endpoint_geodetic_deg(first, which="min")
+        lat_b, lon_b = _area_endpoint_geodetic_deg(last, which="max")
+        off_lo = track_offset_deg_from_geodetic_deg(lat_a, lon_a)
+        off_hi = track_offset_deg_from_geodetic_deg(lat_b, lon_b)
+        off_mid = 0.5 * (float(off_lo) + float(off_hi))
+        lat_mid_deg, lon = geodetic_deg_from_track_offset_deg(off_mid)
     x_m, _y_m, z_m = geodetic2ecef(lat_mid_deg, lon, 0.0, ell=e, deg=True)
     xy = np.array([float(x_m), float(z_m)], dtype=float) / KM_TO_M
     norm = float(np.linalg.norm(xy))

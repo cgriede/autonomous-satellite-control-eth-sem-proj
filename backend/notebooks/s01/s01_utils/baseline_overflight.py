@@ -34,7 +34,12 @@ from simulation.attitude_controller import (
 from simulation.state_types import SimulationStateSeries, SimulationTimestepState
 from simulation.stepper_factory import build_stepper
 from simulation.take_picture import TakePictureBudget, TakePictureConfig
-from utils.geometry.mission_stripe_disk import target_areas_disk_phi_bounds_deg, target_areas_midpoint_disk_xy_km_on_sphere
+from utils.geometry.mission_stripe_disk import (
+    target_areas_disk_phi_bounds_deg,
+    target_areas_midpoint_disk_xy_km_on_sphere,
+    target_areas_track_offset_ranges_deg,
+)
+from utils.geometry.orbit_disk_polar_meridian import track_offset_deg_from_disk_xy_km
 from utils.geometry.orbit_disk_wgs84 import disk_xy_km_to_geodetic_deg
 from utils.geometry.polar_meridian_track import (
     MeridianTargetSegment,
@@ -53,6 +58,7 @@ BASELINE_MISSION_SEED = 0
 BASELINE_LEAD_MARGIN_DEG = 20.0
 DEFAULT_TRACKING_THRESHOLD_DEG = 15.0
 MIN_CAPTURE_QUALITY = 0.25
+
 
 # Baseline cloud formation: rainforest-style clouds seeded along the target-grid corridor
 # (same canonical generator as notebook 02). Bounds are pint-backed (km).
@@ -176,6 +182,7 @@ class BaselinePolicyObservation:
     body_z_angle_rad: float
     target_visible_in_strip: bool
     sat_subpoint_lat_deg: float
+    sat_track_offset_deg: float
     camera_image_quality: float
 
 
@@ -194,35 +201,41 @@ class SequentialTargetBaselinePolicy:
     Emits PD torque requests (same helpers as AttitudePointingController) plus shutter
     commands on the training stack — policy requests only; safety applies torque.
 
-    ``capture_target_start`` / ``capture_target_end`` (inclusive) limit which targets
-    this episode attempts to image; orbit and target layout are unchanged.
+    ``capture_targets`` lists which target indices this episode images, in order.
     """
 
     target_anchors: tuple[tuple[float, float], ...]
     target_areas: tuple[ObservationTargetArea, ...]
     target_leading_phi_lo_deg: tuple[float, ...]
     target_trailing_phi_hi_deg: tuple[float, ...]
+    target_track_offset_ranges_deg: tuple[tuple[float, float], ...] | None = None
     lead_margin_deg: float = BASELINE_LEAD_MARGIN_DEG
     tracking_threshold_deg: float = DEFAULT_TRACKING_THRESHOLD_DEG
     pointing_phase: str = "nadir"
     active_target_index: int = 0
-    capture_target_start: int = 0
-    capture_target_end: int | None = None
+    capture_targets: tuple[int, ...] | None = None
+    _capture_i: int = 0
     cmd_steps: list[int] | None = None
     _shuttered: set[int] | None = None
     _pointing_gains: NadirPointingGains | None = None
+    _phi_window_skipped: set[int] | None = None
 
     def __post_init__(self) -> None:
         if self.cmd_steps is None:
             self.cmd_steps = []
         if self._shuttered is None:
             self._shuttered = set()
-        end = self.n_targets - 1 if self.capture_target_end is None else int(self.capture_target_end)
-        end = min(max(0, end), self.n_targets - 1)
-        start = min(max(0, int(self.capture_target_start)), end)
-        self.capture_target_start = start
-        self.capture_target_end = end
-        self.active_target_index = start
+        if self._phi_window_skipped is None:
+            self._phi_window_skipped = set()
+        if self.target_track_offset_ranges_deg is None:
+            self.target_track_offset_ranges_deg = target_areas_track_offset_ranges_deg(
+                self.target_areas
+            )
+        if self.capture_targets is None:
+            self.capture_targets = tuple(range(self.n_targets))
+        self.active_target_index = (
+            int(self.capture_targets[0]) if self.capture_targets else self.n_targets
+        )
 
     @property
     def n_targets(self) -> int:
@@ -282,13 +295,44 @@ class SequentialTargetBaselinePolicy:
         sat_inertia: Any,
         tau_max_nm: float,
     ) -> None:
-        if self.pointing_phase == "nadir" and self.can_engage(
+        idx = int(self.active_target_index)
+        track_offset_deg = track_offset_deg_from_disk_xy_km(np.asarray(sat_pos_xy_km, dtype=float))
+        if (
+            idx < self.n_targets
+            and idx not in self._shuttered
+            and self._capture_i < len(self.capture_targets)
+            and self._active_target_needs_phi_window()
+        ):
+            phi_hi = float(self.target_trailing_phi_hi_deg[idx])
+            theta_deg = float(np.rad2deg(float(state.theta_orbit_rad)))
+            if theta_deg > phi_hi and idx not in self._phi_window_skipped:
+                self._phi_window_skipped.add(idx)
+                self._skip_missed_capture_target(
+                    _step_idx=int(state.step_idx),
+                    _reason="phi_window_missed",
+                )
+                idx = int(self.active_target_index)
+        if self.pointing_phase == "nadir" and not self._flown_over_previous_capture(
+            float(track_offset_deg)
+        ):
+            return
+        if self.pointing_phase == "nadir" and self._active_target_needs_phi_window():
+            if not self.in_phi_engage_window(float(state.theta_orbit_rad)):
+                return
+            if not self._safe_to_point_at_active(
+                state,
+                sat_pos_xy_km=sat_pos_xy_km,
+                sat_inertia=sat_inertia,
+                tau_max_nm=tau_max_nm,
+            ):
+                return
+        self._try_enter_engage(
             state,
             sat_pos_xy_km=sat_pos_xy_km,
             sat_inertia=sat_inertia,
             tau_max_nm=tau_max_nm,
-        ):
-            self.pointing_phase = "engage"
+            track_offset_deg=float(track_offset_deg),
+        )
 
     def _gains(self, *, sat_inertia: Any, tau_max_nm: float) -> NadirPointingGains:
         if self._pointing_gains is None:
@@ -354,6 +398,7 @@ class SequentialTargetBaselinePolicy:
         codes = np.asarray(state.camera_observation_line_codes, dtype=np.int8)
         visible = bool(np.any(codes == np.int8(OBSERVATION_TARGET)))
         _lon, lat = disk_xy_km_to_geodetic_deg(np.asarray(sat_pos_xy_km, dtype=float))
+        track_offset = track_offset_deg_from_disk_xy_km(np.asarray(sat_pos_xy_km, dtype=float))
         return BaselinePolicyObservation(
             active_target_index=int(self.active_target_index),
             pointing_phase=str(self.pointing_phase),
@@ -361,26 +406,109 @@ class SequentialTargetBaselinePolicy:
             body_z_angle_rad=float(state.body_z_angle_rad),
             target_visible_in_strip=visible,
             sat_subpoint_lat_deg=float(lat),
+            sat_track_offset_deg=float(track_offset),
             camera_image_quality=float(state.primary_camera_image_quality),
         )
 
-    def _active_target_lat_overlap(self, lat_deg: float) -> bool:
-        idx = int(self.active_target_index)
-        if idx >= self.n_targets:
-            return False
-        area = self.target_areas[idx]
-        lo = float(area.lat_min.to(ureg.deg).magnitude)
-        hi = float(area.lat_max.to(ureg.deg).magnitude)
-        return min(lo, hi) <= float(lat_deg) <= max(lo, hi)
+    def _target_track_range_deg(self, target_idx: int) -> tuple[float, float]:
+        lo, hi = self.target_track_offset_ranges_deg[int(target_idx)]
+        return float(lo), float(hi)
 
-    def _past_trailing_edge(self, lat_deg: float) -> bool:
+    def _active_target_track_overlap(self, track_offset_deg: float) -> bool:
         idx = int(self.active_target_index)
         if idx >= self.n_targets:
             return False
-        area = self.target_areas[idx]
-        hi = float(area.lat_max.to(ureg.deg).magnitude)
-        lo = float(area.lat_min.to(ureg.deg).magnitude)
-        return float(lat_deg) > max(lo, hi)
+        lo, hi = self._target_track_range_deg(idx)
+        return lo <= float(track_offset_deg) <= hi
+
+    def _flown_over_target(self, target_idx: int, track_offset_deg: float) -> bool:
+        if target_idx < 0 or target_idx >= self.n_targets:
+            return True
+        _lo, hi = self._target_track_range_deg(int(target_idx))
+        return float(track_offset_deg) > hi
+
+    def _flown_over_previous_capture(self, track_offset_deg: float) -> bool:
+        """True once the prior scheduled target is captured or its trailing edge is passed."""
+        if self._capture_i <= 0 or not self.capture_targets:
+            return True
+        prev_idx = int(self.capture_targets[self._capture_i - 1])
+        if prev_idx in self._shuttered:
+            return True
+        return self._flown_over_target(prev_idx, track_offset_deg)
+
+    def _active_target_needs_phi_window(self) -> bool:
+        """Only the first scheduled target waits for orbit-φ; later targets slew on flyover."""
+        return int(self._capture_i) == 0
+
+    def _safe_to_point_at_active(
+        self,
+        state: SimulationTimestepState,
+        *,
+        sat_pos_xy_km: np.ndarray,
+        sat_inertia: Any,
+        tau_max_nm: float,
+    ) -> bool:
+        idx = int(self.active_target_index)
+        if idx >= self.n_targets:
+            return False
+        anchor = np.asarray(self.target_anchors[idx], dtype=float)
+        omega_sat_q = float(state.omega_sat_rad_s) * ureg.rad / ureg.s
+        tau_max_q = (
+            float(tau_max_nm) * ureg.N * ureg.m
+            if tau_max_nm is not None
+            else REACTION_WHEEL_MAX_TORQUE
+        )
+        return target_pointing_safe_for_engage(
+            sat_pos_xy_km=np.asarray(sat_pos_xy_km, dtype=float),
+            ground_target_xy_km=anchor,
+            omega_sat=omega_sat_q,
+            tau_max=tau_max_q,
+            sat_inertia=sat_inertia,
+            off_nadir_limit=OFF_NADIR_HARD_LIMIT_DEG,
+        )
+
+    def _try_enter_engage(
+        self,
+        state: SimulationTimestepState,
+        *,
+        sat_pos_xy_km: np.ndarray,
+        sat_inertia: Any,
+        tau_max_nm: float,
+        track_offset_deg: float,
+    ) -> bool:
+        if self.pointing_phase != "nadir":
+            return False
+        if int(self.active_target_index) >= self.n_targets:
+            return False
+        if not self._flown_over_previous_capture(track_offset_deg):
+            return False
+        if self._flown_over_target(int(self.active_target_index), track_offset_deg):
+            return False
+        if self._active_target_needs_phi_window() and not self.in_phi_engage_window(
+            float(state.theta_orbit_rad)
+        ):
+            return False
+        if not self._safe_to_point_at_active(
+            state,
+            sat_pos_xy_km=sat_pos_xy_km,
+            sat_inertia=sat_inertia,
+            tau_max_nm=tau_max_nm,
+        ):
+            return False
+        self.pointing_phase = "engage"
+        return True
+
+    def _past_trailing_edge(self, track_offset_deg: float) -> bool:
+        return self._flown_over_target(int(self.active_target_index), track_offset_deg)
+
+    def _skip_missed_capture_target(self, *, _step_idx: int, _reason: str) -> None:
+        """Advance strided schedule when the current target cannot be shuttered in its window."""
+        self.pointing_phase = "nadir"
+        self._capture_i += 1
+        if self._capture_i < len(self.capture_targets):
+            self.active_target_index = int(self.capture_targets[self._capture_i])
+        else:
+            self.active_target_index = self.n_targets
 
     def act(
         self,
@@ -403,65 +531,45 @@ class SequentialTargetBaselinePolicy:
         take_picture = False
         if obs.pointing_phase == "engage":
             idx = int(obs.active_target_index)
-            if (
-                idx < self.capture_target_start
-                or idx > self.capture_target_end
-                or idx >= self.n_targets
-                or idx in self._shuttered
-            ):
+            if idx >= self.n_targets or idx in self._shuttered:
                 pass
             else:
                 threshold_rad = float(np.deg2rad(self.tracking_threshold_deg))
                 bearing = float(obs.target_boresight_angles_rad[idx])
                 tracking_err = abs(float(obs.body_z_angle_rad) - bearing)
                 quality = float(obs.camera_image_quality)
-                in_band = self._active_target_lat_overlap(obs.sat_subpoint_lat_deg)
-                past_trailing = self._past_trailing_edge(obs.sat_subpoint_lat_deg)
+                track_offset = float(obs.sat_track_offset_deg)
+                in_band = self._active_target_track_overlap(track_offset)
+                past_trailing = self._past_trailing_edge(track_offset)
                 if in_band or past_trailing:
                     locked = tracking_err <= threshold_rad
                     quality_ok = np.isfinite(quality) and quality >= MIN_CAPTURE_QUALITY
                     if locked or quality_ok or past_trailing:
                         self._shuttered.add(idx)
                         self.cmd_steps.append(int(step_idx))
-                        self.pointing_phase = "nadir"
-                        next_idx = idx + 1
-                        if next_idx > self.capture_target_end:
-                            self.active_target_index = self.n_targets
+                        self._capture_i += 1
+                        next_idx = (
+                            int(self.capture_targets[self._capture_i])
+                            if self._capture_i < len(self.capture_targets)
+                            else self.n_targets
+                        )
+                        self.active_target_index = next_idx
+                        if next_idx < self.n_targets and (
+                            past_trailing
+                            or self._flown_over_target(idx, track_offset)
+                        ):
+                            if self._safe_to_point_at_active(
+                                state,
+                                sat_pos_xy_km=sat_pos_xy_km,
+                                sat_inertia=sat_inertia,
+                                tau_max_nm=tau_max_nm,
+                            ):
+                                self.pointing_phase = "engage"
+                            else:
+                                self.pointing_phase = "nadir"
                         else:
-                            self.active_target_index = next_idx
+                            self.pointing_phase = "nadir"
                         take_picture = True
-                        # #region agent log
-                        try:
-                            import json
-                            import time
-                            from pathlib import Path
-
-                            Path(__file__).resolve().parents[4].joinpath("debug-846e2b.log").open(
-                                "a", encoding="utf-8"
-                            ).write(
-                                json.dumps(
-                                    {
-                                        "sessionId": "846e2b",
-                                        "hypothesisId": "H5",
-                                        "location": "baseline_overflight.py:act",
-                                        "message": "baseline take_picture",
-                                        "data": {
-                                            "target_idx": int(idx),
-                                            "step_idx": int(step_idx),
-                                            "locked": bool(locked),
-                                            "quality_ok": bool(quality_ok),
-                                            "past_trailing": bool(past_trailing),
-                                            "capture_start": int(self.capture_target_start),
-                                            "capture_end": int(self.capture_target_end),
-                                        },
-                                        "timestamp": int(time.time() * 1000),
-                                    }
-                                )
-                                + "\n"
-                            )
-                        except OSError:
-                            pass
-                        # #endregion
         return BaselinePolicyAction(
             torque_request_nm=float(torque_request_nm),
             take_picture=take_picture,
@@ -493,15 +601,16 @@ class BaselineCaptureKPIs:
         return self.total_applied_capture_reward
 
 
-def warmup_capture_slice_plan(
+def warmup_capture_targets(
+    warmup_episode_idx: int,
     *,
     n_targets: int,
-    targets_per_episode: int,
-) -> tuple[int, int]:
-    """Return ``(targets_per_slice, n_chunks)`` for warmup slice indexing.
+    targets_per_episode: int = 10,
+) -> tuple[int, ...]:
+    """Cross-corridor strided indices for one warmup episode.
 
-    ``targets_per_slice`` is ``min(targets_per_episode, n_targets)``. ``n_chunks`` is
-    ``ceil(n_targets / targets_per_slice)``. Warmup episode ``i`` uses chunk ``i % n_chunks``.
+    With 50 targets and 10/ep over 5 chunks (stride = n_chunks = 5):
+    ep0 → 0,5,10,…,45; ep1 → 1,6,11,…; ep4 → 4,9,14,…,49; ep5 wraps to ep0.
     """
     if n_targets <= 0:
         raise ValueError("n_targets must be > 0.")
@@ -509,51 +618,21 @@ def warmup_capture_slice_plan(
         raise ValueError("targets_per_episode must be > 0.")
     per = min(int(targets_per_episode), int(n_targets))
     n_chunks = max(1, (int(n_targets) + per - 1) // per)
-    return per, n_chunks
-
-
-def warmup_capture_target_range(
-    warmup_episode_idx: int,
-    *,
-    n_targets: int,
-    targets_per_episode: int = 10,
-) -> tuple[int, int]:
-    """Inclusive target index range for one warmup episode (orbit fixed, slice shifts).
-
-    Mapping (no error on mismatch — clamped and wrapped):
-
-    - **Window size:** ``min(targets_per_episode, n_targets)`` targets per slice.
-    - **Chunks:** ``ceil(n_targets / window_size)`` contiguous slices cover all targets.
-    - **Episode index:** ``warmup_episode_idx % n_chunks`` picks the slice (wraps silently).
-    - **Last chunk:** may be shorter when ``n_targets`` is not divisible by the window
-      (e.g. 45 targets @ 10/ep → slices 0–9, 10–19, 20–29, 30–39, 40–44).
-
-    Example with 50 targets and 10 per episode: ep0 → 0–9, ep1 → 10–19, …, ep4 → 40–49;
-    ep5 wraps to 0–9 again.
-    """
-    per, n_chunks = warmup_capture_slice_plan(
-        n_targets=n_targets,
-        targets_per_episode=targets_per_episode,
-    )
-    chunk = int(warmup_episode_idx) % n_chunks
-    start = chunk * per
-    end = min(start + per - 1, int(n_targets) - 1)
-    return start, end
+    offset = int(warmup_episode_idx) % n_chunks
+    return tuple(offset + k * n_chunks for k in range(per) if offset + k * n_chunks < n_targets)
 
 
 def build_overflight_policy(
     setup,
     *,
     earth_radius_km: float,
-    capture_target_start: int = 0,
-    capture_target_end: int | None = None,
+    capture_targets: tuple[int, ...] | None = None,
 ) -> SequentialTargetBaselinePolicy:
     """Build ``SequentialTargetBaselinePolicy`` from a mission setup."""
     return _build_policy_from_setup(
         setup,
         earth_radius_km=earth_radius_km,
-        capture_target_start=capture_target_start,
-        capture_target_end=capture_target_end,
+        capture_targets=capture_targets,
     )
 
 
@@ -561,8 +640,7 @@ def _build_policy_from_setup(
     setup,
     *,
     earth_radius_km: float,
-    capture_target_start: int = 0,
-    capture_target_end: int | None = None,
+    capture_targets: tuple[int, ...] | None = None,
 ) -> SequentialTargetBaselinePolicy:
     areas = tuple(setup.target_areas)
     anchors = tuple(
@@ -575,8 +653,7 @@ def _build_policy_from_setup(
         target_areas=areas,
         target_leading_phi_lo_deg=leading_phi,
         target_trailing_phi_hi_deg=trailing_phi,
-        capture_target_start=int(capture_target_start),
-        capture_target_end=capture_target_end,
+        capture_targets=capture_targets,
     )
 
 

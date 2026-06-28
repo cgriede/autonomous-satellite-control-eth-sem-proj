@@ -27,7 +27,7 @@ from s01_utils.baseline_overflight import (
     build_baseline_overflight_setup,
     build_overflight_policy,
     run_baseline_overflight_rollout,
-    warmup_capture_target_range,
+    warmup_capture_targets,
 )
 
 
@@ -103,6 +103,7 @@ class SequentialTargetBaselinePolicyTest(unittest.TestCase):
             body_z_angle_rad=bearing0,
             target_visible_in_strip=True,
             sat_subpoint_lat_deg=lat_mid,
+            sat_track_offset_deg=-10.0,
             camera_image_quality=0.9,
         )
         kwargs = _act_kwargs(policy, obs, step_idx=10)
@@ -223,20 +224,44 @@ class AttitudePointingGroundTargetUpdateTest(unittest.TestCase):
             ctrl.set_ground_target_xy_km((0.0, 6378.0))
 
 
-class WarmupCaptureTargetRangeTest(unittest.TestCase):
+class WarmupCaptureTargetsTest(unittest.TestCase):
     def test_fifty_targets_ten_per_episode(self):
-        self.assertEqual(warmup_capture_target_range(0, n_targets=50, targets_per_episode=10), (0, 9))
-        self.assertEqual(warmup_capture_target_range(1, n_targets=50, targets_per_episode=10), (10, 19))
-        self.assertEqual(warmup_capture_target_range(4, n_targets=50, targets_per_episode=10), (40, 49))
-        self.assertEqual(warmup_capture_target_range(5, n_targets=50, targets_per_episode=10), (0, 9))
+        self.assertEqual(
+            warmup_capture_targets(0, n_targets=50, targets_per_episode=10),
+            (0, 5, 10, 15, 20, 25, 30, 35, 40, 45),
+        )
+        self.assertEqual(
+            warmup_capture_targets(1, n_targets=50, targets_per_episode=10),
+            (1, 6, 11, 16, 21, 26, 31, 36, 41, 46),
+        )
+        self.assertEqual(
+            warmup_capture_targets(4, n_targets=50, targets_per_episode=10),
+            (4, 9, 14, 19, 24, 29, 34, 39, 44, 49),
+        )
+        self.assertEqual(
+            warmup_capture_targets(5, n_targets=50, targets_per_episode=10),
+            (0, 5, 10, 15, 20, 25, 30, 35, 40, 45),
+        )
 
     def test_partial_last_chunk_and_wrap(self):
-        self.assertEqual(warmup_capture_target_range(4, n_targets=45, targets_per_episode=10), (40, 44))
-        self.assertEqual(warmup_capture_target_range(5, n_targets=45, targets_per_episode=10), (0, 9))
+        self.assertEqual(
+            warmup_capture_targets(4, n_targets=45, targets_per_episode=10),
+            (4, 9, 14, 19, 24, 29, 34, 39, 44),
+        )
+        self.assertEqual(
+            warmup_capture_targets(5, n_targets=45, targets_per_episode=10),
+            (0, 5, 10, 15, 20, 25, 30, 35, 40),
+        )
 
     def test_window_larger_than_target_count(self):
-        self.assertEqual(warmup_capture_target_range(0, n_targets=7, targets_per_episode=10), (0, 6))
-        self.assertEqual(warmup_capture_target_range(3, n_targets=7, targets_per_episode=10), (0, 6))
+        self.assertEqual(
+            warmup_capture_targets(0, n_targets=7, targets_per_episode=10),
+            (0, 1, 2, 3, 4, 5, 6),
+        )
+        self.assertEqual(
+            warmup_capture_targets(3, n_targets=7, targets_per_episode=10),
+            (0, 1, 2, 3, 4, 5, 6),
+        )
 
     def test_policy_starts_at_slice(self):
         areas = tuple(
@@ -253,12 +278,47 @@ class WarmupCaptureTargetRangeTest(unittest.TestCase):
             target_areas=areas,
             target_leading_phi_lo_deg=tuple(0.0 for _ in areas),
             target_trailing_phi_hi_deg=tuple(90.0 for _ in areas),
-            capture_target_start=2,
-            capture_target_end=3,
+            capture_targets=(2, 3),
         )
         self.assertEqual(policy.active_target_index, 2)
-        self.assertEqual(policy.capture_target_start, 2)
-        self.assertEqual(policy.capture_target_end, 3)
+        self.assertEqual(policy.capture_targets, (2, 3))
+
+    def test_flown_over_previous_allows_next_after_early_shutter(self):
+        """Strided schedule: δ gate must not block after prev target already shuttered."""
+        areas = (
+            ObservationTargetArea(lat_min=88.0 * ureg.deg, lat_max=88.1 * ureg.deg, label="t0"),
+            ObservationTargetArea(lat_min=85.0 * ureg.deg, lat_max=85.1 * ureg.deg, label="t1"),
+        )
+        policy = SequentialTargetBaselinePolicy(
+            target_anchors=((0.0, 0.0), (1.0, 0.0)),
+            target_areas=areas,
+            target_leading_phi_lo_deg=(0.0, 0.0),
+            target_trailing_phi_hi_deg=(90.0, 90.0),
+            capture_targets=(0, 1),
+        )
+        policy._capture_i = 1
+        policy._shuttered.add(0)
+        policy.active_target_index = 1
+        self.assertTrue(policy._flown_over_previous_capture(-5.0))
+
+    def test_flown_over_target_uses_monotonic_track_offset(self):
+        areas = tuple(
+            ObservationTargetArea(
+                lat_min=(89.9 - i * 0.15) * ureg.deg,
+                lat_max=(90.0 - i * 0.15) * ureg.deg,
+                label=f"t{i}",
+            )
+            for i in range(4)
+        )
+        policy = SequentialTargetBaselinePolicy(
+            target_anchors=tuple((float(i), 0.0) for i in range(4)),
+            target_areas=areas,
+            target_leading_phi_lo_deg=tuple(0.0 for _ in areas),
+            target_trailing_phi_hi_deg=tuple(90.0 for _ in areas),
+        )
+        _lo, hi = policy._target_track_range_deg(2)
+        self.assertFalse(policy._flown_over_target(2, hi - 0.05))
+        self.assertTrue(policy._flown_over_target(2, hi + 0.05))
 
 
 if __name__ == "__main__":
