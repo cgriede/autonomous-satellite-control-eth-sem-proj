@@ -98,4 +98,4 @@ def build_high_cloud_setup():
 
 
 def build_baseline_sim_config() -> SimulationConfig:
-    return SimulationConfig(render_mode=RenderMode.HEADLESS, controller_mode="coast")
+    return SimulationConfig(render_mode=RenderMode.HEADLESS)

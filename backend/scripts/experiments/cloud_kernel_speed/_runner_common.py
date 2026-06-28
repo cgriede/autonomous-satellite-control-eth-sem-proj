@@ -98,7 +98,7 @@ def bench_sensor_kernels(
     sat_xy = np.array([6800.0, 200.0], dtype=float)
     bore = np.array([-1.0, 0.0], dtype=float)
     earth_r = float(EARTH_RADIUS.to(ureg.km).magnitude)
-    ray_samples = int(SIMULATION.camera_pixel_ray_samples)
+    ray_samples = 96  # legacy simulate_camera_strip_2d benchmark only
     n_bins = int(SIMULATION.camera_observation_line_n_bins)
     n_bins_secondary = 200
 

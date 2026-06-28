@@ -12,6 +12,7 @@ from autonomous_control.CNN_1d import (
     CNN1DEncoderConfig,
     ObservationLineCNNEncoder,
     _build_code_index_lut,
+    cnn_vision_conv_stack,
     observation_code_vocab_size,
     observation_codes_to_indices,
 )
@@ -88,6 +89,22 @@ class TestCNN1DEncoder(unittest.TestCase):
 
     def test_vocab_size_includes_targets(self) -> None:
         self.assertEqual(observation_code_vocab_size(max_target_index=35), 41)
+
+    def test_cnn_vision_conv_stack_depths(self) -> None:
+        self.assertEqual(
+            cnn_vision_conv_stack(1),
+            ((16,), (3,), (2,)),
+        )
+        self.assertEqual(
+            cnn_vision_conv_stack(2),
+            ((16, 32), (5, 5), (2, 2)),
+        )
+        self.assertEqual(
+            cnn_vision_conv_stack(3),
+            ((16, 32, 64), (7, 7, 7), (2, 2, 2)),
+        )
+        with self.assertRaises(ValueError):
+            cnn_vision_conv_stack(4)
 
     def test_observation_line_encoder_batched(self) -> None:
         n_bins = 20

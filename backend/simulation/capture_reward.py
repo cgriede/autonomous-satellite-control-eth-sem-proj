@@ -127,9 +127,38 @@ def capture_time_windows_s(
     return windows
 
 
+def captured_target_indices_at_step(
+    series: SimulationStateSeries,
+    sim_idx: int,
+    *,
+    cmd_steps: tuple[int, ...],
+    max_pictures: int = MAX_PRIMARY_CAPTURES_PER_ORBIT,
+    capture_latency_steps: int = 0,
+) -> frozenset[int]:
+    """Targets already imaged by take-picture commands at or before ``sim_idx``."""
+    budget = TakePictureBudget.from_config(TakePictureConfig(max_pictures_per_episode=max_pictures))
+    n = int(series.t_s.shape[0])
+    k_limit = int(sim_idx)
+    for cmd_step in cmd_steps:
+        if int(cmd_step) > k_limit:
+            break
+        capture_k = resolve_capture_frame_index(
+            cmd_step=int(cmd_step),
+            n_steps=n,
+            capture_latency_steps=capture_latency_steps,
+        )
+        if capture_k is None:
+            continue
+        codes = series.camera_observation_line_codes[capture_k]
+        dominant = dominant_capture_target_index(codes)
+        budget.attempt_capture(dominant)
+    return frozenset(budget.captured_target_indices)
+
+
 __all__ = [
     "applied_capture_reward_series",
     "capture_time_windows_s",
+    "captured_target_indices_at_step",
     "cloud_fraction_at_index",
     "latent_capture_reward_series",
     "sim_dt_s",

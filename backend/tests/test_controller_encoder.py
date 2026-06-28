@@ -19,6 +19,19 @@ from autonomous_control.training_runtime import make_attitude_control_env
 
 
 class ControllerEncoderTest(unittest.TestCase):
+    def test_default_vision_encoder_uses_two_conv_layers(self) -> None:
+        layout = controller_observation_layout()
+        config = MPOConfig()
+        encoder = ControllerEncoder(layout, config)
+        for vision_encoder in encoder.vision_encoders:
+            conv_layers = [
+                module
+                for module in vision_encoder.cnn.conv
+                if isinstance(module, torch.nn.Conv1d)
+            ]
+            self.assertEqual(len(conv_layers), 2)
+            self.assertEqual(int(conv_layers[0].kernel_size[0]), 5)
+
     def test_encoder_output_dim_dual_path(self) -> None:
         layout = controller_observation_layout()
         config = MPOConfig(num_units_actor=24, num_layers_scalar_encoder=1, num_layers_vision_fusion=1)

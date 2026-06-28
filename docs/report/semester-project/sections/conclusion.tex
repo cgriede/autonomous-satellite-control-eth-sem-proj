@@ -1,7 +1,9 @@
 \label{sec:conclusion}
 
-A reproducible simulation and MPO training stack was implemented for cloud-aware satellite attitude control during polar overflights.
-% TODO: one sentence on whether the success criteria from the charter were met.
+A reproducible simulation and MPO training stack was implemented for cloud-aware satellite attitude control during overflights.
+The primary engineering deliverable is experimental readiness: seeded missions, canonical rollouts, and matched baseline evaluation.
+Reinforcement-learning results probe whether vision-driven policies can improve observation yield under cloud occlusion; they should be interpreted alongside this platform contribution.
 
 \textbf{Outlook.}
 Near-term work: tighten evaluation protocol, extend to area-target scoring already present in simulation, and migrate control authority toward mission-level intent while keeping \texttt{SimulationStateSeries} as the single episode artifact.
+Logical extensions beyond this semester scope include three-dimensional attitude and orbit propagation, richer terrain and real imagery ingestion, and multi-orbit scheduling---each can build on the existing kernel and artifact contract without replacing the train--eval--render separation already in place.

@@ -38,7 +38,6 @@ class SimulationStepperTorqueSeriesTest(unittest.TestCase):
             sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
             sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
             ureg=ureg,
-            camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
         )
 
         s0 = stepper.finalize_series()

@@ -44,12 +44,14 @@ Source: `utils/geometry/orbit_disk_polar_meridian.py`, `utils/geometry/polar_mer
 Source: `environment_definition/constants/SIMULATION.py`.
 
 - **Animation:** `num_frames` = 2000, `animation_interval` = 30 ms, `default_speed_multiplier` = 30, `export_speed_multiplier` = 30.
-- **Geometry / motion:** `theta_center` = 90°, `sat_motion_span_scale` = 1.05, `contact_margin_angle` = 0.05°, `sat_z_offset` = 0°.
+- **Geometry / motion:** `theta_center` = 90°, `sat_motion_span_scale` = 0.7, `contact_margin_angle` = 0.05°, `sat_z_offset` = 0°.
+- **Orbit sweep vs episode bounds:** `[start_angle_deg, end_angle_deg]` still comes from target disk-φ plus horizon LOS padding; `sat_motion_span_scale` sets what fraction of that arc the satellite actually flies, centered on the window. At 0.7, ~15% is clipped from each end—dead time where `OFF_NADIR_HARD_LIMIT_DEG` (45°) already prevents useful pointing long before/after the target corridor; a later pass could tighten start/end via `target_pointing_safe_for_engage` instead.
 - **Default body spin:** `default_body_spin_rate` = 3°/s.
 - **FOV cone:** length 20 000 km; opening from pinhole vertical FOV (`pinhole_full_fov_rad` with `SENSOR_HEIGHT`, `FOCAL_LENGTH`); `z_axis_length` = 180 km.
 - **Cloud strip (latitude bounds on ``LON_GLOBAL`` projected to disk polar angles):** height 15 km, first cloud latitude sweep ≈ **89.99° → 90.2°** geodetic (`SIMULATION.clouds` tuple).
-- **Camera stats:** `camera_pixel_ray_samples` = 96, `camera_observation_line_n_bins` = 100.
-- **Camera kernel backend:** `camera_kernel_backend` = `"accelerated"` (default). Batches all strip pixel rays and all observation-line bins per timestep via NumPy (`simulation/camera_2d.py`). The `"python"` backend remains as a parity reference (per-ray Python loops).
+- **Camera discretization:** `camera_observation_line_n_bins` = 100 (primary vertical FOV). Primary `camera_observation_line_codes` and `camera_cloud_blocked_fraction` share this single ray grid (`simulation/sensor_kernel.py`).
+- **Secondary camera (dual setup):** `secondary_camera_observation_line_n_bins` = 200; observation line only — no secondary cloud-fraction stat in production.
+- **Camera kernel backend:** `camera_kernel_backend` = `"accelerated"` (default). Batches primary + secondary observation-line rays per timestep via NumPy (`simulation/camera_2d.py`). Low-level `simulate_camera_strip_2d` remains for unit tests only.
 - **Episode cap:** `max_episode_steps` = 1000 (canonical rollout cap shared by gym and MPO runtime).
 
 ---

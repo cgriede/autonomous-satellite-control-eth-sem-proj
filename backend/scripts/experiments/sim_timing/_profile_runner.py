@@ -58,7 +58,7 @@ def run_instrumented_episode(
         from simulation.stepper import _build_simulation_controller
 
         controller = _build_simulation_controller(
-            controller_mode=str(sim_cfg.controller_mode),
+            builtin_torque_policy=str(getattr(sim_cfg, "builtin_torque_policy", "coast")),
             tau_max_nm=tau_max_nm,
             dt=stepper._dt,
             rng=np.random.default_rng(sim_cfg.controller_seed),
@@ -135,7 +135,7 @@ def profile_scenario(scenario: str, *, with_render: bool = False) -> dict[str, A
         "n_clouds": n_clouds,
         "with_render": with_render,
         "include_cameras": len(setup.cameras) > 0,
-        "controller_mode": str(sim_cfg.controller_mode),
+        "controller_mode": str(getattr(sim_cfg, "torque_command_source", "builtin")),
     }
 
     if with_render:

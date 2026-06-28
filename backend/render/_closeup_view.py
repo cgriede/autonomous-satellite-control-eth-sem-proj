@@ -100,9 +100,10 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     draw_star_field(ax)
     draw_shaded_earth_disk(ax, R_earth)
 
+    artists["target_bands"] = []
     for phi_lo_deg, phi_hi_deg in target_regions_deg:
         target_xe, target_ye = _target_arc_world_xy(R_earth, phi_lo_deg, phi_hi_deg)
-        ax.plot(
+        (band_line,) = ax.plot(
             target_xe,
             target_ye,
             color=RENDER.target_band_color,
@@ -110,6 +111,7 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
             solid_capstyle="round",
             zorder=RENDER.zorder_target_band,
         )
+        artists["target_bands"].append(band_line)
 
     # dynamic: cone + ground footprint + LOS
     artists["cone"] = Polygon(
@@ -144,9 +146,13 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     )
 
     artists["anchor_to_sat"], = ax.plot(
-        [], [], linestyle="--", color=RENDER.los_color,
-        linewidth=RENDER.los_linewidth, alpha=RENDER.los_alpha,
+        [], [],
+        linestyle="--",
+        color=RENDER.los_color,
+        linewidth=RENDER.los_linewidth,
+        alpha=RENDER.los_alpha,
         zorder=RENDER.zorder_closeup_hit,
+        visible=RENDER.show_view_anchor_los,
     )
 
     # dynamic: cloud arcs in closeup
@@ -188,10 +194,13 @@ def update_closeup_panel(artists: dict, scene: dict) -> None:
         ax.set_ylim(y0, y1)
 
     artists["cone"].set_xy([sat_pos, edge_l, edge_r])
-    artists["anchor_to_sat"].set_data(
-        [scene["view_anchor_x"], sat_pos[0]],
-        [scene["view_anchor_y"], sat_pos[1]],
-    )
+    if RENDER.show_view_anchor_los:
+        artists["anchor_to_sat"].set_data(
+            [scene["view_anchor_x"], sat_pos[0]],
+            [scene["view_anchor_y"], sat_pos[1]],
+        )
+    else:
+        artists["anchor_to_sat"].set_data([], [])
 
     sec_edge_l = np.asarray(scene["sec_edge_l"], dtype=float)
     sec_edge_r = np.asarray(scene["sec_edge_r"], dtype=float)
@@ -208,3 +217,9 @@ def update_closeup_panel(artists: dict, scene: dict) -> None:
     for i, spec in enumerate(scene["cloud_world"]):
         artists["cloud_glow"][i].set_data(spec["x"], spec["y"])
         artists["cloud_core"][i].set_data(spec["x"], spec["y"])
+
+    captured = scene.get("captured_target_indices") or frozenset()
+    for i, band_line in enumerate(artists.get("target_bands", [])):
+        band_line.set_color(
+            RENDER.target_captured_main_color if i in captured else RENDER.target_band_color
+        )

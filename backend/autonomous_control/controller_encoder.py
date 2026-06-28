@@ -7,7 +7,11 @@ from dataclasses import replace
 import torch
 import torch.nn as nn
 
-from .CNN_1d import CNN1DEncoderConfig, ObservationLineCNNEncoder
+from .CNN_1d import (
+    CNN1DEncoderConfig,
+    ObservationLineCNNEncoder,
+    cnn_vision_conv_stack,
+)
 from .controller_observation import ControllerObservationLayout
 from .MLP_model import MLP
 from .mpo_config import MPOConfig
@@ -43,10 +47,16 @@ class ControllerEncoder(nn.Module):
             dropout=0.0,
         )
 
+        conv_channels, kernel_sizes, strides = cnn_vision_conv_stack(
+            int(config.num_cnn_layers),
+        )
         cnn_template = CNN1DEncoderConfig(
             code_embed_dim=int(config.code_embed_dim),
             embedding_dim=int(config.cnn_embedding_dim),
             max_target_index=int(config.max_target_index),
+            conv_channels=conv_channels,
+            kernel_sizes=kernel_sizes,
+            strides=strides,
         )
         self.vision_encoders = nn.ModuleList(
             ObservationLineCNNEncoder(

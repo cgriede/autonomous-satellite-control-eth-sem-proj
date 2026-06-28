@@ -107,10 +107,11 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     draw_star_field(ax)
     draw_shaded_earth_disk(ax, float(R_earth))
 
-    # Reward-aligned observation target segments on Earth rim.
+    # Reward-aligned observation target segments on Earth rim (dynamic color per capture state).
+    artists["target_bands"] = []
     for phi_lo_deg, phi_hi_deg in target_regions_deg:
         tx, ty = _target_arc_world_xy(R_earth, float(phi_lo_deg), float(phi_hi_deg))
-        ax.plot(
+        (band_line,) = ax.plot(
             tx,
             ty,
             color=RENDER.target_band_color,
@@ -118,14 +119,21 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
             solid_capstyle="round",
             zorder=RENDER.zorder_target_band,
         )
+        artists["target_bands"].append(band_line)
 
     # --- dynamic artists (returned) ---
     artists["sat"], = ax.plot([], [], RENDER.sat_marker_style,
                             markersize=RENDER.sat_marker_size, label="Satellite")
 
-    artists["anchor_to_sat"], = ax.plot([], [], linestyle="--", color=RENDER.los_color,
-                                        linewidth=RENDER.los_linewidth, alpha=RENDER.los_alpha,
-                                        zorder=RENDER.zorder_los)
+    artists["anchor_to_sat"], = ax.plot(
+        [], [],
+        linestyle="--",
+        color=RENDER.los_color,
+        linewidth=RENDER.los_linewidth,
+        alpha=RENDER.los_alpha,
+        zorder=RENDER.zorder_los,
+        visible=RENDER.show_view_anchor_los,
+    )
 
     artists["trail"], = ax.plot([], [], RENDER.trail_style,
                                 linewidth=RENDER.trail_linewidth, alpha=RENDER.trail_alpha)
@@ -187,10 +195,13 @@ def update_main_panel(artists: dict, scene: dict) -> None:
     edge_r = np.asarray(scene["edge_r"], dtype=float)
 
     artists["sat"].set_data([sat_pos[0]], [sat_pos[1]])
-    artists["anchor_to_sat"].set_data(
-        [scene["view_anchor_x"], sat_pos[0]],
-        [scene["view_anchor_y"], sat_pos[1]],
-    )
+    if RENDER.show_view_anchor_los:
+        artists["anchor_to_sat"].set_data(
+            [scene["view_anchor_x"], sat_pos[0]],
+            [scene["view_anchor_y"], sat_pos[1]],
+        )
+    else:
+        artists["anchor_to_sat"].set_data([], [])
 
     x, y = scene["trail_xy"]
     artists["trail"].set_data(x, y)
@@ -213,3 +224,9 @@ def update_main_panel(artists: dict, scene: dict) -> None:
     for i, spec in enumerate(scene["cloud_world"]):
         artists["cloud_glow"][i].set_data(spec["x"], spec["y"])
         artists["cloud_core"][i].set_data(spec["x"], spec["y"])
+
+    captured = scene.get("captured_target_indices") or frozenset()
+    for i, band_line in enumerate(artists.get("target_bands", [])):
+        band_line.set_color(
+            RENDER.target_captured_main_color if i in captured else RENDER.target_band_color
+        )

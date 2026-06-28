@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +28,7 @@ from autonomous_control.feature_selection import (
     select_controller_inputs_from_timestep,
 )
 from autonomous_control.episode_runner import EpisodeRunner
+from autonomous_control.CNN_1d import cnn_vision_conv_stack
 from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.reward import RewardConfig
 from autonomous_control.training_metrics import learning_stats_to_row
@@ -35,12 +37,27 @@ from autonomous_control.training_progress_display import (
     TrainingProgressConfig,
     TrainingProgressDisplay,
 )
+from autonomous_control.notebook_warmup_bundle_cache import (
+    bundle_dir_for_digest,
+    digest_for_warmup_fingerprint,
+    preload_warmup_buffer_from_episodes,
+    reset_agent_replay_counters,
+    save_warmup_episode_bundle,
+    try_load_warmup_episode_bundle,
+    warmup_fingerprint_payload,
+)
 from autonomous_control.training_runtime import EpisodeResult, make_attitude_control_env
 from environment_definition.constants import RenderMode, SIMULATION
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from simulation.setup_types import EnvironmentSetup, ResolvedSimulationSetup, SimulationOverrides
+from simulation.simulation_info import _reward_program_rows
 from simulation.take_picture import TakePictureBudget, TakePictureConfig
-from s01_utils.baseline_overflight import BASELINE_N_TARGETS, build_baseline_overflight_setup
+from s01_utils.baseline_overflight import (
+    BASELINE_N_TARGETS,
+    build_baseline_overflight_setup,
+    warmup_capture_slice_plan,
+    warmup_capture_target_range,
+)
 from simulation.state_types import SimulationTimestepState
 from utils.ml_training.ml_training_utils import (
     RunTelemetryWriter,
@@ -105,6 +122,15 @@ _OBS_CODE_LABELS: dict[int, str] = {
 
 @dataclass(frozen=True)
 class TrainingWorkflowConfig:
+    """Notebook-08 training knobs.
+
+    Warmup baseline slices: each warmup episode images a contiguous target index window
+    of ``warmup_targets_per_episode`` targets (see ``warmup_capture_target_range``).
+    Slice index is ``warmup_episode_idx % n_chunks`` (silent wrap). The last chunk may
+  cover fewer than ``warmup_targets_per_episode`` targets when ``n_targets`` is not a
+    multiple. If ``warmup_targets_per_episode > n_targets``, the window spans all targets.
+    """
+
     seed: int = 7
     warmup_episodes: int = 10
     train_episodes: int = 10
@@ -118,6 +144,9 @@ class TrainingWorkflowConfig:
     live_feed_interval_steps: int = 400
     warmup_live_feed_interval_steps: int = 1600
     early_stop_on_budget_exhausted: bool = False
+    use_warmup_bundle_cache: bool = True
+    rebuild_warmup_bundle_cache: bool = False
+    warmup_targets_per_episode: int = 10
 
 
 @dataclass
@@ -186,6 +215,7 @@ def _mpo_config_snapshot(mpo_config: MPOConfig) -> dict[str, object]:
         "num_units_critic": mpo_config.num_units_critic,
         "code_embed_dim": mpo_config.code_embed_dim,
         "cnn_embedding_dim": mpo_config.cnn_embedding_dim,
+        "num_cnn_layers": mpo_config.num_cnn_layers,
         "reward": {
             "enable_distance_reward": reward.enable_distance_reward,
             "enable_image_quality_capture": reward.enable_image_quality_capture,
@@ -197,17 +227,8 @@ def _mpo_config_snapshot(mpo_config: MPOConfig) -> dict[str, object]:
 
 
 def _reward_config_flags(reward: RewardConfig) -> str:
-    flags = []
-    for name in (
-        "enable_distance_reward",
-        "enable_image_quality_capture",
-        "enable_outer_gate",
-        "enable_energy",
-        "enable_cloud_penalty",
-    ):
-        if getattr(reward, name, False):
-            flags.append(name.removeprefix("enable_"))
-    return ", ".join(flags) if flags else "defaults"
+    rows = _reward_program_rows(reward)
+    return "; ".join(f"{label} ({value})" if value else label for label, value in rows)
 
 
 def _episode_markdown_payload(result: EpisodeResult) -> dict[str, object]:
@@ -392,6 +413,8 @@ def controller_encoder_routing_table(
         "camera_observation_line_codes": "primary (nadir)",
         "secondary_camera_observation_line_codes": "secondary (forward)",
     }
+    _, kernel_sizes, _ = cnn_vision_conv_stack(int(cfg.num_cnn_layers))
+    cnn_kernel = int(kernel_sizes[0])
     cnn_outputs: list[str] = []
     for key in feature_config.vision_keys:
         seq_len = _feature_key_dims(key, secondary_camera_bins=secondary_camera_bins)
@@ -402,7 +425,10 @@ def controller_encoder_routing_table(
                 "stage": f"vision branch ({label})",
                 "inputs": key,
                 "input_shape": f"({seq_len},) int8",
-                "module": f"ObservationLineCNNEncoder → {cnn_out}-D",
+                "module": (
+                    f"ObservationLineCNNEncoder "
+                    f"({cfg.num_cnn_layers}×Conv1d, k={cnn_kernel}) → {cnn_out}-D"
+                ),
             }
         )
 
@@ -723,6 +749,7 @@ def build_training_workflow_setup(
             "encoder_output_dim": encoder_output_dim,
             "code_embed_dim": mpo_config.code_embed_dim,
             "cnn_embedding_dim": mpo_config.cnn_embedding_dim,
+            "num_cnn_layers": mpo_config.num_cnn_layers,
             "feature_attitude_keys": list(cfg.feature_config.attitude_keys),
             "feature_orbit_keys": list(cfg.feature_config.orbit_keys),
             "feature_vision_keys": list(cfg.feature_config.vision_keys),
@@ -743,6 +770,9 @@ def build_training_workflow_setup(
                 "collect_states": cfg.collect_states,
                 "background_artifacts": cfg.background_artifacts,
                 "early_stop_on_budget_exhausted": cfg.early_stop_on_budget_exhausted,
+                "use_warmup_bundle_cache": cfg.use_warmup_bundle_cache,
+                "rebuild_warmup_bundle_cache": cfg.rebuild_warmup_bundle_cache,
+                "warmup_targets_per_episode": cfg.warmup_targets_per_episode,
             },
             "mpo": _mpo_config_snapshot(mpo_config),
             "features": {
@@ -813,8 +843,19 @@ def print_training_setup_summary(setup: TrainingWorkflowSetup) -> None:
     print(f"  MPO gamma:         {mpo.gamma}")
     print(f"  MPO LRs q/pi/eta:  {mpo.learning_rate_q}/{mpo.learning_rate_pi}/{mpo.learning_rate_eta}")
     print(f"  target_kl mu/sigma: {mpo.target_kl_mu}/{mpo.target_kl_sigma}")
-    print(f"  reward flags:      {_reward_config_flags(mpo.reward)}")
+    print(f"  reward program:    {_reward_config_flags(mpo.reward)}")
     print(f"  early stop:        {cfg.early_stop_on_budget_exhausted} (warmup/train; eval always full horizon)")
+    print(f"  warmup cache:      {cfg.use_warmup_bundle_cache} (rebuild={cfg.rebuild_warmup_bundle_cache})")
+    n_targets = len(setup.mission_setup.resolve(require_camera=True).target_areas or ())
+    per_slice, n_chunks = warmup_capture_slice_plan(
+        n_targets=n_targets,
+        targets_per_episode=cfg.warmup_targets_per_episode,
+    )
+    print(
+        f"  warmup target win: {cfg.warmup_targets_per_episode} targets/ep "
+        f"→ {n_chunks} slice(s) of up to {per_slice} on {n_targets} targets "
+        f"(ep idx wraps mod {n_chunks})"
+    )
 
 
 def _episode_return(result: EpisodeResult) -> float:
@@ -832,6 +873,137 @@ def _summarize_phase(phase: str, results: list[EpisodeResult]) -> PhaseKPIs:
         return_best=float(np.max(totals)) if len(totals) else 0.0,
         best_episode_idx=best_idx,
     )
+
+
+S01_WARMUP_SEED_TAG = "warmup_episode"
+S01_WARMUP_MISSION_PROFILE = "s01_training"
+
+
+def _warmup_capture_target_range(
+    setup: TrainingWorkflowSetup,
+    warmup_episode_idx: int,
+) -> tuple[int, int]:
+    n_targets = len(setup.mission_setup.resolve(require_camera=True).target_areas or ())
+    return warmup_capture_target_range(
+        warmup_episode_idx,
+        n_targets=n_targets,
+        targets_per_episode=setup.config.warmup_targets_per_episode,
+    )
+
+
+def s01_training_warmup_fingerprint(
+    setup: TrainingWorkflowSetup,
+    *,
+    episode_count: int,
+) -> dict[str, Any]:
+    """Fingerprint for S01 notebook-08 warmup bundles (mission + feature parity)."""
+    layout = setup.observation_layout
+    obs_dim = layout.scalar_dim + sum(layout.vision_seq_lens)
+    resolved = setup.mission_setup.resolve(require_camera=True)
+    alt_m = float(resolved.altitude.to(ureg.m).magnitude)
+    n_targets = len(resolved.target_areas or ())
+    return warmup_fingerprint_payload(
+        obs_dim=obs_dim,
+        action_dim=2,
+        max_episode_steps=int(setup.mpo_config.max_steps_per_episode),
+        camera_observation_line_n_bins=int(SIMULATION.camera_observation_line_n_bins),
+        satellite_altitude_m=alt_m,
+        base_seed=int(setup.config.seed),
+        episode_count=int(episode_count),
+        warmup_controller="baseline",
+        feature_config=setup.feature_config,
+        early_stop_on_budget_exhausted=bool(setup.config.early_stop_on_budget_exhausted),
+        n_mission_targets=n_targets,
+        warmup_seed_tag=S01_WARMUP_SEED_TAG,
+        secondary_camera_observation_line_n_bins=setup.secondary_camera_bins,
+        mission_profile=S01_WARMUP_MISSION_PROFILE,
+        warmup_targets_per_episode=int(setup.config.warmup_targets_per_episode),
+    )
+
+
+def _warmup_cache_env_adapter(setup: TrainingWorkflowSetup) -> Any:
+    n_targets = len(setup.mission_setup.resolve(require_camera=True).target_areas or ())
+    return make_attitude_control_env(
+        feature_config=setup.feature_config,
+        secondary_camera_observation_line_n_bins=setup.secondary_camera_bins,
+        n_mission_targets=n_targets,
+        observation_layout=setup.observation_layout,
+    )
+
+
+def load_or_build_s01_training_warmup_episodes(
+    setup: TrainingWorkflowSetup,
+    *,
+    progress_display: TrainingProgressDisplay | None = None,
+    show_progress: bool = True,
+    episode_bar: Any | None = None,
+) -> tuple[list[EpisodeResult], bool]:
+    """Load cached S01 warmup episodes or build them with ``EpisodeRunner`` (collect_states=True).
+
+    Returns ``(episodes, from_cache)``. When building, updates ``episode_bar`` per episode if given.
+    """
+    cfg = setup.config
+    episode_count = int(cfg.warmup_episodes)
+    if episode_count <= 0:
+        return [], False
+
+    fingerprint = s01_training_warmup_fingerprint(setup, episode_count=episode_count)
+    digest = digest_for_warmup_fingerprint(fingerprint)
+    bundle_dir = bundle_dir_for_digest(digest)
+    env = _warmup_cache_env_adapter(setup)
+
+    if cfg.rebuild_warmup_bundle_cache and bundle_dir.exists():
+        shutil.rmtree(bundle_dir)
+
+    if not cfg.rebuild_warmup_bundle_cache:
+        loaded = try_load_warmup_episode_bundle(
+            bundle_dir,
+            expected_fingerprint=fingerprint,
+            expected_digest_hex=digest,
+            env=env,
+        )
+        if loaded is not None:
+            reset_agent_replay_counters(setup.agent)
+            n_trans = preload_warmup_buffer_from_episodes(setup.agent, loaded)
+            if show_progress:
+                tqdm.write(
+                    f"Warmup cache hit: {len(loaded)} episodes, "
+                    f"{n_trans} transitions ({bundle_dir.name[:12]}…)"
+                )
+            return loaded, True
+
+    episodes_built: list[EpisodeResult] = []
+    for warmup_idx in range(episode_count):
+        capture_range = _warmup_capture_target_range(setup, warmup_idx)
+        result = setup.runner.run_serial(
+            setup.agent,
+            feature_config=setup.feature_config,
+            observation_layout=setup.observation_layout,
+            mode="warmup",
+            episode_idx=warmup_idx,
+            show_config_panel=warmup_idx == 0,
+            early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
+            collect_states=True,
+            progress_display=progress_display,
+            train_every_n_steps=cfg.train_every_n_steps,
+            warmup_capture_target_range=capture_range,
+            np_rng=np.random.default_rng(
+                derive_seed(cfg.seed, S01_WARMUP_SEED_TAG, warmup_idx)
+            ),
+        )
+        episodes_built.append(result)
+        if episode_bar is not None:
+            episode_bar.update(1)
+
+    save_warmup_episode_bundle(
+        bundle_dir,
+        digest_hex=digest,
+        fingerprint=fingerprint,
+        episodes=episodes_built,
+    )
+    if show_progress:
+        tqdm.write(f"Warmup cache saved: {bundle_dir}")
+    return episodes_built, False
 
 
 def _save_checkpoint(agent: MPOAgent, path: Path) -> Path:
@@ -885,6 +1057,14 @@ def run_training_workflow(
         )
 
     def run_episode(**kwargs: Any) -> EpisodeResult:
+        warmup_idx = kwargs.get("episode_idx", 0)
+        if kwargs.get("mode") == "warmup" and "warmup_capture_target_range" not in kwargs:
+            kwargs = {
+                **kwargs,
+                "warmup_capture_target_range": _warmup_capture_target_range(
+                    setup, int(warmup_idx)
+                ),
+            }
         return setup.runner.run_serial(
             setup.agent,
             feature_config=setup.feature_config,
@@ -939,24 +1119,44 @@ def run_training_workflow(
                     progress_display.set_live_feed_interval_steps(
                         cfg.warmup_live_feed_interval_steps
                     )
-                for warmup_idx in range(cfg.warmup_episodes):
-                    result = run_episode(
-                        mode="warmup",
-                        episode_idx=warmup_idx,
-                        show_config_panel=warmup_idx == 0,
-                        early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
-                        np_rng=np.random.default_rng(
-                            derive_seed(cfg.seed, "warmup_episode", warmup_idx)
-                        ),
+                if cfg.use_warmup_bundle_cache:
+                    cached_warmups, warmup_from_cache = (
+                        load_or_build_s01_training_warmup_episodes(
+                            setup,
+                            progress_display=progress_display,
+                            show_progress=show_progress,
+                            episode_bar=warmup_bar,
+                        )
                     )
-                    warmup_results.append(result)
-                    record_episode(
-                        phase="warmup",
-                        episode_idx=warmup_idx,
-                        result=result,
-                        heading=f"Warmup episode {warmup_idx + 1} (baseline overflight)",
-                    )
-                    warmup_bar.update(1)
+                    for warmup_idx, result in enumerate(cached_warmups):
+                        warmup_results.append(result)
+                        record_episode(
+                            phase="warmup",
+                            episode_idx=warmup_idx,
+                            result=result,
+                            heading=f"Warmup episode {warmup_idx + 1} (baseline overflight)",
+                        )
+                        if warmup_from_cache:
+                            warmup_bar.update(1)
+                else:
+                    for warmup_idx in range(cfg.warmup_episodes):
+                        result = run_episode(
+                            mode="warmup",
+                            episode_idx=warmup_idx,
+                            show_config_panel=warmup_idx == 0,
+                            early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
+                            np_rng=np.random.default_rng(
+                                derive_seed(cfg.seed, S01_WARMUP_SEED_TAG, warmup_idx)
+                            ),
+                        )
+                        warmup_results.append(result)
+                        record_episode(
+                            phase="warmup",
+                            episode_idx=warmup_idx,
+                            result=result,
+                            heading=f"Warmup episode {warmup_idx + 1} (baseline overflight)",
+                        )
+                        warmup_bar.update(1)
             finally:
                 warmup_bar.close()
 

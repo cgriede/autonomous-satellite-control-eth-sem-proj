@@ -22,6 +22,18 @@ Training uses MPO (\texttt{MPOAgent} in \texttt{controller\_agent.py}) with epis
 Warmup and evaluation share the same simulation configuration as training.
 Hyperparameters are recorded in \texttt{mpo\_config.py} and the presentation slides under \texttt{docs/presentation/}.
 
+\subsection{Software architecture}
+The codebase separates numeric simulation, learning, and visualization so train, eval, and export paths cannot silently diverge.
+\begin{itemize}
+  \item \textbf{Canonical episodes.} \texttt{backend/simulation/run\_simulation.py} is the single source of truth for episode-level world state; train, eval, and render consume \texttt{SimulationStateSeries} rather than re-running parallel integrators.
+  \item \textbf{Timestep stack.} Attitude integration uses \texttt{SIMULATION.simulation\_timestep}; controller updates may differ from the physics step (nearest integer multiple, surfaced at runtime). Episode horizon scales with orbit window and \texttt{sat\_motion\_span\_scale}.
+  \item \textbf{Seeded randomness.} Per-workflow \texttt{seed} derives deterministic altitude and cloud layouts (\texttt{derive\_seed}); warmup episodes use per-index derived seeds. Warmup bundles are fingerprinted and cached so repeated training runs skip redundant rollouts when the mission fingerprint matches.
+  \item \textbf{Notebook cycle.} S01 notebooks~01--08 prototype features; stable logic is promoted to \texttt{s01\_utils/} (e.g.\ \texttt{training\_workflow.py}, baseline overflight). Run artifacts land under \texttt{autonomous\_control/models/} with config snapshots, telemetry, and video exports.
+  \item \textbf{Parallelization.} \texttt{EpisodeRunner} supports serial rollouts for debugging and reproducibility; parallel batching is a throughput trade-off deferred where it would complicate artifact parity.
+\end{itemize}
+Constants and hyperparameters are maintained in \texttt{docs/presentation/} as the live record aligned with code.
+
 \subsection{Baselines and evaluation}
 Compare learned policies against documented baselines (e.g.\ zero-torque coast and scripted overflight sweeps in notebook~07).
 Metrics should include capture count, mean image quality, cloud-blocked fraction, and attitude safety violations---extracted from run artifacts (\texttt{run\_log.md}, \texttt{summary\_metrics.json}) rather than re-simulated ad hoc.
+Matched comparisons require the same altitude draw, cloud formation, and target layout per episode; the shared simulation kernel enforces this contract.

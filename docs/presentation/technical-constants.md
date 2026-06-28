@@ -19,6 +19,7 @@ Source: `environment_definition/constants/SATELLITE.py`.
 - **Reference altitude (design note):** `CAMERA_ALTITUDE` = 500 km (nominal; mission uses sampled altitude in M1).
 - **Full vertical FOV:** computed in `SIMULATION.field_of_view_cone.opening_angle` via `pinhole_full_fov_rad(SENSOR_HEIGHT, FOCAL_LENGTH)`.
 - **Exposure (motion blur):** `CAMERA_EXPOSURE_TIME` = 100 µs (primary default; per-camera `CameraImage.exposure_time` in sim).
+- **Primary observation line:** `camera_observation_line_n_bins` = 100 (`SIMULATION`); codes and cloud-blocked fraction from the same vertical bin rays.
 - **Max captures per orbit (arbitrary OBC budget):** `MAX_PRIMARY_CAPTURES_PER_ORBIT` = 10 (memory + downlink; `AUTONOMOUS_CONTROL_REWARD.MAX_PICTURES_PER_EPISODE` aliases this).
 
 ---
@@ -108,6 +109,16 @@ If the stack assigns **per-module inference time** or pipeline budgets (onboard 
 
 ---
 
+# Render target colors (dashboard)
+
+Source: `environment_definition/constants/RENDER.py`, `render/_satellite_cam_view.py`, `render/_main_view.py`.
+
+- **Pending target (not yet imaged):** red — main rim bands `target_band_color`, camera strip `target_pending_cam_rgb` (all target observation codes T0…Tn).
+- **Imaged target:** green on main / TARGET ZOOM rim (`target_captured_main_color` = `#2ecc71`); purple in primary/secondary camera strips (`target_captured_cam_rgb`).
+- **Capture state for render:** replay `TakePictureBudget` from `SimulationStateSeries.metadata.take_picture_cmd_steps` via `capture_reward.captured_target_indices_at_step` (same novelty rules as applied capture reward).
+
+---
+
 # Traceability
 
 | Topic | Primary code |
@@ -118,4 +129,5 @@ If the stack assigns **per-module inference time** or pipeline budgets (onboard 
 | OBC safety / pointing PD | `simulation/attitude_controller.py` |
 | RW torque gate & dynamics | `simulation/reaction_wheel.py`, `simulation/attitude_dynamics.py`, `simulation/dynamics_kernel.py` |
 | Sim torque path wiring | `simulation/stepper.py` |
+| Render target capture colors | `constants/RENDER.py`, `render/_satellite_cam_view.py`, `simulation/capture_reward.py` |
 | Env-specific torque / ω limits | `environment_definition/attitude_control_env.py` |

@@ -6,6 +6,10 @@
 .cursor/video_frame_inspect/data/
 /debug-*.log
 
+# Cluster training run outputs (Euler: ~/auto-sat-train/data)
+/data/*
+!data/.gitkeep
+
 # Generated / re-exported videos — local artifacts, not merged
 *.mp4
 

@@ -39,6 +39,7 @@ class MPOConfig:
     decoupled_kl: bool = True
     code_embed_dim: int = 8
     cnn_embedding_dim: int = 32
+    num_cnn_layers: int = 2
     num_layers_scalar_encoder: int = 1
     num_layers_vision_fusion: int = 1
     max_target_index: int = 35
@@ -46,6 +47,10 @@ class MPOConfig:
     # Per-component reward flags (routed into env and run_simulation via training
     # runtime / render call sites). See autonomous_control.reward for semantics.
     reward: RewardConfig = field(default_factory=RewardConfig)
+
+    def __post_init__(self) -> None:
+        if self.num_cnn_layers not in (1, 2, 3):
+            raise ValueError("num_cnn_layers must be 1, 2, or 3.")
 
 
 __all__ = ["MPOConfig", "RewardConfig", "LOG_STD_MAX", "LOG_STD_MIN"]

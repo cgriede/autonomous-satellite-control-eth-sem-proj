@@ -193,6 +193,9 @@ class SequentialTargetBaselinePolicy:
 
     Emits PD torque requests (same helpers as AttitudePointingController) plus shutter
     commands on the training stack — policy requests only; safety applies torque.
+
+    ``capture_target_start`` / ``capture_target_end`` (inclusive) limit which targets
+    this episode attempts to image; orbit and target layout are unchanged.
     """
 
     target_anchors: tuple[tuple[float, float], ...]
@@ -203,6 +206,8 @@ class SequentialTargetBaselinePolicy:
     tracking_threshold_deg: float = DEFAULT_TRACKING_THRESHOLD_DEG
     pointing_phase: str = "nadir"
     active_target_index: int = 0
+    capture_target_start: int = 0
+    capture_target_end: int | None = None
     cmd_steps: list[int] | None = None
     _shuttered: set[int] | None = None
     _pointing_gains: NadirPointingGains | None = None
@@ -212,6 +217,12 @@ class SequentialTargetBaselinePolicy:
             self.cmd_steps = []
         if self._shuttered is None:
             self._shuttered = set()
+        end = self.n_targets - 1 if self.capture_target_end is None else int(self.capture_target_end)
+        end = min(max(0, end), self.n_targets - 1)
+        start = min(max(0, int(self.capture_target_start)), end)
+        self.capture_target_start = start
+        self.capture_target_end = end
+        self.active_target_index = start
 
     @property
     def n_targets(self) -> int:
@@ -392,7 +403,14 @@ class SequentialTargetBaselinePolicy:
         take_picture = False
         if obs.pointing_phase == "engage":
             idx = int(obs.active_target_index)
-            if idx < self.n_targets and idx not in self._shuttered:
+            if (
+                idx < self.capture_target_start
+                or idx > self.capture_target_end
+                or idx >= self.n_targets
+                or idx in self._shuttered
+            ):
+                pass
+            else:
                 threshold_rad = float(np.deg2rad(self.tracking_threshold_deg))
                 bearing = float(obs.target_boresight_angles_rad[idx])
                 tracking_err = abs(float(obs.body_z_angle_rad) - bearing)
@@ -406,8 +424,44 @@ class SequentialTargetBaselinePolicy:
                         self._shuttered.add(idx)
                         self.cmd_steps.append(int(step_idx))
                         self.pointing_phase = "nadir"
-                        self.active_target_index = idx + 1
+                        next_idx = idx + 1
+                        if next_idx > self.capture_target_end:
+                            self.active_target_index = self.n_targets
+                        else:
+                            self.active_target_index = next_idx
                         take_picture = True
+                        # #region agent log
+                        try:
+                            import json
+                            import time
+                            from pathlib import Path
+
+                            Path(__file__).resolve().parents[4].joinpath("debug-846e2b.log").open(
+                                "a", encoding="utf-8"
+                            ).write(
+                                json.dumps(
+                                    {
+                                        "sessionId": "846e2b",
+                                        "hypothesisId": "H5",
+                                        "location": "baseline_overflight.py:act",
+                                        "message": "baseline take_picture",
+                                        "data": {
+                                            "target_idx": int(idx),
+                                            "step_idx": int(step_idx),
+                                            "locked": bool(locked),
+                                            "quality_ok": bool(quality_ok),
+                                            "past_trailing": bool(past_trailing),
+                                            "capture_start": int(self.capture_target_start),
+                                            "capture_end": int(self.capture_target_end),
+                                        },
+                                        "timestamp": int(time.time() * 1000),
+                                    }
+                                )
+                                + "\n"
+                            )
+                        except OSError:
+                            pass
+                        # #endregion
         return BaselinePolicyAction(
             torque_request_nm=float(torque_request_nm),
             take_picture=take_picture,
@@ -439,12 +493,77 @@ class BaselineCaptureKPIs:
         return self.total_applied_capture_reward
 
 
-def build_overflight_policy(setup, *, earth_radius_km: float) -> SequentialTargetBaselinePolicy:
+def warmup_capture_slice_plan(
+    *,
+    n_targets: int,
+    targets_per_episode: int,
+) -> tuple[int, int]:
+    """Return ``(targets_per_slice, n_chunks)`` for warmup slice indexing.
+
+    ``targets_per_slice`` is ``min(targets_per_episode, n_targets)``. ``n_chunks`` is
+    ``ceil(n_targets / targets_per_slice)``. Warmup episode ``i`` uses chunk ``i % n_chunks``.
+    """
+    if n_targets <= 0:
+        raise ValueError("n_targets must be > 0.")
+    if targets_per_episode <= 0:
+        raise ValueError("targets_per_episode must be > 0.")
+    per = min(int(targets_per_episode), int(n_targets))
+    n_chunks = max(1, (int(n_targets) + per - 1) // per)
+    return per, n_chunks
+
+
+def warmup_capture_target_range(
+    warmup_episode_idx: int,
+    *,
+    n_targets: int,
+    targets_per_episode: int = 10,
+) -> tuple[int, int]:
+    """Inclusive target index range for one warmup episode (orbit fixed, slice shifts).
+
+    Mapping (no error on mismatch — clamped and wrapped):
+
+    - **Window size:** ``min(targets_per_episode, n_targets)`` targets per slice.
+    - **Chunks:** ``ceil(n_targets / window_size)`` contiguous slices cover all targets.
+    - **Episode index:** ``warmup_episode_idx % n_chunks`` picks the slice (wraps silently).
+    - **Last chunk:** may be shorter when ``n_targets`` is not divisible by the window
+      (e.g. 45 targets @ 10/ep → slices 0–9, 10–19, 20–29, 30–39, 40–44).
+
+    Example with 50 targets and 10 per episode: ep0 → 0–9, ep1 → 10–19, …, ep4 → 40–49;
+    ep5 wraps to 0–9 again.
+    """
+    per, n_chunks = warmup_capture_slice_plan(
+        n_targets=n_targets,
+        targets_per_episode=targets_per_episode,
+    )
+    chunk = int(warmup_episode_idx) % n_chunks
+    start = chunk * per
+    end = min(start + per - 1, int(n_targets) - 1)
+    return start, end
+
+
+def build_overflight_policy(
+    setup,
+    *,
+    earth_radius_km: float,
+    capture_target_start: int = 0,
+    capture_target_end: int | None = None,
+) -> SequentialTargetBaselinePolicy:
     """Build ``SequentialTargetBaselinePolicy`` from a mission setup."""
-    return _build_policy_from_setup(setup, earth_radius_km=earth_radius_km)
+    return _build_policy_from_setup(
+        setup,
+        earth_radius_km=earth_radius_km,
+        capture_target_start=capture_target_start,
+        capture_target_end=capture_target_end,
+    )
 
 
-def _build_policy_from_setup(setup, *, earth_radius_km: float) -> SequentialTargetBaselinePolicy:
+def _build_policy_from_setup(
+    setup,
+    *,
+    earth_radius_km: float,
+    capture_target_start: int = 0,
+    capture_target_end: int | None = None,
+) -> SequentialTargetBaselinePolicy:
     areas = tuple(setup.target_areas)
     anchors = tuple(
         target_area_view_anchor_disk_xy_km(area, earth_radius_km=earth_radius_km) for area in areas
@@ -456,6 +575,8 @@ def _build_policy_from_setup(setup, *, earth_radius_km: float) -> SequentialTarg
         target_areas=areas,
         target_leading_phi_lo_deg=leading_phi,
         target_trailing_phi_hi_deg=trailing_phi,
+        capture_target_start=int(capture_target_start),
+        capture_target_end=capture_target_end,
     )
 
 

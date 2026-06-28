@@ -28,6 +28,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run fast inline preflight gate before training.",
     )
+    parser.add_argument(
+        "--no-warmup-cache",
+        action="store_true",
+        help="Disable fingerprinted warmup episode bundle cache.",
+    )
+    parser.add_argument(
+        "--rebuild-warmup-cache",
+        action="store_true",
+        help="Delete matching warmup cache bundle and rebuild before training.",
+    )
     return parser.parse_args()
 
 
@@ -42,6 +52,8 @@ def main() -> None:
         train_episodes=args.train_episodes,
         eval_episodes=args.eval_episodes,
         run_id=args.run_id,
+        use_warmup_bundle_cache=not args.no_warmup_cache,
+        rebuild_warmup_bundle_cache=args.rebuild_warmup_cache,
     )
     setup = tw.build_training_workflow_setup(cfg)
     result = tw.run_training_workflow(setup, show_progress=True)

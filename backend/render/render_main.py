@@ -21,6 +21,7 @@ from environment_definition.mission_profiles.s00_simulation_build_sample_fl impo
 from simulation.camera_2d import boresight_dir_for_mount
 from simulation.capture_reward import (
     applied_capture_reward_series,
+    captured_target_indices_at_step,
     latent_capture_reward_series,
 )
 from simulation.state_types import SimulationStateSeries
@@ -361,6 +362,11 @@ def sample_scene(sim_idx: int) -> dict:
     if N_BINS_SECONDARY > 0:
         secondary_codes = np.asarray(sim_series.secondary_camera_observation_line_codes[sim_idx], dtype=np.int8)
 
+    cmd_steps = _take_picture_cmd_steps(sim_series)
+    captured_target_indices = captured_target_indices_at_step(
+        sim_series, sim_idx, cmd_steps=cmd_steps
+    )
+
     sat_subpoint_lat_deg = float(sim_series.sat_subpoint_lat_deg[sim_idx])
     sat_subpoint_lon_deg = float(sim_series.sat_subpoint_lon_deg[sim_idx])
     sat_altitude_km = float(sim_series.sat_altitude_m[sim_idx]) / 1000.0
@@ -394,6 +400,7 @@ def sample_scene(sim_idx: int) -> dict:
         "ground_center": ground_center_xy,
         "camera_codes": np.asarray(sim_series.camera_observation_line_codes[sim_idx], dtype=np.int8),
         "secondary_camera_codes": secondary_codes,
+        "captured_target_indices": captured_target_indices,
         "center_hit_cloud": bool(sim_series.camera_center_first_hit_is_cloud[sim_idx]),
         "camera_gsd_m": camera_gsd_m,
         "camera_image_smear_px": camera_image_smear_px,
@@ -511,9 +518,17 @@ def update_panels(scene: dict) -> None:
     if "closeup" in PANELS:
         update_closeup_panel(PANELS["closeup"]["artists"], scene)
     if "1d_sat_view" in PANELS:
-        update_1d_sat_view(PANELS["1d_sat_view"]["artists"], scene["camera_codes"])
+        update_1d_sat_view(
+            PANELS["1d_sat_view"]["artists"],
+            scene["camera_codes"],
+            captured_target_indices=scene.get("captured_target_indices"),
+        )
     if "1d_sat_view_secondary" in PANELS and scene["secondary_camera_codes"] is not None:
-        update_1d_sat_view(PANELS["1d_sat_view_secondary"]["artists"], scene["secondary_camera_codes"])
+        update_1d_sat_view(
+            PANELS["1d_sat_view_secondary"]["artists"],
+            scene["secondary_camera_codes"],
+            captured_target_indices=scene.get("captured_target_indices"),
+        )
     if "telemetry" in PANELS:
         update_telemetry_panel(PANELS["telemetry"]["artists"], scene)
     if "reward" in PANELS:

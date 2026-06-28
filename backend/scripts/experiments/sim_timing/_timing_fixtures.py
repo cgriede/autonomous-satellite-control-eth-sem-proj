@@ -29,4 +29,4 @@ def build_sat_sim_interactive_setup():
 def build_sat_sim_interactive_sim_config():
     from environment_definition.constants.SIMULATION import RenderMode, SimulationConfig
 
-    return SimulationConfig(render_mode=RenderMode.INTERACTIVE, controller_mode="random")
+    return SimulationConfig(render_mode=RenderMode.INTERACTIVE, builtin_torque_policy="random")

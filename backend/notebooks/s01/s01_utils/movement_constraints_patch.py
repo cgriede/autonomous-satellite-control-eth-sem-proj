@@ -52,7 +52,7 @@ def _single_target_grid():
 
 def build_fast_movement_setup(*, seed: int = 0, include_cameras: bool = False):
     """HEADLESS iteration setup (cells 3–6)."""
-    overrides = SimulationOverrides(camera_pixel_ray_samples=16) if include_cameras else None
+    overrides = SimulationOverrides(camera_observation_line_n_bins=16) if include_cameras else None
     return replace(
         build_setup(seed=seed, include_cameras=include_cameras),
         clouds=(),

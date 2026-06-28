@@ -24,7 +24,7 @@ from autonomous_control.config.randomness import derive_seed
 from autonomous_control.feature_selection import ControllerFeatureConfig
 from autonomous_control.training_runtime import EpisodeResult, run_episode
 
-NB_WARMUP_BUNDLE_VERSION = 6
+NB_WARMUP_BUNDLE_VERSION = 7
 _EPISODES_FILENAME = "episodes.pkl.gz"
 _META_FILENAME = "meta.json"
 

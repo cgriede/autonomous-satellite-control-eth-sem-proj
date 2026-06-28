@@ -83,7 +83,6 @@ def main() -> None:
         sat_motion_span_scale=float(SIMULATION.sat_motion_span_scale),
         sat_z_offset_deg=float(SIMULATION.sat_z_offset.to(ureg.deg).magnitude),
         ureg=ureg,
-        camera_pixel_ray_samples=SIMULATION.camera_pixel_ray_samples,
         camera_observation_line_n_bins=args.n_bins,
     )
 

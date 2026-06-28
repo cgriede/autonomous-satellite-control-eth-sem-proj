@@ -2,7 +2,7 @@
 
 Living record of report-scoping discussions. Use this when revising Abstract, Introduction, or framing Results — not as submission text.
 
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-27
 
 ---
 
@@ -137,6 +137,21 @@ Files updated from questionnaire:
 - `main.tex` — title, supervisors, Beyond Gravity institute line.
 
 **Explicitly not emphasized (per user):** charter invariants as research contributions; MPO algorithm novelty; polar-orbit special case.
+
+---
+
+## Session 3 — Platform narrative in report (2026-06-27)
+
+User reflection: most semester effort went into infrastructure (simulation kernel, timesteps, UI wiring, parallelization trade-offs) rather than mature ML benchmarks; thesis still justified if cloud-aware learning insight is demonstrated.
+
+**Applied to LaTeX:**
+
+- `sections/introduction.tex` — Contributions split into Platform / Mission / Evaluation / Evidence; sentence on effort allocation.
+- `sections/methods.tex` — new **Software architecture** subsection (canonical sim, timesteps, seeded randomness, notebook cycle, parallelization).
+- `sections/discussion.tex` — Interpretation ties platform to credible comparison; Limitations adds **Effort allocation** bullet.
+- `sections/conclusion.tex` — platform as primary deliverable; Outlook lists 3D/propagator/real imagery/multi-orbit extensions.
+
+Personal/process notes (50% time, 3 months) stay in this log only — not submission text.
 
 ---
 

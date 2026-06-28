@@ -315,41 +315,11 @@ def export_run_plots(run_dir: Path, rows: list[dict[str, Any]]) -> dict[str, Pat
 
 
 def export_training_episode_video_sync(series: Any, out_path: Path) -> Path:
-    import json
-    import time
-    from pathlib import Path as PathType
-
     import matplotlib
 
     matplotlib.use("Agg")
-    from environment_definition.constants import RENDER, RenderMode
+    from environment_definition.constants import RenderMode
     from render.render_main import render_from_series
-
-    # region agent log
-    _log_path = PathType(__file__).resolve().parents[3] / "debug-0bc7ae.log"
-    try:
-        with _log_path.open("a", encoding="utf-8") as fh:
-            fh.write(
-                json.dumps(
-                    {
-                        "sessionId": "0bc7ae",
-                        "runId": "pre-fix",
-                        "hypothesisId": "H1",
-                        "location": "training_run_artifacts.export_training_episode_video_sync",
-                        "message": "video export entry",
-                        "data": {
-                            "render_id": id(RENDER),
-                            "has_island_blob_along_scale": hasattr(RENDER, "island_blob_along_scale"),
-                            "out_path": str(out_path),
-                        },
-                        "timestamp": int(time.time() * 1000),
-                    }
-                )
-                + "\n"
-            )
-    except OSError:
-        pass
-    # endregion
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     rendered = render_from_series(

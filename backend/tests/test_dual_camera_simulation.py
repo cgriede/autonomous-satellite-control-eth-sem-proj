@@ -28,8 +28,8 @@ from simulation.stepper_factory import build_stepper
 from simulation.run_simulation import run_simulation
 
 _ALTITUDE = sample_satellite_altitude(seed=42)
-_SIM_CFG_COAST = SimulationConfig(render_mode=RenderMode.HEADLESS, controller_mode="coast")
-_SIM_CFG_RANDOM = SimulationConfig(render_mode=RenderMode.HEADLESS, controller_mode="random", controller_seed=0)
+_SIM_CFG_COAST = SimulationConfig(render_mode=RenderMode.HEADLESS, builtin_torque_policy="coast")
+_SIM_CFG_RANDOM = SimulationConfig(render_mode=RenderMode.HEADLESS, builtin_torque_policy="random", controller_seed=0)
 
 
 def _minimal_dual_camera_config(**kwargs):
@@ -104,6 +104,10 @@ class DualCameraSeriesShapeTest(unittest.TestCase):
         self.assertEqual(series.secondary_camera_observation_line_codes.shape, (n, 200))
         self.assertEqual(series.secondary_camera_observation_line_codes.dtype, np.int8)
         self.assertEqual(series.secondary_camera_cloud_blocked_fraction.shape, (n,))
+        np.testing.assert_array_equal(
+            series.secondary_camera_cloud_blocked_fraction,
+            np.zeros(n, dtype=float),
+        )
 
     def test_dual_camera_timestep_state_has_secondary_codes(self):
         """current_timestep_state() populates secondary_camera_observation_line_codes shape (200,)."""
@@ -204,9 +208,9 @@ class CoastControllerTest(unittest.TestCase):
         self.assertTrue(np.all(series.wheel_torque_cmd_nm == 0.0), "Coast: all torques must be 0")
 
     def test_coast_mode_accepted_by_simulation_config(self):
-        """SimulationConfig accepts 'coast' as controller_mode without error."""
-        cfg = SimulationConfig(render_mode=RenderMode.HEADLESS, controller_mode="coast")
-        self.assertEqual(cfg.controller_mode, "coast")
+        """SimulationConfig accepts 'coast' as builtin_torque_policy without error."""
+        cfg = SimulationConfig(render_mode=RenderMode.HEADLESS, builtin_torque_policy="coast")
+        self.assertEqual(cfg.builtin_torque_policy, "coast")
 
 
 class S01BuildSetupTest(unittest.TestCase):

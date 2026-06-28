@@ -68,9 +68,7 @@ class SimulationConstants:
     z_axis_length: Any
     clouds: tuple[Cloud, ...]
     export_speed_multiplier: float
-    # Rays sampled along the sensor column for camera strip cloud-blocked stats (see simulation.camera_2d).
-    camera_pixel_ray_samples: int
-    # Bins along the vertical FOV for simulate_camera_observation_line_1d and SimulationStateSeries.
+    # Bins along the vertical FOV; observation line codes and cloud_blocked_fraction share this grid.
     camera_observation_line_n_bins: int
     # Sensor/camera kernel backend: "python" for baseline, "accelerated" for vectorized kernels.
     camera_kernel_backend: Literal["python", "accelerated"]
@@ -153,7 +151,7 @@ def training_episode_simulation_config(
 
 SIMULATION = SimulationConstants(
     theta_center=90.0 * ureg.deg,
-    sat_motion_span_scale=1.05,
+    sat_motion_span_scale=0.7,  # JUSTIFICATION: fly central 70% of LOS-padded [start,end]; attitude-safety reach is tighter than horizon margins, so this trims dead compute with margin for all targets.
     contact_margin_angle=0.05 * ureg.deg,
     simulation_timestep=0.4 * ureg.s,
     controller_update_interval=1 * ureg.s,
@@ -176,7 +174,6 @@ SIMULATION = SimulationConstants(
         ),
     ),
     export_speed_multiplier=30.0,
-    camera_pixel_ray_samples=96,
     camera_observation_line_n_bins=DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS,
     camera_kernel_backend="accelerated",
     max_episode_steps=1000,

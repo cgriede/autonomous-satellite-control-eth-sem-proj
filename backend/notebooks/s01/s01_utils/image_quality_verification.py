@@ -27,11 +27,11 @@ def build_fast_image_quality_setup(*, seed: int = 0, include_cameras: bool = Tru
     base_orbit = base.orbit
     if base_orbit is None or base_orbit.altitude is None:
         raise ValueError("build_setup must provide orbit.altitude for image-quality verification.")
-    overrides = SimulationOverrides(camera_pixel_ray_samples=24) if include_cameras else None
+    overrides = SimulationOverrides(camera_observation_line_n_bins=24) if include_cameras else None
     if base.simulation_overrides is not None and include_cameras:
         overrides = replace(
             base.simulation_overrides,
-            camera_pixel_ray_samples=24,
+            camera_observation_line_n_bins=24,
         )
     orbit = OrbitConfig(
         altitude=base_orbit.altitude,

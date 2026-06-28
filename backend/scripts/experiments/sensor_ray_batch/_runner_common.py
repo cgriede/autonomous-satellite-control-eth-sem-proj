@@ -178,7 +178,6 @@ def _dual_camera_eval_kwargs(setup) -> dict[str, Any]:
         sim_total_s=100.0,
         n_bins=int(SIMULATION.camera_observation_line_n_bins),
         n_clouds=len(setup.clouds),
-        camera_pixel_ray_samples=int(SIMULATION.camera_pixel_ray_samples),
         clouds=setup.clouds,
         camera_kernel_backend="accelerated",
         n_bins_secondary=n_bins_secondary,
@@ -215,7 +214,7 @@ def bench_sensor_kernels_legacy(
     sat_xy = np.array([6800.0, 200.0], dtype=float)
     bore = np.array([-1.0, 0.0], dtype=float)
     earth_r = float(EARTH_RADIUS.to(ureg.km).magnitude)
-    ray_samples = int(SIMULATION.camera_pixel_ray_samples)
+    ray_samples = 96  # legacy simulate_camera_strip_2d benchmark only
     n_bins = int(SIMULATION.camera_observation_line_n_bins)
     n_bins_secondary = 200
 

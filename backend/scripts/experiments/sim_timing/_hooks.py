@@ -51,8 +51,7 @@ def install(collector: TimingCollector) -> None:
     originals: dict[str, Any] = {
         "DynamicsKernel.propagate": dynamics_mod.DynamicsKernel.propagate,
         "compute_cloud_arc_specs_at_time": camera_2d_mod.compute_cloud_arc_specs_at_time,
-        "_evaluate_fused_accelerated": sensor_mod._evaluate_fused_accelerated,
-        "_evaluate_legacy": sensor_mod._evaluate_legacy,
+        "_evaluate_sensors": sensor_mod._evaluate_sensors,
         "RewardKernel.evaluate": reward_mod.RewardKernel.evaluate,
         "disk_xy_km_to_geodetic_deg": wgs84_mod.disk_xy_km_to_geodetic_deg,
         "circle_stripe_footprint_overlap_ratio": geodesic_mod.circle_stripe_footprint_overlap_ratio,
@@ -102,13 +101,9 @@ def install(collector: TimingCollector) -> None:
             originals["batch_disk_xy_rows_km_to_geodetic_deg"],
         )
 
-    sensor_mod._evaluate_fused_accelerated = _wrap(
+    sensor_mod._evaluate_sensors = _wrap(
         "sensor_camera_rays",
-        originals["_evaluate_fused_accelerated"],
-    )
-    sensor_mod._evaluate_legacy = _wrap(
-        "sensor_camera_rays",
-        originals["_evaluate_legacy"],
+        originals["_evaluate_sensors"],
     )
     reward_mod.RewardKernel.evaluate = staticmethod(  # type: ignore[method-assign]
         _wrap("reward_ml", originals["RewardKernel.evaluate"])
@@ -181,8 +176,7 @@ def uninstall() -> None:
         refs["dynamics_mod"].DynamicsKernel.propagate = originals["DynamicsKernel.propagate"]  # type: ignore[method-assign]
         refs["camera_2d_mod"].compute_cloud_arc_specs_at_time = originals["compute_cloud_arc_specs_at_time"]
         refs["sensor_mod"].compute_cloud_arc_specs_at_time = originals["compute_cloud_arc_specs_at_time"]
-        refs["sensor_mod"]._evaluate_fused_accelerated = originals["_evaluate_fused_accelerated"]
-        refs["sensor_mod"]._evaluate_legacy = originals["_evaluate_legacy"]
+        refs["sensor_mod"]._evaluate_sensors = originals["_evaluate_sensors"]
         refs["reward_mod"].RewardKernel.evaluate = originals["RewardKernel.evaluate"]  # type: ignore[method-assign]
         refs["wgs84_mod"].disk_xy_km_to_geodetic_deg = originals["disk_xy_km_to_geodetic_deg"]
         refs["stepper_mod"].disk_xy_km_to_geodetic_deg = originals["disk_xy_km_to_geodetic_deg"]

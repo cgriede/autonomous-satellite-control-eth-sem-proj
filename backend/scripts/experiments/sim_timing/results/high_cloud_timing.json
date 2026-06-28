@@ -1,75 +1,61 @@
 {
-  "sim_loop_wall_s": 10.259411399951205,
-  "n_steps": 1937,
-  "steps_per_s": 188.80225429006703,
-  "per_step_wall_ms": 5.2965469282143545,
-  "measured_in_loop_s": 10.248301007784903,
-  "measured_episode_extra_s": 82.31466649984941,
-  "measured_grand_total_s": 92.56296750763431,
-  "unaccounted_in_loop_s": 0.011110392166301608,
+  "sim_loop_wall_s": 3.4358414000016637,
+  "n_steps": 1292,
+  "steps_per_s": 376.03598350010407,
+  "per_step_wall_ms": 2.6593199690415354,
+  "measured_in_loop_s": 3.4309078996739117,
+  "measured_episode_extra_s": 0.0,
+  "measured_grand_total_s": 3.4309078996739117,
+  "unaccounted_in_loop_s": 0.004933500327751972,
   "categories": [
-    {
-      "key": "export_video",
-      "label": "Video export / encode",
-      "total_s": 81.99526490014978,
-      "per_step_ms": null,
-      "pct_of_sim_loop": 799.2199718254768
-    },
     {
       "key": "sensor_camera_rays",
       "label": "Visual: camera ray kernel",
-      "total_s": 7.498215600848198,
-      "per_step_ms": 3.871045741274237,
-      "pct_of_sim_loop": 73.08621624125396
+      "total_s": 1.7363686997559853,
+      "per_step_ms": 1.3439386221021559,
+      "pct_of_sim_loop": 50.536928152595884
     },
     {
       "key": "reward_ml",
       "label": "Reward / ML-side scoring",
-      "total_s": 1.0113859979901463,
-      "per_step_ms": 0.5221404222974426,
-      "pct_of_sim_loop": 9.858128878572474
-    },
-    {
-      "key": "geodesy",
-      "label": "Geodesy transforms (disk to geodetic)",
-      "total_s": 0.8028703853487968,
-      "per_step_ms": 0.414491680613731,
-      "pct_of_sim_loop": 7.825696368435088
-    },
-    {
-      "key": "robotics_dynamics",
-      "label": "Reaction wheel & attitude dynamics",
-      "total_s": 0.6762410013470799,
-      "per_step_ms": 0.34911770849100665,
-      "pct_of_sim_loop": 6.591421037568454
-    },
-    {
-      "key": "render",
-      "label": "Render setup & frame draw",
-      "total_s": 0.31940159969963133,
-      "per_step_ms": null,
-      "pct_of_sim_loop": 3.1132546229811044
+      "total_s": 0.607704800189822,
+      "per_step_ms": 0.47035975246890244,
+      "pct_of_sim_loop": 17.687219211850923
     },
     {
       "key": "stepper_bookkeeping",
       "label": "Stepper bookkeeping (residual per step)",
-      "total_s": 0.24431421514600515,
-      "per_step_ms": 0.12613020916159273,
-      "pct_of_sim_loop": 2.3813667823786377
+      "total_s": 0.4134723999450216,
+      "per_step_ms": 0.32002507735682784,
+      "pct_of_sim_loop": 12.034094470857164
+    },
+    {
+      "key": "robotics_dynamics",
+      "label": "Reaction wheel & attitude dynamics",
+      "total_s": 0.4103045999218011,
+      "per_step_ms": 0.31757321975371605,
+      "pct_of_sim_loop": 11.941895802338328
+    },
+    {
+      "key": "geodesy",
+      "label": "Geodesy transforms (disk to geodetic)",
+      "total_s": 0.2516529001004528,
+      "per_step_ms": 0.19477778645545885,
+      "pct_of_sim_loop": 7.3243456493751715
     },
     {
       "key": "orbit_kinematics",
       "label": "Orbit position lookup (precomputed ephemeris)",
-      "total_s": 0.013189400546252728,
-      "per_step_ms": 0.00680918975025954,
-      "pct_of_sim_loop": 0.12855903747378197
+      "total_s": 0.006310700002359226,
+      "per_step_ms": 0.004884442726284231,
+      "pct_of_sim_loop": 0.18367262244282204
     },
     {
       "key": "controller_actuator",
       "label": "Controller / policy (actuator command)",
-      "total_s": 0.0020844065584242344,
-      "per_step_ms": 0.0010761004431720364,
-      "pct_of_sim_loop": 0.020317018951342063
+      "total_s": 0.005093799758469686,
+      "per_step_ms": 0.003942569472499756,
+      "pct_of_sim_loop": 0.14825479891089324
     },
     {
       "key": "environment_clouds",
@@ -84,65 +70,79 @@
       "total_s": 0.0,
       "per_step_ms": 0.0,
       "pct_of_sim_loop": 0.0
-    }
-  ],
-  "top_7_consumers": [
-    {
-      "key": "export_video",
-      "label": "Video export / encode",
-      "total_s": 81.99526490014978,
-      "per_step_ms": null,
-      "pct_of_sim_loop": 799.2199718254768
-    },
-    {
-      "key": "sensor_camera_rays",
-      "label": "Visual: camera ray kernel",
-      "total_s": 7.498215600848198,
-      "per_step_ms": 3.871045741274237,
-      "pct_of_sim_loop": 73.08621624125396
-    },
-    {
-      "key": "reward_ml",
-      "label": "Reward / ML-side scoring",
-      "total_s": 1.0113859979901463,
-      "per_step_ms": 0.5221404222974426,
-      "pct_of_sim_loop": 9.858128878572474
-    },
-    {
-      "key": "geodesy",
-      "label": "Geodesy transforms (disk to geodetic)",
-      "total_s": 0.8028703853487968,
-      "per_step_ms": 0.414491680613731,
-      "pct_of_sim_loop": 7.825696368435088
-    },
-    {
-      "key": "robotics_dynamics",
-      "label": "Reaction wheel & attitude dynamics",
-      "total_s": 0.6762410013470799,
-      "per_step_ms": 0.34911770849100665,
-      "pct_of_sim_loop": 6.591421037568454
     },
     {
       "key": "render",
       "label": "Render setup & frame draw",
-      "total_s": 0.31940159969963133,
+      "total_s": 0.0,
       "per_step_ms": null,
-      "pct_of_sim_loop": 3.1132546229811044
+      "pct_of_sim_loop": 0.0
+    },
+    {
+      "key": "export_video",
+      "label": "Video export / encode",
+      "total_s": 0.0,
+      "per_step_ms": null,
+      "pct_of_sim_loop": 0.0
+    }
+  ],
+  "top_7_consumers": [
+    {
+      "key": "sensor_camera_rays",
+      "label": "Visual: camera ray kernel",
+      "total_s": 1.7363686997559853,
+      "per_step_ms": 1.3439386221021559,
+      "pct_of_sim_loop": 50.536928152595884
+    },
+    {
+      "key": "reward_ml",
+      "label": "Reward / ML-side scoring",
+      "total_s": 0.607704800189822,
+      "per_step_ms": 0.47035975246890244,
+      "pct_of_sim_loop": 17.687219211850923
     },
     {
       "key": "stepper_bookkeeping",
       "label": "Stepper bookkeeping (residual per step)",
-      "total_s": 0.24431421514600515,
-      "per_step_ms": 0.12613020916159273,
-      "pct_of_sim_loop": 2.3813667823786377
+      "total_s": 0.4134723999450216,
+      "per_step_ms": 0.32002507735682784,
+      "pct_of_sim_loop": 12.034094470857164
+    },
+    {
+      "key": "robotics_dynamics",
+      "label": "Reaction wheel & attitude dynamics",
+      "total_s": 0.4103045999218011,
+      "per_step_ms": 0.31757321975371605,
+      "pct_of_sim_loop": 11.941895802338328
+    },
+    {
+      "key": "geodesy",
+      "label": "Geodesy transforms (disk to geodetic)",
+      "total_s": 0.2516529001004528,
+      "per_step_ms": 0.19477778645545885,
+      "pct_of_sim_loop": 7.3243456493751715
+    },
+    {
+      "key": "orbit_kinematics",
+      "label": "Orbit position lookup (precomputed ephemeris)",
+      "total_s": 0.006310700002359226,
+      "per_step_ms": 0.004884442726284231,
+      "pct_of_sim_loop": 0.18367262244282204
+    },
+    {
+      "key": "controller_actuator",
+      "label": "Controller / policy (actuator command)",
+      "total_s": 0.005093799758469686,
+      "per_step_ms": 0.003942569472499756,
+      "pct_of_sim_loop": 0.14825479891089324
     }
   ],
   "context": {
     "scenario": "high_cloud",
     "n_clouds": 63,
-    "with_render": true,
+    "with_render": false,
     "include_cameras": true,
-    "controller_mode": "coast"
+    "controller_mode": "builtin"
   },
-  "run_at_utc": "2026-06-02T19:39:53.641364+00:00"
+  "run_at_utc": "2026-06-27T13:47:37.472983+00:00"
 }

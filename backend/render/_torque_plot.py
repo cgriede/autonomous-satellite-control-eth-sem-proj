@@ -36,12 +36,20 @@ def build_torque_panel(
 
     ax.axhline(0.0, color=RENDER.panel_edge, linewidth=0.8, alpha=0.9, zorder=0)
 
+    (line_applied,) = ax.plot(
+        [], [], color=RENDER.accent_torque, linewidth=1.6, label=applied_label, zorder=1
+    )
     line_agent = None
     if agent_nm is not None:
         (line_agent,) = ax.plot(
-            [], [], color=RENDER.accent_torque_agent, linewidth=1.0, linestyle="--", label="agent request"
+            [],
+            [],
+            color=RENDER.accent_torque_agent,
+            linewidth=1.0,
+            linestyle="--",
+            label="agent request",
+            zorder=2,
         )
-    (line_applied,) = ax.plot([], [], color=RENDER.accent_torque, linewidth=1.6, label=applied_label)
     (cursor,) = ax.plot(
         [], [], color=RENDER.accent_cursor, marker="o", markersize=4,
         markeredgecolor="black", markeredgewidth=0.5, linestyle="None", zorder=5,

@@ -1,0 +1,35 @@
+{
+  "action_dim": 2,
+  "attitude_controller_enabled": true,
+  "base_seed": 7,
+  "camera_observation_line_n_bins": 100,
+  "digest_sha256_hex": "03b38f811c317e0233edef592413db3aadaf7d51a073acb01723c88ee6917994",
+  "early_stop_on_budget_exhausted": false,
+  "episode_count": 5,
+  "feature_config": {
+    "attitude_keys": [
+      "body_z_angle_rad",
+      "omega_sat_rad_s"
+    ],
+    "include_capture_budget": true,
+    "include_target_bearing_errors": true,
+    "orbit_keys": [
+      "theta_orbit_rad",
+      "primary_camera_image_quality"
+    ],
+    "vision_keys": [
+      "camera_observation_line_codes",
+      "secondary_camera_observation_line_codes"
+    ]
+  },
+  "max_episode_steps": 1936,
+  "mission_profile": "s01_training",
+  "n_mission_targets": 50,
+  "nb_warmup_bundle_version": 7,
+  "obs_dim": 355,
+  "satellite_altitude_m": 528758.3065070219,
+  "secondary_camera_observation_line_n_bins": 200,
+  "warmup_controller": "baseline",
+  "warmup_seed_tag": "warmup_episode",
+  "warmup_targets_per_episode": 10
+}

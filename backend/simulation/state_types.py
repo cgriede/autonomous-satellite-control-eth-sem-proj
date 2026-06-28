@@ -79,7 +79,7 @@ class SimulationStateSeries:
     camera_center_first_hit_is_cloud : np.ndarray # per-frame bool
     # 0 space, 1 earth, 2 cloud, 3 target (same convention as CameraObservationLine1DResult)
     camera_center_ray_observation_code : np.ndarray
-    camera_cloud_blocked_fraction : np.ndarray # per-frame fraction of pixel-strip rays blocked by clouds
+    camera_cloud_blocked_fraction : np.ndarray # per-frame cloud fraction from primary observation-line bins
     # Per-bin codes from simulate_camera_observation_line_1d (shape n_frames x n_bins); -99 = not computed
     camera_observation_line_codes : np.ndarray
     # Geodetic support fields (deg for compact storage in episode arrays).

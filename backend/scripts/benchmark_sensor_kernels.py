@@ -24,7 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Benchmark sensor/camera kernel backends.")
     parser.add_argument("--iters", type=int, default=200)
     parser.add_argument("--n-bins", type=int, default=SIMULATION.camera_observation_line_n_bins)
-    parser.add_argument("--ray-samples", type=int, default=SIMULATION.camera_pixel_ray_samples)
+    parser.add_argument("--ray-samples", type=int, default=96, help="strip_2d legacy benchmark only")
     parser.add_argument(
         "--use-baseline-clouds",
         action="store_true",

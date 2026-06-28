@@ -88,7 +88,6 @@ class EpisodeRunnerStepperParityTest(unittest.TestCase):
             sat_motion_span_scale=resolved.sat_motion_span_scale,
             sat_z_offset_deg=resolved.sat_z_offset_deg,
             ureg=resolved.ureg,
-            camera_pixel_ray_samples=resolved.camera_pixel_ray_samples,
             camera_observation_line_n_bins=resolved.camera_observation_line_n_bins,
             reward_config=resolved.reward_config,
             clouds=resolved.clouds,

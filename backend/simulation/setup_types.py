@@ -27,7 +27,6 @@ class OrbitConfig:
 
 @dataclass(frozen=True)
 class SimulationOverrides:
-    camera_pixel_ray_samples: int | None = None
     camera_observation_line_n_bins: int | None = None
     camera_kernel_backend: str | None = None
     reward_config: Any | None = None  # RewardConfig | None
@@ -50,7 +49,6 @@ class ResolvedSimulationSetup:
     sat_motion_span_scale: float
     sat_z_offset_deg: float
     ureg: Any
-    camera_pixel_ray_samples: int
     camera_observation_line_n_bins: int
     camera_kernel_backend: str
     cameras: tuple  # tuple[CameraMount, ...]
@@ -224,11 +222,6 @@ class EnvironmentSetup:
             if self.simulation_overrides is not None
             else SimulationOverrides()
         )
-        camera_pixel_ray_samples = (
-            overrides.camera_pixel_ray_samples
-            if overrides.camera_pixel_ray_samples is not None
-            else int(SIMULATION.camera_pixel_ray_samples)
-        )
         camera_observation_line_n_bins = (
             overrides.camera_observation_line_n_bins
             if overrides.camera_observation_line_n_bins is not None
@@ -259,7 +252,6 @@ class EnvironmentSetup:
             sat_motion_span_scale=float(sat_motion_span_scale),
             sat_z_offset_deg=float(sat_z_offset_deg),
             ureg=ureg,
-            camera_pixel_ray_samples=int(camera_pixel_ray_samples),
             camera_observation_line_n_bins=int(camera_observation_line_n_bins),
             camera_kernel_backend=str(camera_kernel_backend),
             cameras=tuple(self.cameras),

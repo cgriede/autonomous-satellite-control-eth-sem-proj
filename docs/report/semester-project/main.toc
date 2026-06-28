@@ -12,19 +12,20 @@
 \contentsline {section}{\numberline {2}Methods}{7}{section.2}%
 \contentsline {subsection}{\numberline {2.1}Simulation architecture}{7}{subsection.2.1}%
 \contentsline {subsection}{\numberline {2.2}Observation and action}{7}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Reward}{7}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}Learning algorithm}{7}{subsection.2.4}%
-\contentsline {subsection}{\numberline {2.5}Baselines and evaluation}{8}{subsection.2.5}%
-\contentsline {section}{\numberline {3}Results}{8}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Baseline overflight}{8}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Training progression}{8}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Policy vs.\ baseline}{8}{subsection.3.3}%
-\contentsline {section}{\numberline {4}Discussion}{8}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Interpretation}{8}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Limitations}{8}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Relation to presentation}{9}{subsection.4.3}%
-\contentsline {section}{\numberline {5}Conclusion}{9}{section.5}%
-\contentsline {section}{\numberline {A}Supplementary material}{9}{appendix.A}%
-\contentsline {subsection}{\numberline {A.1}Repository revision}{9}{subsection.A.1}%
-\contentsline {subsection}{\numberline {A.2}Live parameter record}{9}{subsection.A.2}%
-\contentsline {subsection}{\numberline {A.3}Artifact paths}{9}{subsection.A.3}%
+\contentsline {subsection}{\numberline {2.3}Reward}{8}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Learning algorithm}{8}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Software architecture}{8}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.6}Baselines and evaluation}{8}{subsection.2.6}%
+\contentsline {section}{\numberline {3}Results}{9}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Baseline overflight}{9}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Training progression}{9}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Policy vs.\ baseline}{9}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Discussion}{9}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Interpretation}{9}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Limitations}{9}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Relation to presentation}{10}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Conclusion}{10}{section.5}%
+\contentsline {section}{\numberline {A}Supplementary material}{10}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}Repository revision}{10}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}Live parameter record}{10}{subsection.A.2}%
+\contentsline {subsection}{\numberline {A.3}Artifact paths}{10}{subsection.A.3}%

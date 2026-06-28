@@ -1,0 +1,12 @@
+{
+  "event":"step_snapshot",
+  "timestamp_utc":"2026-06-27T10:06:04.134191+00:00",
+  "episode_idx":0,
+  "step_idx":2903,
+  "sim_time_s":1160.9280362631548,
+  "reward":0.0,
+  "worker_id":null,
+  "episode_return":0.0,
+  "phase":"eval",
+  "done":true
+}

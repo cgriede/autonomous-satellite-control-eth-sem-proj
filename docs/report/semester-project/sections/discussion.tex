@@ -3,12 +3,14 @@
 \subsection{Interpretation}
 Relate observed behavior to reward terms: e.g.\ whether the policy trades stillness for coverage, or avoids cloud-blocked shutters.
 Tie qualitative video exports to the quantitative table in Section~\ref{sec:results}.
+Baseline versus learned comparisons are only meaningful because both policies roll out through the same canonical simulation path under matched stochastic missions; the platform work is therefore part of the scientific setup, not merely implementation overhead.
 
 \subsection{Limitations}
 \begin{itemize}
   \item \textbf{Model fidelity:} spherical Earth, 2D attitude kernel, simplified cloud primitives.
   \item \textbf{Control interface:} direct torque learning is an interim experimental stack, not the target hierarchical mission planner.
   \item \textbf{Generalization:} results hold for the documented mission randomization ranges only.
+  \item \textbf{Effort allocation:} most semester effort went into simulation kernel design, timestep contracts, UI wiring for notebook workflows, and evaluation plumbing; reinforcement-learning experiments are initial and should be read as proof-of-concept on a validated stack rather than a mature benchmark study.
 \end{itemize}
 
 \subsection{Relation to presentation}

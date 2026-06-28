@@ -42,6 +42,9 @@ class RenderConstants:
     earth_outline_linewidth     : float
     earth_outline_alpha         : float
     target_band_color           : str
+    target_captured_main_color  : str
+    target_pending_cam_rgb      : tuple[float, float, float]
+    target_captured_cam_rgb     : tuple[float, float, float]
     target_band_marker_size     : float
     target_band_linewidth       : float
     target_band_render_scale    : float
@@ -52,6 +55,7 @@ class RenderConstants:
     cloud_growth_linewidth_scale: float
     sat_marker_size             : float
     sat_marker_style            : str
+    show_view_anchor_los        : bool
     los_color                   : str
     los_linewidth               : float
     los_alpha                   : float
@@ -207,6 +211,9 @@ RENDER = RenderConstants(
     earth_outline_alpha          = 0.9,
 
     target_band_color            = "red",
+    target_captured_main_color   = "#2ecc71",
+    target_pending_cam_rgb       = (0.95, 0.15, 0.12),
+    target_captured_cam_rgb      = (0.64, 0.44, 0.97),
     target_band_marker_size      = 8.0,
     target_band_linewidth        = 3.0,
     target_band_render_scale     = 1.8,
@@ -221,6 +228,7 @@ RENDER = RenderConstants(
     sat_marker_size              = 10.0,
     sat_marker_style             = "ro",
 
+    show_view_anchor_los         = False,
     los_color                    = "orange",
     los_linewidth                = 2.2,
     los_alpha                    = 0.9,

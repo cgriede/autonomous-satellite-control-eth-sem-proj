@@ -24,7 +24,6 @@ def run_simulation(
     num_frames: int | None = None,
     sat_z_offset_deg: float | None = None,
     ureg: Any | None = None,
-    camera_pixel_ray_samples: int = 96,
     camera_observation_line_n_bins: int | None = None,
     reward_config: RewardConfig | None = None,
 ) -> SimulationStateSeries:
@@ -75,7 +74,6 @@ def run_simulation(
         sat_motion_span_scale=sat_motion_span_scale,
         sat_z_offset_deg=sat_z_offset_deg,
         ureg=ureg,
-        camera_pixel_ray_samples=camera_pixel_ray_samples,
         camera_observation_line_n_bins=camera_observation_line_n_bins,
         reward_config=reward_config,
     )

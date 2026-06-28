@@ -27,6 +27,7 @@ from s01_utils.baseline_overflight import (
     build_baseline_overflight_setup,
     build_overflight_policy,
     run_baseline_overflight_rollout,
+    warmup_capture_target_range,
 )
 
 
@@ -220,6 +221,44 @@ class AttitudePointingGroundTargetUpdateTest(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             ctrl.set_ground_target_xy_km((0.0, 6378.0))
+
+
+class WarmupCaptureTargetRangeTest(unittest.TestCase):
+    def test_fifty_targets_ten_per_episode(self):
+        self.assertEqual(warmup_capture_target_range(0, n_targets=50, targets_per_episode=10), (0, 9))
+        self.assertEqual(warmup_capture_target_range(1, n_targets=50, targets_per_episode=10), (10, 19))
+        self.assertEqual(warmup_capture_target_range(4, n_targets=50, targets_per_episode=10), (40, 49))
+        self.assertEqual(warmup_capture_target_range(5, n_targets=50, targets_per_episode=10), (0, 9))
+
+    def test_partial_last_chunk_and_wrap(self):
+        self.assertEqual(warmup_capture_target_range(4, n_targets=45, targets_per_episode=10), (40, 44))
+        self.assertEqual(warmup_capture_target_range(5, n_targets=45, targets_per_episode=10), (0, 9))
+
+    def test_window_larger_than_target_count(self):
+        self.assertEqual(warmup_capture_target_range(0, n_targets=7, targets_per_episode=10), (0, 6))
+        self.assertEqual(warmup_capture_target_range(3, n_targets=7, targets_per_episode=10), (0, 6))
+
+    def test_policy_starts_at_slice(self):
+        areas = tuple(
+            ObservationTargetArea(
+                lat_min=(80 + i * 0.2) * ureg.deg,
+                lat_max=(80.1 + i * 0.2) * ureg.deg,
+                label=f"t{i}",
+            )
+            for i in range(5)
+        )
+        anchors = tuple((float(i), 0.0) for i in range(5))
+        policy = SequentialTargetBaselinePolicy(
+            target_anchors=anchors,
+            target_areas=areas,
+            target_leading_phi_lo_deg=tuple(0.0 for _ in areas),
+            target_trailing_phi_hi_deg=tuple(90.0 for _ in areas),
+            capture_target_start=2,
+            capture_target_end=3,
+        )
+        self.assertEqual(policy.active_target_index, 2)
+        self.assertEqual(policy.capture_target_start, 2)
+        self.assertEqual(policy.capture_target_end, 3)
 
 
 if __name__ == "__main__":

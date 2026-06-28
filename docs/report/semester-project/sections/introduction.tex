@@ -36,10 +36,13 @@ Direct wheel-torque learning is the interim experimental interface used here to 
 \subsection{Contributions}
 This report documents:
 \begin{itemize}
-  \item a cloud-aware simulation and reward design for rainforest-style overflight;
-  \item safety-constrained MPO training and matched baseline evaluation;
-  \item qualitative and quantitative comparison of learned versus deterministic capture strategies.
+  \item \textbf{Platform.} A reproducible simulation-and-learning pipeline: canonical episode rollouts via \texttt{run\_simulation()} and \texttt{SimulationStateSeries}, seeded mission randomization (altitude and clouds), view-only rendering, notebook-driven training workflow with preflight gates, and fingerprinted warmup caching so baseline and learned policies replay identical stochastic missions.
+  \item \textbf{Mission model.} Cloud-aware reward design and dual-camera observations for rainforest-style overflight under attitude safety constraints.
+  \item \textbf{Evaluation.} Safety-constrained MPO training and matched baseline evaluation (notebook~07 overflight) under shared environment draws.
+  \item \textbf{Evidence.} Qualitative and quantitative comparison of learned versus deterministic capture strategies from frozen run artifacts.
 \end{itemize}
+
+Substantial semester effort went into validated simulation and evaluation plumbing so that reinforcement-learning experiments could be compared credibly; initial learning results are reported alongside this engineering deliverable (Section~\ref{sec:discussion}).
 
 \subsection{Report structure}
 Section~\ref{sec:methods} describes the environment and learning method.

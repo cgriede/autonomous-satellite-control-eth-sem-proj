@@ -1,18 +1,18 @@
-import json
-import time
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 
-from environment_definition.constants import RENDER
-from environment_definition.constants import OBSERVATION_LINE_NOT_COMPUTED
+from environment_definition.constants import OBSERVATION_LINE_NOT_COMPUTED, RENDER
+from environment_definition.constants.observation_codes import (
+    is_observation_target_code,
+    target_index_from_observation_code,
+)
 
-_DEBUG_CAM_ORIENTATION_LOG = Path(__file__).resolve().parents[2] / "debug-b36892.log"
-_DEBUG_CAM_ORIENTATION_LOGGED = False
 
-
-def _rgba_for_observation_line_code(code: int) -> np.ndarray:
+def _rgba_for_observation_line_code(
+    code: int,
+    *,
+    captured_target_indices: frozenset[int] | set[int] | None = None,
+) -> np.ndarray:
     c = int(code)
     if c == int(OBSERVATION_LINE_NOT_COMPUTED):
         return np.array([0.28, 0.28, 0.32, 1.0], dtype=float)
@@ -22,8 +22,12 @@ def _rgba_for_observation_line_code(code: int) -> np.ndarray:
         return np.array([*RENDER.earth_green_rgb, 1.0], dtype=float)
     if c == 2:
         return np.array([0.78, 0.78, 0.80, 1.0], dtype=float)
-    if c == 3:
-        return np.array([0.95, 0.15, 0.12, 1.0], dtype=float)
+    if is_observation_target_code(c):
+        idx = target_index_from_observation_code(c)
+        captured = captured_target_indices or frozenset()
+        if idx is not None and idx in captured:
+            return np.array([*RENDER.target_captured_cam_rgb, 1.0], dtype=float)
+        return np.array([*RENDER.target_pending_cam_rgb, 1.0], dtype=float)
     return np.array([0.5, 0.0, 0.5, 1.0], dtype=float)
 
 
@@ -51,7 +55,6 @@ def build_1d_sat_view(
     artists["W"] = w_pix
     artists["N_BINS"] = n_bins
 
-    # Vertical strip: one row per cross-track bin (90° CW from legacy horizontal layout).
     img = np.zeros((n_bins, w_pix, 4), dtype=float)
     artists["img"] = ax_strip.imshow(
         img,
@@ -87,48 +90,21 @@ def build_1d_sat_view(
     return axes, artists
 
 
-def update_1d_sat_view(artists: dict, observation_line_codes: np.ndarray) -> None:
+def update_1d_sat_view(
+    artists: dict,
+    observation_line_codes: np.ndarray,
+    *,
+    captured_target_indices: frozenset[int] | set[int] | None = None,
+) -> None:
     codes = np.asarray(observation_line_codes, dtype=np.int8)
     w_strip = int(artists["W"])
     n_bins = int(artists["N_BINS"])
     if codes.shape[0] != n_bins:
         raise ValueError("observation_line_codes length does not match sat-view bin count.")
 
+    captured = frozenset(captured_target_indices) if captured_target_indices is not None else frozenset()
     col = np.empty((n_bins, 4), dtype=float)
     for j in range(n_bins):
-        col[j, :] = _rgba_for_observation_line_code(int(codes[j]))
+        col[j, :] = _rgba_for_observation_line_code(int(codes[j]), captured_target_indices=captured)
     img = np.tile(col[:, np.newaxis, :], (1, w_strip, 1))
     artists["img"].set_data(img)
-
-    global _DEBUG_CAM_ORIENTATION_LOGGED
-    if not _DEBUG_CAM_ORIENTATION_LOGGED:
-        _DEBUG_CAM_ORIENTATION_LOGGED = True
-        ax = artists["img"].axes
-        ylo, yhi = ax.get_ylim()
-        extent = artists["img"].get_extent()
-        origin = "upper"
-        row0_at_visual_top = bool(origin == "upper" and ylo < yhi)
-  #region agent log
-        payload = {
-            "sessionId": "b36892",
-            "runId": "cam-orientation",
-            "hypothesisId": "A",
-            "location": "_satellite_cam_view.py:update_1d_sat_view",
-            "message": "camera strip bin orientation",
-            "data": {
-                "n_bins": int(n_bins),
-                "ylim": [float(ylo), float(yhi)],
-                "imshow_extent": [float(v) for v in extent],
-                "imshow_origin": origin,
-                "row0_at_visual_top": row0_at_visual_top,
-                "code_bin0": int(codes[0]),
-                "code_bin_last": int(codes[-1]),
-            },
-            "timestamp": int(time.time() * 1000),
-        }
-        try:
-            with _DEBUG_CAM_ORIENTATION_LOG.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(payload) + "\n")
-        except OSError:
-            pass
-  #endregion

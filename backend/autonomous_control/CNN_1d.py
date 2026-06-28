@@ -90,6 +90,28 @@ def _conv1d_output_length(
     return (length + 2 * padding - kernel_size) // stride + 1
 
 
+_DEFAULT_CNN_CONV_CHANNELS = (16, 32, 64)
+_DEFAULT_CNN_STRIDES = (2, 2, 2)
+_CNN_KERNEL_BY_NUM_LAYERS = {1: 3, 2: 5, 3: 7}
+
+
+def cnn_vision_conv_stack(
+    num_layers: int,
+) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
+    """Return ``(conv_channels, kernel_sizes, strides)`` for vision 1D-CNN depth.
+
+    ``num_layers`` must be 1, 2, or 3. Each depth uses a uniform kernel size:
+    1 → 3, 2 → 5, 3 → 7.
+    """
+    if num_layers not in _CNN_KERNEL_BY_NUM_LAYERS:
+        raise ValueError("num_layers must be 1, 2, or 3.")
+    kernel = _CNN_KERNEL_BY_NUM_LAYERS[num_layers]
+    conv_channels = _DEFAULT_CNN_CONV_CHANNELS[:num_layers]
+    kernel_sizes = (kernel,) * num_layers
+    strides = _DEFAULT_CNN_STRIDES[:num_layers]
+    return conv_channels, kernel_sizes, strides
+
+
 @dataclass(frozen=True)
 class CNN1DEncoderConfig:
     """Hyper-parameters for a reusable 1D strip encoder."""
@@ -97,9 +119,9 @@ class CNN1DEncoderConfig:
     in_channels: int = 3
     seq_len: int = 100
     embedding_dim: int = 32
-    conv_channels: tuple[int, ...] = (16, 32, 64)
-    kernel_sizes: tuple[int, ...] = (7, 5, 3)
-    strides: tuple[int, ...] = (2, 2, 2)
+    conv_channels: tuple[int, ...] = (16, 32)
+    kernel_sizes: tuple[int, ...] = (5, 5)
+    strides: tuple[int, ...] = (2, 2)
     dropout: float = 0.0
     code_embed_dim: int = 8
     max_target_index: int = 35
@@ -274,6 +296,7 @@ __all__ = [
     "CNN1DEncoder",
     "CNN1DEncoderConfig",
     "ObservationLineCNNEncoder",
+    "cnn_vision_conv_stack",
     "observation_code_vocab_size",
     "observation_codes_to_indices",
 ]

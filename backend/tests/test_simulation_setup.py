@@ -61,11 +61,6 @@ class ResolveDefaultsTest(unittest.TestCase):
             resolved.sat_motion_span_scale, float(SIMULATION.sat_motion_span_scale), places=10
         )
 
-    def test_resolve_fills_camera_pixel_ray_samples_from_simulation_constants(self):
-        cfg = _minimal_config()
-        resolved = cfg.resolve()
-        self.assertEqual(resolved.camera_pixel_ray_samples, int(SIMULATION.camera_pixel_ray_samples))
-
     def test_resolve_fills_camera_observation_line_n_bins_from_simulation_constants(self):
         cfg = _minimal_config()
         resolved = cfg.resolve()
@@ -142,13 +137,6 @@ class CameraOptInTest(unittest.TestCase):
 
 
 class SimulationOverridesTest(unittest.TestCase):
-    def test_override_camera_pixel_ray_samples(self):
-        cfg = _minimal_config(
-            simulation_overrides=SimulationOverrides(camera_pixel_ray_samples=32)
-        )
-        resolved = cfg.resolve()
-        self.assertEqual(resolved.camera_pixel_ray_samples, 32)
-
     def test_override_camera_observation_line_n_bins(self):
         cfg = _minimal_config(
             simulation_overrides=SimulationOverrides(camera_observation_line_n_bins=50)
