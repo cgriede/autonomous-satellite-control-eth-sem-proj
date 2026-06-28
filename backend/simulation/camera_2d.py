@@ -162,25 +162,28 @@ def _batch_earth_hit_distances_km(
     return t_m / KM_TO_M
 
 
-def _batch_cloud_hits_t_best(
+def _batch_cloud_hits_t_best_from_rows(
     ray_origin_xy_km: np.ndarray,
     ray_dirs_unit_xy: np.ndarray,
-    cloud_arc_specs: list[dict[str, float]],
+    radius_km: np.ndarray,
+    start_rad: np.ndarray,
+    end_rad: np.ndarray,
 ) -> np.ndarray:
-    """Nearest positive cloud-shell hit distance per ray; all clouds in one (C, N) tensor pass."""
+    """Nearest positive cloud-shell hit distance per ray from per-cloud arc rows."""
     origin = np.asarray(ray_origin_xy_km, dtype=float).reshape(2,)
     dirs = np.asarray(ray_dirs_unit_xy, dtype=float)
     if dirs.ndim != 2 or dirs.shape[1] != 2:
         raise ValueError("ray_dirs_unit_xy must have shape (N,2).")
     n_rays = dirs.shape[0]
-    if not cloud_arc_specs:
+    radii = np.asarray(radius_km, dtype=float).reshape(-1)
+    starts = np.asarray(start_rad, dtype=float).reshape(-1)
+    ends = np.asarray(end_rad, dtype=float).reshape(-1)
+    if radii.size == 0:
         return np.full(n_rays, np.nan, dtype=float)
+    if not (radii.shape == starts.shape == ends.shape):
+        raise ValueError("cloud arc rows must have the same length.")
 
-    radii = np.array([float(s["radius_km"]) for s in cloud_arc_specs], dtype=float)
-    starts = np.array([float(s["start_rad"]) for s in cloud_arc_specs], dtype=float)
-    ends = np.array([float(s["end_rad"]) for s in cloud_arc_specs], dtype=float)
     c_count = radii.shape[0]
-
     b = 2.0 * (origin[0] * dirs[:, 0] + origin[1] * dirs[:, 1])
     c_origin = float(np.dot(origin, origin))
     c = c_origin - radii.reshape(c_count, 1) ** 2
@@ -217,8 +220,6 @@ def _batch_cloud_hits_t_best(
 
     accepted = np.isfinite(t_cloud) & in_arc
     t_cloud_masked = np.where(accepted, t_cloud, np.nan)
-    # NOTE: Most rays miss every cloud arc, so nanmin sees all-NaN columns and NumPy emits
-    # RuntimeWarning even though NaN is the intended "no cloud hit" sentinel (see has_cloud below).
     with np.errstate(all="ignore"), warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
@@ -228,12 +229,37 @@ def _batch_cloud_hits_t_best(
         return np.nanmin(t_cloud_masked, axis=0)
 
 
+def _batch_cloud_hits_t_best(
+    ray_origin_xy_km: np.ndarray,
+    ray_dirs_unit_xy: np.ndarray,
+    cloud_arc_specs: list[dict[str, float]],
+) -> np.ndarray:
+    """Nearest positive cloud-shell hit distance per ray; all clouds in one (C, N) tensor pass."""
+    if not cloud_arc_specs:
+        dirs = np.asarray(ray_dirs_unit_xy, dtype=float)
+        n_rays = dirs.shape[0] if dirs.ndim == 2 else 0
+        return np.full(n_rays, np.nan, dtype=float)
+    radii = np.array([float(s["radius_km"]) for s in cloud_arc_specs], dtype=float)
+    starts = np.array([float(s["start_rad"]) for s in cloud_arc_specs], dtype=float)
+    ends = np.array([float(s["end_rad"]) for s in cloud_arc_specs], dtype=float)
+    return _batch_cloud_hits_t_best_from_rows(
+        ray_origin_xy_km,
+        ray_dirs_unit_xy,
+        radii,
+        starts,
+        ends,
+    )
+
+
 def _batch_first_hit_earth_or_clouds(
     *,
     ray_origin_xy_km: np.ndarray,
     ray_dirs_unit_xy: np.ndarray,
-    cloud_arc_specs: list[dict[str, float]],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    cloud_arc_specs: list[dict[str, float]] | None = None,
+    cloud_arc_radius_km: np.ndarray | None = None,
+    cloud_arc_start_rad: np.ndarray | None = None,
+    cloud_arc_end_rad: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Batch first-hit classification for all rays.
 
@@ -241,17 +267,29 @@ def _batch_first_hit_earth_or_clouds(
         hit_type (N,) int8: 0 space, 1 earth, 2 cloud
         t_hit (N,) km
         hit_xy_km (N, 2)
+        earth_valid_mask (N,) bool — finite ellipsoid earth-shell intersection
     """
     origin = np.asarray(ray_origin_xy_km, dtype=float).reshape(2,)
     dirs = np.asarray(ray_dirs_unit_xy, dtype=float)
     n = dirs.shape[0]
     t_earth = _batch_earth_hit_distances_km(origin, dirs)
-    t_cloud_best = _batch_cloud_hits_t_best(origin, dirs, cloud_arc_specs)
+    if cloud_arc_radius_km is not None:
+        t_cloud_best = _batch_cloud_hits_t_best_from_rows(
+            origin,
+            dirs,
+            cloud_arc_radius_km,
+            cloud_arc_start_rad,
+            cloud_arc_end_rad,
+        )
+    elif cloud_arc_specs is not None:
+        t_cloud_best = _batch_cloud_hits_t_best(origin, dirs, cloud_arc_specs)
+    else:
+        t_cloud_best = np.full(n, np.nan, dtype=float)
 
-    has_earth = np.isfinite(t_earth)
+    earth_valid = np.isfinite(t_earth)
     has_cloud = np.isfinite(t_cloud_best)
-    cloud_wins = has_cloud & ((~has_earth) | (t_cloud_best < t_earth))
-    earth_wins = has_earth & (~cloud_wins)
+    cloud_wins = has_cloud & ((~earth_valid) | (t_cloud_best < t_earth))
+    earth_wins = earth_valid & (~cloud_wins)
 
     hit_type = np.zeros(n, dtype=np.int8)
     hit_type[earth_wins] = np.int8(1)
@@ -263,7 +301,7 @@ def _batch_first_hit_earth_or_clouds(
 
     hit_xy = origin.reshape(1, 2) + t_hit.reshape(-1, 1) * dirs
     hit_xy[~(earth_wins | cloud_wins)] = np.nan
-    return hit_type, t_hit, hit_xy
+    return hit_type, t_hit, hit_xy, earth_valid
 
 
 def calculate_gsd(
@@ -845,7 +883,7 @@ def simulate_camera_observation_line_1d(
     ray_dirs = _rotate_unit_xy_batch(boresight_dir_unit_xy, bin_ray_angles_rel_boresight_rad)
 
     if str(kernel_backend).lower() == "accelerated":
-        hit_types, _t_hit, hit_xy = _batch_first_hit_earth_or_clouds(
+        hit_types, _t_hit, hit_xy, _earth_valid = _batch_first_hit_earth_or_clouds(
             ray_origin_xy_km=sat_pos_xy_km,
             ray_dirs_unit_xy=ray_dirs,
             cloud_arc_specs=cloud_arc_specs,

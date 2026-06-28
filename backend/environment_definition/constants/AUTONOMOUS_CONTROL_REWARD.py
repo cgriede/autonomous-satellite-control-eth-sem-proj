@@ -27,3 +27,9 @@ MAX_PICTURES_PER_EPISODE = MAX_PRIMARY_CAPTURES_PER_ORBIT
 
 # Positive scale for image-quality capture reward: k * quality * (1 - cloud_frac).
 REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT = 100.0
+
+# Penalty when shutter fires but applied capture credit is ~0 (repeat target, no FOV, etc.).
+REWARD_SHUTTER_WASTE_PENALTY = 5.0
+
+# Per-step penalty on normalized commanded torque squared: -k * (tau/tau_max)^2.
+REWARD_TORQUE_EFFORT_COEFFICIENT = 0.1

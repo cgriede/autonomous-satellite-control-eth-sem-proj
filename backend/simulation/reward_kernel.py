@@ -20,6 +20,41 @@ from utils.geometry.orbit_disk_polar_meridian import (
 )
 
 
+def _needs_geodesic_min_distance(reward_config: RewardConfig) -> bool:
+    """True when compute_reward may read distance_to_target for an enabled term."""
+    if reward_config.enable_distance_reward:
+        return True
+    if reward_config.enable_energy and reward_config.enable_outer_gate:
+        return True
+    return False
+
+
+def _min_distance_to_target_areas_km(
+    *,
+    sat_subpoint_lat_deg: float,
+    sat_subpoint_lon_deg: float,
+    target_areas: tuple,
+    ureg: Any,
+) -> Any:
+    distances_km: list[float] = []
+    for area in target_areas:
+        lat_a, _lon_a = _area_endpoint_geodetic_deg(area, which="min")
+        lat_b, _lon_b = _area_endpoint_geodetic_deg(area, which="max")
+        off_mid = 0.5 * (
+            track_offset_deg_from_latitude_only_deg(lat_a)
+            + track_offset_deg_from_latitude_only_deg(lat_b)
+        )
+        target_lat_deg, target_lon_deg = geodetic_deg_from_track_offset_deg(off_mid)
+        d_q = geodesic_distance(
+            sat_subpoint_lon_deg * ureg.deg,
+            sat_subpoint_lat_deg * ureg.deg,
+            target_lon_deg * ureg.deg,
+            target_lat_deg * ureg.deg,
+        )
+        distances_km.append(float(d_q.to(ureg.km).magnitude))
+    return min(distances_km) * ureg.km
+
+
 class RewardKernel:
     @staticmethod
     def evaluate(
@@ -35,6 +70,7 @@ class RewardKernel:
         wheel_inertia: Any,
         omega_before: Any,
         omega_after: Any,
+        wheel_torque_cmd_nm: float = 0.0,
         reward_config: RewardConfig,
         ureg: Any,
         target_area: Any | None = None,
@@ -58,25 +94,15 @@ class RewardKernel:
         if target_area is not None and target_area not in areas:
             areas = (target_area,) + areas
 
-        distances_km: list[float] = []
-
-        for area in areas:
-            lat_a, _lon_a = _area_endpoint_geodetic_deg(area, which="min")
-            lat_b, _lon_b = _area_endpoint_geodetic_deg(area, which="max")
-            off_mid = 0.5 * (
-                track_offset_deg_from_latitude_only_deg(lat_a)
-                + track_offset_deg_from_latitude_only_deg(lat_b)
+        if _needs_geodesic_min_distance(reward_config):
+            distance_to_target = _min_distance_to_target_areas_km(
+                sat_subpoint_lat_deg=sat_subpoint_lat_deg,
+                sat_subpoint_lon_deg=sat_subpoint_lon_deg,
+                target_areas=areas,
+                ureg=ureg,
             )
-            target_lat_deg, target_lon_deg = geodetic_deg_from_track_offset_deg(off_mid)
-            d_q = geodesic_distance(
-                sat_subpoint_lon_deg * ureg.deg,
-                sat_subpoint_lat_deg * ureg.deg,
-                target_lon_deg * ureg.deg,
-                target_lat_deg * ureg.deg,
-            )
-            distances_km.append(float(d_q.to(ureg.km).magnitude))
-
-        distance_to_target = min(distances_km) * ureg.km
+        else:
+            distance_to_target = 0.0 * ureg.km
 
         if shutter_override is not None:
             picture_taken = shutter_override.picture_taken
@@ -112,6 +138,7 @@ class RewardKernel:
             wheel_inertia=wheel_inertia,
             omega_before=omega_before,
             omega_after=omega_after,
+            wheel_torque_cmd_nm=float(wheel_torque_cmd_nm),
         )
 
         reward_total, _ = compute_reward(signals=signals, cfg=reward_config)

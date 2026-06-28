@@ -22,9 +22,10 @@ from paths import MODELS_ROOT
 
 from autonomous_control.config.randomness import derive_seed
 from autonomous_control.feature_selection import ControllerFeatureConfig
+from autonomous_control.reward import RewardConfig
 from autonomous_control.training_runtime import EpisodeResult, run_episode
 
-NB_WARMUP_BUNDLE_VERSION = 7
+NB_WARMUP_BUNDLE_VERSION = 10
 _EPISODES_FILENAME = "episodes.pkl.gz"
 _META_FILENAME = "meta.json"
 
@@ -52,7 +53,23 @@ def encode_feature_config_snapshot(
         "orbit_keys": list(cfg.orbit_keys),
         "vision_keys": list(cfg.vision_keys),
         "include_capture_budget": bool(cfg.include_capture_budget),
+        "include_captured_target_mask": bool(cfg.include_captured_target_mask),
         "include_target_bearing_errors": bool(cfg.include_target_bearing_errors),
+    }
+
+
+def encode_reward_config_snapshot(
+    reward_config: RewardConfig | None,
+) -> dict[str, Any]:
+    cfg = reward_config if reward_config is not None else RewardConfig()
+    return {
+        "enable_distance_reward": bool(cfg.enable_distance_reward),
+        "enable_image_quality_capture": bool(cfg.enable_image_quality_capture),
+        "enable_shutter_waste_penalty": bool(cfg.enable_shutter_waste_penalty),
+        "enable_torque_effort": bool(cfg.enable_torque_effort),
+        "k_shutter_waste": float(cfg.k_shutter_waste),
+        "k_torque_effort": float(cfg.k_torque_effort),
+        "shutter_waste_reward_epsilon": float(cfg.shutter_waste_reward_epsilon),
     }
 
 
@@ -67,6 +84,7 @@ def warmup_fingerprint_payload(
     episode_count: int,
     warmup_controller: str,
     feature_config: ControllerFeatureConfig | None,
+    reward_config: RewardConfig | None = None,
     early_stop_on_budget_exhausted: bool = False,
     n_mission_targets: int = 0,
     warmup_seed_tag: str = "nb_warmup",
@@ -84,6 +102,7 @@ def warmup_fingerprint_payload(
         "action_dim": int(action_dim),
         "satellite_altitude_m": float(satellite_altitude_m),
         "feature_config": encode_feature_config_snapshot(feature_config),
+        "reward_config": encode_reward_config_snapshot(reward_config),
         "warmup_controller": str(warmup_controller),
         "attitude_controller_enabled": True,
         "early_stop_on_budget_exhausted": bool(early_stop_on_budget_exhausted),
@@ -144,12 +163,15 @@ def preload_warmup_buffer_from_episodes(agent: Any, episodes: list[EpisodeResult
             raise ValueError(f"episode steps {n} inconsistent with series length {len(series.t_s)}.")
         if len(ep.states) != n + 1:
             raise ValueError(f"len(states) {len(ep.states)} != steps+1 {n + 1}.")
+        interval = max(1, int(getattr(ep, "effective_controller_update_interval_steps", 1)))
         agent_cmds = np.asarray(
             series.wheel_torque_agent_cmd_nm if series.wheel_torque_agent_cmd_nm is not None else series.wheel_torque_cmd_nm,
             dtype=float,
         )
         shutter_steps = set(int(s) for s in (series.metadata.take_picture_cmd_steps or ()))
         for i in range(n):
+            if i % interval != 0:
+                continue
             obs = ep.states[i]
             next_obs = ep.states[i + 1]
             reward = float(series.simulation_reward[i + 1])
@@ -254,6 +276,7 @@ def load_or_build_notebook_random_warmup_episodes(
     satellite_altitude: Any,
     rebuild: bool = False,
     feature_config: ControllerFeatureConfig | None = None,
+    reward_config: RewardConfig | None = None,
     warmup_controller: str = "baseline",
     seed_tag: str = "nb_warmup",
     train_updates_per_step: int = 0,
@@ -286,6 +309,7 @@ def load_or_build_notebook_random_warmup_episodes(
         episode_count=int(episode_count),
         warmup_controller=warmup_controller,
         feature_config=feature_config,
+        reward_config=reward_config,
     )
     digest = digest_for_warmup_fingerprint(fingerprint)
     bundle_dir = bundle_dir_for_digest(digest, cache_root=cache_root)
@@ -343,6 +367,7 @@ __all__ = [
     "default_notebook_warmup_bundle_root",
     "digest_for_warmup_fingerprint",
     "encode_feature_config_snapshot",
+    "encode_reward_config_snapshot",
     "load_or_build_notebook_random_warmup_episodes",
     "preload_warmup_buffer_from_episodes",
     "reset_agent_replay_counters",

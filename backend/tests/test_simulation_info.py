@@ -6,9 +6,11 @@ from autonomous_control.reward import RewardConfig
 from environment_definition.constants.SIMULATION import RenderMode, SimulationConfig
 from environment_definition.mission_profiles.s01_multiple_targets_fwd_fish import build_setup
 from simulation.simulation_info import (
+    _display_info_panel,
     _reward_program_rows,
     build_simulation_info_rows,
     build_training_live_stats_rows,
+    build_warmup_phase_summary_rows,
 )
 from simulation.state_types import SimulationTimestepState
 from simulation.stepper_factory import build_stepper
@@ -101,6 +103,47 @@ class TrainingLiveStatsRowsTest(unittest.TestCase):
         )
         self.assertEqual(rows["safe mode activations"], "7")
         self.assertEqual(rows["reward"], "6.86")
+
+
+class NotebookInfoPanelDisplayTest(unittest.TestCase):
+    def test_display_info_panel_calls_ipython_display_once(self) -> None:
+        calls: list[object] = []
+
+        def _fake_display(obj, **_kwargs):
+            calls.append(obj)
+
+        import simulation.simulation_info as sim_info
+
+        original = sim_info._in_notebook
+        sim_info._in_notebook = lambda: True
+        try:
+            import IPython.display as ipd
+
+            original_display = ipd.display
+            ipd.display = _fake_display
+            try:
+                _display_info_panel([("episode duration", "773 s")], title="Simulation info", border_style="blue")
+            finally:
+                ipd.display = original_display
+        finally:
+            sim_info._in_notebook = original
+
+        self.assertEqual(len(calls), 1)
+
+
+class WarmupPhaseSummaryRowsTest(unittest.TestCase):
+    def test_builds_aggregate_warmup_rows(self) -> None:
+        from types import SimpleNamespace
+
+        results = [
+            SimpleNamespace(episode_return=1.0, steps=100),
+            SimpleNamespace(episode_return=3.0, steps=120),
+        ]
+        rows = dict(build_warmup_phase_summary_rows(results, agent=SimpleNamespace(buffer=[1, 2], step_counter=5)))
+        self.assertEqual(rows["phase"], "warmup complete")
+        self.assertEqual(rows["episodes"], "2")
+        self.assertEqual(rows["mean return"], "2.00")
+        self.assertEqual(rows["buffer"], "2")
 
 
 if __name__ == "__main__":

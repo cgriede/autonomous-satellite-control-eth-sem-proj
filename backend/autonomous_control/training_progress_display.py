@@ -12,7 +12,11 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from render._satellite_cam_view import _rgba_for_observation_line_code
-from simulation.simulation_info import build_training_live_stats_rows, render_training_panel_html
+from simulation.simulation_info import (
+    build_training_live_stats_rows,
+    build_warmup_phase_summary_rows,
+    render_training_panel_html,
+)
 from simulation.state_types import SimulationTimestepState
 
 from .training_metrics import MetricsSliceStart
@@ -144,6 +148,27 @@ class TrainingProgressDisplay:
             self._step_bar = None
         self._metrics_start = None
 
+    def show_warmup_summary(self, results: list[Any]) -> None:
+        """One live-stats panel after warmup (rollouts skip per-step updates)."""
+        if not self._config.show_live_stats or not results:
+            return
+        rows = build_warmup_phase_summary_rows(results, agent=self._agent)
+        if self._in_notebook:
+            from IPython.display import HTML, display, update_display
+
+            html = render_training_panel_html(rows, title="Live stats")
+            payload = HTML(html)
+            if self._stats_initialized:
+                update_display(payload, display_id=self._stats_display_id)
+            else:
+                display(payload, display_id=self._stats_display_id)
+                self._stats_initialized = True
+        else:
+            self.write(
+                f"[warmup] {len(results)} episodes, "
+                f"total return={sum(float(r.episode_return) for r in results):.1f}"
+            )
+
     def write(self, msg: str) -> None:
         if self._telemetry is not None:
             self._telemetry.on_training_log(message=msg, mode=self._mode, episode_idx=self._episode_idx)
@@ -168,6 +193,8 @@ class TrainingProgressDisplay:
         capture_budget_remaining: int | None = None,
         safe_mode_activations: int | None = None,
     ) -> None:
+        if self._mode == "warmup":
+            return
         if self._config.show_live_stats:
             self._show_live_stats(
                 ts,

@@ -80,6 +80,7 @@ def controller_observation_dim(
     mission_keys = mission_scalar_key_names(
         n_targets=int(n_mission_targets),
         include_budget=cfg.include_capture_budget,
+        include_captured_mask=cfg.include_captured_target_mask,
         include_bearings=cfg.include_target_bearing_errors,
     )
     obs_dim += len(mission_keys)

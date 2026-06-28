@@ -15,20 +15,17 @@ from environment_definition.mission_profiles.s01_multiple_targets_fwd_fish impor
 )
 from simulation.sensor_kernel import (
     SensorKernel,
-    _cloud_blocked_fraction_from_hit_types,
+    _cloud_blocked_fraction_from_earth_valid_hits,
 )
 from simulation.setup_types import SimulationOverrides
 
 
 class CloudBlockedFractionHelperTest(unittest.TestCase):
     def test_blocked_fraction_counts_cloud_first_among_valid_earth_rays(self) -> None:
-        sat = np.array([6800.0, 100.0], dtype=float)
-        dirs = np.array([[0.0, -1.0], [0.1, -1.0], [-0.1, -1.0]], dtype=float)
-        dirs = dirs / np.linalg.norm(dirs, axis=1, keepdims=True)
         hit_types = np.array([2, 1, 2], dtype=np.int8)
-        frac = _cloud_blocked_fraction_from_hit_types(hit_types, sat_pos_xy_km=sat, ray_dirs=dirs)
-        self.assertGreaterEqual(frac, 0.0)
-        self.assertLessEqual(frac, 1.0)
+        earth_valid = np.array([True, True, True], dtype=bool)
+        frac = _cloud_blocked_fraction_from_earth_valid_hits(hit_types, earth_valid)
+        self.assertAlmostEqual(frac, 2.0 / 3.0)
 
 
 class MergedSensorKernelTest(unittest.TestCase):

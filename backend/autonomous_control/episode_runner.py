@@ -10,7 +10,10 @@ from __future__ import annotations
 
 
 
+import json
+import os
 import sys
+import time
 import warnings
 from pathlib import Path
 
@@ -68,11 +71,11 @@ class EpisodeRunner:
 
     """Serial episode runner backed by the shared stepper factory.
 
-
+    Train-mode MPO: ``store()`` every controller tick; ``agent.train()`` every
+    ``train_every_n_steps`` controller stores (not simulation steps). See
+    ``TrainingWorkflowConfig`` / ``docs/presentation/machine-learning.md``.
 
     Usage::
-
-
 
         setup = build_setup(seed=SEED)
 
@@ -371,6 +374,20 @@ class EpisodeRunner:
 
             )
 
+        # #region agent log
+        _dbg_prof = (
+            mode == "warmup"
+            and int(episode_idx) == 0
+            and {
+                "sim_s": 0.0,
+                "obs_s": 0.0,
+                "copy_s": 0.0,
+                "progress_s": 0.0,
+                "t0": time.perf_counter(),
+            }
+        ) or None
+        # #endregion
+
         if verbose_print == 0:
 
             if show_simulation_info:
@@ -511,6 +528,9 @@ class EpisodeRunner:
 
 
 
+                if _dbg_prof is not None:
+                    _t_sim = time.perf_counter()
+
                 next_ts = stepper.step(wheel_torque_cmd_nm=current_action_nm)
 
                 cmd_step = stepper.current_index
@@ -528,6 +548,9 @@ class EpisodeRunner:
                 reward = float(next_ts.reward)
 
                 done = bool(stepper.done)
+
+                if _dbg_prof is not None:
+                    _dbg_prof["sim_s"] += time.perf_counter() - _t_sim
 
 
 
@@ -550,6 +573,9 @@ class EpisodeRunner:
 
                 episode_return += reward
 
+                if _dbg_prof is not None:
+                    _t_obs = time.perf_counter()
+
                 if collect_states:
 
                     next_obs = build_controller_observation_from_timestep(
@@ -564,7 +590,14 @@ class EpisodeRunner:
 
                     )
 
+                    if _dbg_prof is not None:
+                        _dbg_prof["obs_s"] += time.perf_counter() - _t_obs
+                        _t_copy = time.perf_counter()
+
                     states.append(next_obs.copy())
+
+                    if _dbg_prof is not None:
+                        _dbg_prof["copy_s"] += time.perf_counter() - _t_copy
 
                 else:
 
@@ -580,6 +613,9 @@ class EpisodeRunner:
 
                     )
 
+                    if _dbg_prof is not None:
+                        _dbg_prof["obs_s"] += time.perf_counter() - _t_obs
+
 
 
                 if step_callback is not None:
@@ -589,6 +625,9 @@ class EpisodeRunner:
 
 
                 if progress_display is not None:
+
+                    if _dbg_prof is not None:
+                        _t_prog = time.perf_counter()
 
                     progress_display.on_step(
 
@@ -607,6 +646,9 @@ class EpisodeRunner:
                         ),
                         safe_mode_activations=int(stepper.safe_mode_takeover_count),
                     )
+
+                    if _dbg_prof is not None:
+                        _dbg_prof["progress_s"] += time.perf_counter() - _t_prog
 
 
 
@@ -661,6 +703,46 @@ class EpisodeRunner:
             if progress_display is not None:
 
                 progress_display.end_episode()
+
+            # #region agent log
+            if _dbg_prof is not None:
+                wall_s = time.perf_counter() - float(_dbg_prof["t0"])
+                payload = {
+                    "sessionId": "0b9e59",
+                    "hypothesisId": "A-E",
+                    "location": "episode_runner.py:run_serial",
+                    "message": "warmup ep0 timing breakdown",
+                    "timestamp": int(time.time() * 1000),
+                    "data": {
+                        "steps": steps,
+                        "wall_s": round(wall_s, 4),
+                        "steps_per_s": round(steps / max(wall_s, 1e-9), 2),
+                        "sim_s": round(_dbg_prof["sim_s"], 4),
+                        "obs_s": round(_dbg_prof["obs_s"], 4),
+                        "copy_s": round(_dbg_prof["copy_s"], 4),
+                        "progress_s": round(_dbg_prof["progress_s"], 4),
+                        "other_s": round(
+                            max(0.0, wall_s - sum(_dbg_prof[k] for k in ("sim_s", "obs_s", "copy_s", "progress_s"))),
+                            4,
+                        ),
+                        "in_notebook": _in_notebook(),
+                        "debugpy_active": sys.gettrace() is not None,
+                        "collect_states": collect_states,
+                        "has_progress_display": progress_display is not None,
+                        "has_phase_bar": progress_display is not None and progress_display._phase_bar is not None,
+                        "threads": {
+                            k: os.environ.get(k)
+                            for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS")
+                        },
+                    },
+                }
+                try:
+                    log_path = Path(__file__).resolve().parents[2] / "debug-0b9e59.log"
+                    with log_path.open("a", encoding="utf-8") as fh:
+                        fh.write(json.dumps(payload) + "\n")
+                except OSError:
+                    pass
+            # #endregion
 
         if ended_early_on_budget:
             early_msg = (

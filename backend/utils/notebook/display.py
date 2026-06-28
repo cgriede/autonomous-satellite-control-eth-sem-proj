@@ -2,68 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import re
-import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import pandas as pd
-
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_DEBUG_LOG = _REPO_ROOT / "debug-bd36d7.log"
-_DEBUG_SESSION = "bd36d7"
-
-
-def _bg_snippets(html: str) -> list[str]:
-    return [m.group(0)[:80] for m in re.finditer(r"background[^;\"']{0,80}", html, re.I)]
-
-
-# region agent log
-def _debug_theme_log(hypothesis_id: str, location: str, message: str, data: dict) -> None:
-    payload = {
-        "sessionId": _DEBUG_SESSION,
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    with _DEBUG_LOG.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(payload) + "\n")
-
-
-# endregion
-
-
-def notebook_html_transparent(html: str) -> str:
-    """Strip hard-coded light backgrounds from Rich/HTML fragments."""
-    # region agent log
-    before = _bg_snippets(html)
-    # endregion
-    cleaned = re.sub(
-        r"background-color:\s*#ffffff\b",
-        "background-color: transparent",
-        html,
-        flags=re.IGNORECASE,
-    )
-    cleaned = re.sub(
-        r"background-color:\s*white\b",
-        "background-color: transparent",
-        cleaned,
-        flags=re.IGNORECASE,
-    )
-    # region agent log
-    _debug_theme_log(
-        "A",
-        "display.py:notebook_html_transparent",
-        "rich/html background cleanup",
-        {"before": before, "after": _bg_snippets(cleaned)},
-    )
-    # endregion
-    return cleaned
-
 
 _NOTEBOOK_DF_CSS = """
 <style>
@@ -92,6 +35,23 @@ _NOTEBOOK_RICH_CSS = """
 """
 
 
+def notebook_html_transparent(html: str) -> str:
+    """Strip hard-coded light backgrounds from Rich/HTML fragments."""
+    cleaned = re.sub(
+        r"background-color:\s*#ffffff\b",
+        "background-color: transparent",
+        html,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"background-color:\s*white\b",
+        "background-color: transparent",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return cleaned
+
+
 def wrap_notebook_rich_html(html: str) -> str:
     """Make Rich-exported HTML readable on dark notebook themes."""
     cleaned = notebook_html_transparent(html)
@@ -116,16 +76,4 @@ def display_notebook_dataframe(df: "pd.DataFrame") -> None:
 
     raw = df._repr_html_() or df.to_html(classes="dataframe", border=0)
     wrapped = f'{_NOTEBOOK_DF_CSS}<div class="nb-theme-df">{raw}</div>'
-    # region agent log
-    _debug_theme_log(
-        "B,E",
-        "display.py:display_notebook_dataframe",
-        "display dataframe",
-        {
-            "rows": len(df),
-            "raw_bg": _bg_snippets(raw),
-            "wrapped_bg": _bg_snippets(wrapped),
-        },
-    )
-    # endregion
     display(HTML(wrapped))

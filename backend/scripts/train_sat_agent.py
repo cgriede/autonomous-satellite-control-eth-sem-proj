@@ -1,404 +1,124 @@
-from __future__ import annotations
+# %%
+"""
+S01 MPO training — integrate notebooks 01–07 mission context.
 
-import argparse
-import time
-from datetime import datetime, timezone
-from pathlib import Path
-import sys
+Scenario:
+  - Same mission profile as notebook 07 baseline overflight (50-target meridian grid,
+    seeded clouds over the corridor, dual camera, attitude safety on, image quality)
+  - Controller features selected via ControllerFeatureConfig (see cell below)
+  - 10× baseline overflight warmup (sliced target windows per ep, wrap mod n_chunks) → train → eval
+  - Preflight: inline feature checks + full ML training pytest suite
 
-import numpy as np
-import torch
-from tqdm import tqdm
+Verification: s01_utils/training_workflow.py
+Artifacts: autonomous_control/models/nb-s01-08-<timestamp>/
+Export: eval_best.mp4 in run directory
+"""
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
-if str(BACKEND_DIR) not in sys.path:
-    sys.path.insert(0, str(BACKEND_DIR))
+# %%
+def setup_notebook_paths():
+    """
+    Configure Python paths and working directory for running the S01 training notebook.
 
-from autonomous_control.controller_agent import MPOAgent
-from autonomous_control.controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
-from autonomous_control.config.randomness import RandomnessConfig, apply_global_seed, derive_seed
-from autonomous_control.mpo_config import MPOConfig
-from autonomous_control.parallel_training import ParallelMPOTrainer
-from autonomous_control.training_preflight import TrainingPreflightError, run_training_gate
-from autonomous_control.training_runtime import make_attitude_control_env, run_episode
-from environment_definition.mission_profiles.s00_simulation_build_sample_fl import sample_satellite_altitude
-from environment_definition.constants import RenderMode
-from render.render_main import render_from_series
-from utils.ml_training.ml_training_utils import (
-    RunTelemetryWriter,
-    append_jsonl_record,
-    append_run_markdown_event,
-    checkpoint_path,
-    create_run_dir,
-    init_run_markdown,
+    - Walks up directories from the current working directory until it finds the 'simulation' folder,
+      which marks the backend root.
+    - Changes the working directory to the backend root to ensure relative paths are correct.
+    - Adds both the backend root and the S01 notebook utilities directory to sys.path for imports.
+
+    This setup is required for importing backend modules and utility code in other cells.
+    """
+    import os
+    import sys
+    from pathlib import Path
+
+    notebook_dir = Path.cwd()
+    backend_root = notebook_dir
+    for _ in range(6):
+        if (backend_root / "simulation").is_dir():
+            break
+        backend_root = backend_root.parent
+    os.chdir(backend_root)
+    sys.path.insert(0, str(backend_root))
+    _s01_dir = backend_root / "notebooks" / "s01"
+    sys.path.insert(0, str(_s01_dir))
+    print(f"backend_root={backend_root}")
+
+setup_notebook_paths()
+
+# %%
+import importlib
+
+import s01_utils.training_workflow as tw
+
+importlib.reload(tw)
+
+# Fast gate: inline checks + unit pytest (~3s). Re-runs are skipped via session/disk cache.
+# For full serial episode-runner tests (~80s): tw.run_s01_training_preflight_gate(integration_pytest=True, force=True)
+tw.run_s01_training_preflight_gate()
+
+# %%
+from dataclasses import replace
+
+# Single source of truth: s01_utils/training_workflow.py (timestep keys + mission scalars).
+# Customize with replace(), e.g. replace(tw.S01_TRAINING_FEATURE_CONFIG, include_capture_budget=False)
+FEATURE_CONFIG = tw.S01_TRAINING_FEATURE_CONFIG
+
+WORKFLOW_CONFIG = tw.TrainingWorkflowConfig(
+    seed=7,
+    feature_config=FEATURE_CONFIG,
+    ###########
+    warmup_targets_per_episode=10,
+    warmup_episodes=5,
+    use_warmup_bundle_cache=True,
+    rebuild_warmup_bundle_cache=True,
+    ##########
+    train_episodes=3,
+    ##########
+    eval_episodes=1,
 )
 
-def _save_checkpoint(agent: MPOAgent, path: str) -> None:
-    payload = {
-        "pi": agent.pi.state_dict(),
-        "pi_target": agent.pi_target.state_dict(),
-        "q1": agent.q1.state_dict(),
-        "q2": agent.q2.state_dict(),
-        "q1_target": agent.q1_target.state_dict(),
-        "q2_target": agent.q2_target.state_dict(),
-        "q_optimizer": agent.q_optimizer.state_dict(),
-        "pi_optimizer": agent.pi_optimizer.state_dict(),
-        "eta_optimizer": agent.eta_optimizer.state_dict(),
-        "log_eta": float(agent.log_eta.detach().cpu().item()),
-        "step_counter": agent.step_counter,
-        "episode_returns": agent.episode_returns,
-    }
-    torch.save(payload, path)
+# Mission profile for layout tables (same as training).
+_mission_resolved = tw.build_s01_training_mission_setup(seed=WORKFLOW_CONFIG.seed).resolve(
+    require_camera=True
+)
+_secondary_bins = int(_mission_resolved.secondary_camera_observation_line_n_bins)
+_n_targets = len(_mission_resolved.target_areas or ())
+tw.display_feature_tables(
+    FEATURE_CONFIG,
+    secondary_camera_bins=_secondary_bins,
+    n_mission_targets=_n_targets,
+)
+
+# %%
+setup = tw.build_training_workflow_setup(WORKFLOW_CONFIG)
+tw.print_training_setup_summary(setup)
+tw.display_feature_snapshot_tables(setup)
+
+# %%
+ctx = tw.open_training_workflow(setup, show_progress=True)
+
+# %%
+tw.run_warmup(ctx)
+
+# %%
+tw.run_training(ctx)
+
+# %%
+result = tw.run_eval(ctx)  # finalizes artifacts; closes ctx
+
+# %%
+tw.print_training_kpis(result)
+
+# %%
+from utils.notebook.video import init_video_cell, play_saved_video
+
+init_video_cell()
+
+from utils.notebook.video import init_video_cell, play_saved_video
+
+init_video_cell()
+tw.display_training_artifacts(result)
+video_path = result.artifact_paths["eval_best_video"]
+if video_path.exists():
+    play_saved_video(video_path)
 
 
-def _save_trace_video(states: list[np.ndarray], output_path: Path, fps: int = 20) -> Path:
-    import imageio.v2 as imageio
-    import matplotlib.pyplot as plt
-
-    frames: list[np.ndarray] = []
-    labels = ["angle_rel_nadir(rad)", "omega_sat(rad/s)", "alpha_sat(rad/s^2)", "angle_to_target(rad)", "omega_wheel(rad/s)"]
-    n_dims = int(np.asarray(states[0], dtype=np.float32).shape[0]) if states else 0
-    labels = labels[:n_dims] if n_dims <= len(labels) else [f"state_{j}" for j in range(n_dims)]
-    for i in range(1, len(states) + 1):
-        arr = np.asarray(states[:i], dtype=np.float32)
-        fig, axes = plt.subplots(n_dims, 1, figsize=(8, max(3, 2 * n_dims)), constrained_layout=True)
-        if n_dims == 1:
-            axes = [axes]
-        for idx, label in enumerate(labels):
-            axes[idx].plot(arr[:, idx], color="tab:blue")
-            axes[idx].set_ylabel(label)
-            axes[idx].grid(True, alpha=0.3)
-        axes[-1].set_xlabel("step")
-        fig.canvas.draw()
-        frame = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
-        frame = frame.reshape(fig.canvas.get_width_height()[::-1] + (4,))[:, :, :3]
-        frames.append(frame)
-        plt.close(fig)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    imageio.mimsave(str(output_path), frames, fps=fps)
-    return output_path
-
-
-def _save_sat_sim_export_video(output_path: Path, *, simulation_series) -> Path:
-    import matplotlib
-
-    matplotlib.use("Agg")
-    out = render_from_series(
-        simulation_series=simulation_series,
-        render_mode=RenderMode.EXPORT,
-        output_path=output_path,
-    )
-    if out is None:
-        raise RuntimeError("Render export did not produce an output path.")
-    return output_path
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train MPO satellite attitude agent.")
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--train-episodes", type=int, default=20)
-    parser.add_argument("--warmup-episodes", type=int, default=10)
-    parser.add_argument("--updates-per-step", type=int, default=1)
-    parser.add_argument("--run-id", type=str, default=None)
-    parser.add_argument("--checkpoint-name", type=str, default="agent.pt")
-    parser.add_argument("--save-video", action="store_true")
-    parser.add_argument("--video-name", type=str, default="policy_trace.mp4")
-    parser.add_argument(
-        "--save-render-video",
-        action="store_true",
-        help="Export Sat Sim render video (supported for baseline/random controller modes).",
-    )
-    parser.add_argument("--render-video-name", type=str, default="sat_sim_export.mp4")
-    parser.add_argument(
-        "--controller-mode",
-        type=str,
-        choices=("mpo", "baseline", "random"),
-        default="mpo",
-    )
-    parser.add_argument(
-        "--num-workers",
-        type=int,
-        default=1,
-        help="Parallel rollout workers for MPO. Keep 1 for single-process training.",
-    )
-    parser.add_argument(
-        "--step-telemetry-interval",
-        type=int,
-        default=20,
-        help="Emit live step telemetry every N simulation steps.",
-    )
-    parser.add_argument(
-        "--skip-preflight",
-        action="store_true",
-        help="Skip training feature checks and pytest gate (not recommended).",
-    )
-    return parser.parse_args()
-
-
-def main() -> None:
-    args = parse_args()
-    if not args.skip_preflight:
-        try:
-            run_training_gate(integration_pytest=True)
-        except TrainingPreflightError as exc:
-            print(f"Training preflight failed:\n{exc}", file=sys.stderr)
-            raise SystemExit(1) from exc
-    seed_cfg = RandomnessConfig(seed=args.seed)
-    apply_global_seed(seed_cfg)
-    sampled_altitude = sample_satellite_altitude(
-        seed=derive_seed(args.seed, "mission_altitude")
-    )
-
-    if args.controller_mode == "mpo":
-        config = MPOConfig(warmup_episodes=args.warmup_episodes)
-        env = make_attitude_control_env(reward_config=config.reward)
-        agent = MPOAgent(env, config=config)
-    elif args.controller_mode == "baseline":
-        env = make_attitude_control_env()
-        agent = MaxTorqueSweepPolicy(env, period_s=10.0)
-    else:
-        env = make_attitude_control_env()
-        agent = RandomTorquePolicy(env)
-    run_dir = create_run_dir(run_id=args.run_id)
-    ckpt = checkpoint_path(run_dir, filename=args.checkpoint_name)
-    telemetry = RunTelemetryWriter(run_dir)
-
-    init_run_markdown(
-        run_dir,
-        title=f"Controller Training Run ({args.controller_mode})",
-        metadata={
-            "run_dir": str(run_dir),
-            "seed": args.seed,
-            "train_episodes": args.train_episodes,
-            "warmup_episodes": args.warmup_episodes,
-            "controller_mode": args.controller_mode,
-            "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
-        },
-    )
-    telemetry.on_run_started(
-        metadata={
-            "seed": args.seed,
-            "train_episodes": args.train_episodes,
-            "warmup_episodes": args.warmup_episodes,
-            "controller_mode": args.controller_mode,
-            "num_workers": args.num_workers,
-        }
-    )
-
-    last_result = None
-    started_at = time.perf_counter()
-    return_window: list[float] = []
-
-    def _on_episode_finished(*, phase: str, episode_idx: int, result) -> None:
-        elapsed = max(1e-9, time.perf_counter() - started_at)
-        completed = episode_idx + 1
-        eps = float(completed / elapsed)
-        return_window.append(float(result.episode_return))
-        if len(return_window) > 25:
-            return_window.pop(0)
-        rolling = float(np.mean(np.asarray(return_window, dtype=np.float64)))
-        telemetry.on_episode_finished(
-            phase=phase,
-            episode_idx=episode_idx,
-            episode_return=float(result.episode_return),
-            steps=int(result.steps),
-            episodes_per_second=eps,
-            rolling_return_mean=rolling,
-        )
-
-    def _step_callback_builder(episode_idx: int):
-        def _on_step(ts) -> None:
-            interval = max(1, int(args.step_telemetry_interval))
-            if int(ts.step_idx) % interval != 0:
-                return
-            telemetry.on_step_snapshot(
-                episode_idx=episode_idx,
-                step_idx=int(ts.step_idx),
-                sim_time_s=float(ts.sim_time_s),
-                reward=float(ts.reward),
-            )
-        return _on_step
-
-    if args.controller_mode == "mpo":
-        if args.num_workers > 1:
-            with ParallelMPOTrainer(
-                agent=agent,
-                env=env,
-                num_workers=args.num_workers,
-                telemetry_writer=telemetry,
-                seed=args.seed,
-                satellite_altitude=sampled_altitude,
-            ) as trainer:
-                for rec in trainer.run_phase(
-                    phase="warmup",
-                    episode_count=args.warmup_episodes,
-                    train_updates_per_step=0,
-                ):
-                    append_run_markdown_event(
-                        run_dir,
-                        heading=f"Warmup episode {int(rec['episode_idx']) + 1}",
-                        payload={
-                            "episode_return": f"{float(rec['episode_return']):.6f}",
-                            "steps": int(rec["steps"]),
-                            "episodes_per_second": f"{float(rec['episodes_per_second']):.3f}",
-                        },
-                    )
-                for rec in trainer.run_phase(
-                    phase="train",
-                    episode_count=args.train_episodes,
-                    train_updates_per_step=args.updates_per_step,
-                ):
-                    append_run_markdown_event(
-                        run_dir,
-                        heading=f"Train episode {int(rec['episode_idx']) + 1}",
-                        payload={
-                            "episode_return": f"{float(rec['episode_return']):.6f}",
-                            "steps": int(rec["steps"]),
-                            "episodes_per_second": f"{float(rec['episodes_per_second']):.3f}",
-                            "rolling_return_mean": f"{float(rec['rolling_return_mean']):.6f}",
-                        },
-                    )
-        else:
-            warmup_ep_idx = 0
-            with tqdm(
-                total=args.warmup_episodes,
-                desc="Warmup episodes",
-                unit="ep",
-                disable=(args.warmup_episodes <= 0),
-            ) as warmup_pbar:
-                import sys
-                from pathlib import Path
-
-                s01 = Path(__file__).resolve().parents[1] / "notebooks" / "s01"
-                if str(s01) not in sys.path:
-                    sys.path.insert(0, str(s01))
-                from s01_utils.baseline_overflight import build_baseline_overflight_setup
-
-                mission_setup = build_baseline_overflight_setup(
-                    seed=derive_seed(args.seed, "mission_altitude"),
-                    n_targets=50,
-                )
-                for warmup_ep_idx in range(args.warmup_episodes):
-                    result = run_episode(
-                        env,
-                        agent,
-                        mode="warmup",
-                        train_updates_per_step=0,
-                        step_callback=_step_callback_builder(warmup_ep_idx),
-                        warmup_controller="baseline",
-                        warmup_baseline_period_s=60.0,
-                        satellite_altitude=sampled_altitude,
-                        setup=mission_setup,
-                        np_rng=np.random.default_rng(
-                            derive_seed(args.seed, "warmup_episode", warmup_ep_idx)
-                        ),
-                    )
-                    last_result = result
-                    _on_episode_finished(phase="warmup", episode_idx=warmup_ep_idx, result=result)
-                    append_run_markdown_event(
-                        run_dir,
-                        heading=f"Warmup episode {warmup_ep_idx + 1} (baseline overflight)",
-                        payload={
-                            "episode_return": f"{result.episode_return:.6f}",
-                            "steps": result.steps,
-                        },
-                    )
-                    warmup_pbar.update(1)
-
-    for ep in range(args.train_episodes):
-        if args.controller_mode == "mpo" and args.num_workers > 1:
-            break
-        episode_mode = "train" if args.controller_mode == "mpo" else "test"
-        result = run_episode(
-            env,
-            agent,
-            mode=episode_mode,
-            train_updates_per_step=args.updates_per_step,
-            step_callback=_step_callback_builder(ep),
-            satellite_altitude=sampled_altitude,
-            np_rng=np.random.default_rng(derive_seed(args.seed, "train_episode", ep)),
-        )
-        last_result = result
-        _on_episode_finished(phase=episode_mode, episode_idx=ep, result=result)
-        append_run_markdown_event(
-            run_dir,
-            heading=f"Train episode {ep + 1}",
-            payload={"episode_return": f"{result.episode_return:.6f}", "steps": result.steps},
-        )
-
-    if args.controller_mode == "mpo":
-        _save_checkpoint(agent, str(ckpt))
-        append_run_markdown_event(
-            run_dir,
-            heading="Checkpoint",
-            payload={"path": str(ckpt)},
-        )
-
-    trace_video_path: str | None = None
-    if args.save_video:
-        if last_result is None:
-            last_result = run_episode(
-                env,
-                agent,
-                mode="test",
-                train_updates_per_step=0,
-                satellite_altitude=sampled_altitude,
-                np_rng=np.random.default_rng(derive_seed(args.seed, "video_test", 0)),
-            )
-        video_path = run_dir / args.video_name
-        trace_video_path = str(_save_trace_video(last_result.states, video_path))
-        append_run_markdown_event(
-            run_dir,
-            heading="Policy trace video",
-            payload={"path": trace_video_path},
-        )
-
-    render_video_path: str | None = None
-    if args.save_render_video:
-        if last_result is None:
-            last_result = run_episode(
-                env,
-                agent,
-                mode="test",
-                train_updates_per_step=0,
-                satellite_altitude=sampled_altitude,
-                np_rng=np.random.default_rng(derive_seed(args.seed, "render_test", 0)),
-            )
-        output_path = run_dir / args.render_video_name
-        render_video_path = str(
-            _save_sat_sim_export_video(
-                output_path,
-                simulation_series=last_result.simulation_series,
-            )
-        )
-        append_run_markdown_event(
-            run_dir,
-            heading="Sat Sim Export video",
-            payload={"path": render_video_path},
-        )
-
-    append_jsonl_record(
-        {
-            "event": "train_run_finished",
-            "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
-            "run_dir": str(run_dir),
-            "seed": args.seed,
-            "warmup_episodes": args.warmup_episodes,
-            "train_episodes": args.train_episodes,
-            "controller_mode": args.controller_mode,
-            "checkpoint_path": str(ckpt) if args.controller_mode == "mpo" else None,
-            "final_return": float(agent.episode_returns[-1]) if hasattr(agent, "episode_returns") and agent.episode_returns else float(last_result.episode_return) if last_result is not None else None,
-            "video_path": trace_video_path,
-            "trace_video_path": trace_video_path,
-            "sat_sim_export_video_path": render_video_path,
-        }
-    )
-    if args.controller_mode == "mpo":
-        print(f"Training completed. Checkpoint saved to: {ckpt}")
-    else:
-        print(f"Controller run completed for mode: {args.controller_mode}")
-
-
-if __name__ == "__main__":
-    main()

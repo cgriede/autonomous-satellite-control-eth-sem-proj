@@ -14,6 +14,7 @@ from utils.geometry.mission_stripe_disk import (
     target_areas_disk_phi_bounds_deg,
     target_areas_envelope_disk_phi_bounds_deg,
     target_areas_midpoint_disk_xy_km_on_sphere,
+    target_areas_track_offset_ranges_deg,
 )
 from environment_definition.constants.SATELLITE import CAMERA_EXPOSURE_TIME, REACTION_WHEEL_MAX_TORQUE
 from environment_definition.constants.SIMULATION import RenderMode, SIMULATION, SimulationConfig
@@ -24,7 +25,6 @@ from .attitude_dynamics import AttitudeState2D
 from .camera_2d import (
     boresight_dir_for_mount,
     calculate_fov_angles,
-    cloud_arc_specs_list_for_frame,
     precompute_cloud_arc_specs_series,
 )
 from .dynamics_kernel import DynamicsKernel
@@ -108,6 +108,7 @@ class SimulationStepper:
         )
         if len(self._target_areas) == 0:
             raise ValueError("target_areas must contain at least one target area.")
+        self._target_offset_ranges = target_areas_track_offset_ranges_deg(self._target_areas)
         self._sim_config = simulation_config
         self._theta_center_rad = float(theta_center_rad)
         self._render_mode = str(
@@ -537,6 +538,7 @@ class SimulationStepper:
             wheel_inertia=self._wheel_inertia,
             omega_before=prev_omega_wheel,
             omega_after=self._state.omega_wheel,
+            wheel_torque_cmd_nm=float(self._wheel_torque_agent_cmd_nm[k]),
             reward_config=self._reward_cfg,
             ureg=self._ureg,
             target_areas=self._target_areas,
@@ -621,12 +623,6 @@ class SimulationStepper:
             tilt_rad = float(scnd_mount.tilt_off_nadir.to(self._ureg.rad).magnitude)
             secondary_boresight = boresight_dir_for_mount(z_ang, tilt_rad)
 
-        cloud_specs = cloud_arc_specs_list_for_frame(
-            radius_km=self._cloud_arc_radius_km,
-            start_rad=self._cloud_arc_start_rad,
-            end_rad=self._cloud_arc_end_rad,
-            frame_idx=k,
-        )
         sensor = SensorKernel.evaluate(
             sat_pos_xy_km=sat_pos_xy_km,
             boresight_dir_unit_xy=boresight_dir_unit_xy,
@@ -642,7 +638,10 @@ class SimulationStepper:
             secondary_boresight_dir_unit_xy=secondary_boresight,
             secondary_vertical_fov_rad=self._secondary_vertical_fov_rad,
             target_areas=self._target_areas,
-            cloud_arc_specs=cloud_specs,
+            target_offset_ranges=self._target_offset_ranges,
+            cloud_arc_radius_km=self._cloud_arc_radius_km[k],
+            cloud_arc_start_rad=self._cloud_arc_start_rad[k],
+            cloud_arc_end_rad=self._cloud_arc_end_rad[k],
         )
         self._camera_gsd_m[k] = sensor.camera_gsd_m
         self._camera_ground_left_xy_km[k, :] = sensor.camera_ground_left_xy_km
@@ -742,6 +741,7 @@ class SimulationStepper:
             wheel_inertia=self._wheel_inertia,
             omega_before=prev_omega_wheel,
             omega_after=self._state.omega_wheel,
+            wheel_torque_cmd_nm=float(self._wheel_torque_agent_cmd_nm[k]),
             reward_config=self._reward_cfg,
             ureg=self._ureg,
             target_areas=self._target_areas,

@@ -30,6 +30,7 @@ class ControllerFeatureConfig:
 
     Timestep groups: ``attitude_keys``, ``orbit_keys``, ``vision_keys``.
     Mission groups (via ``ControllerEpisodeContext``): ``include_capture_budget``,
+    ``include_captured_target_mask`` (one binary scalar per target),
     ``include_target_bearing_errors`` (one signed bearing-error scalar per target [rad]).
     """
 
@@ -49,11 +50,16 @@ class ControllerFeatureConfig:
         "secondary_camera_observation_line_codes",
     )
     include_capture_budget: bool = False
+    include_captured_target_mask: bool = False
     include_target_bearing_errors: bool = False
 
     @property
     def needs_mission_scalars(self) -> bool:
-        return self.include_capture_budget or self.include_target_bearing_errors
+        return (
+            self.include_capture_budget
+            or self.include_captured_target_mask
+            or self.include_target_bearing_errors
+        )
 
     @property
     def selected_keys(self) -> tuple[str, ...]:
@@ -68,6 +74,7 @@ def mission_scalar_key_names(
     *,
     n_targets: int,
     include_budget: bool,
+    include_captured_mask: bool = False,
     include_bearings: bool,
 ) -> tuple[str, ...]:
     """Ordered mission scalar keys (not on ``SimulationTimestepState``)."""
@@ -76,6 +83,8 @@ def mission_scalar_key_names(
     keys: list[str] = []
     if include_budget:
         keys.append("capture_budget_remaining")
+    if include_captured_mask:
+        keys.extend(f"target_already_imaged_{i}" for i in range(int(n_targets)))
     if include_bearings:
         keys.extend(f"target_bearing_error_rad_{i}" for i in range(int(n_targets)))
     return tuple(keys)

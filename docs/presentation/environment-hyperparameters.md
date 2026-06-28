@@ -49,8 +49,9 @@ Source: `environment_definition/constants/SIMULATION.py`.
 - **Default body spin:** `default_body_spin_rate` = 3°/s.
 - **FOV cone:** length 20 000 km; opening from pinhole vertical FOV (`pinhole_full_fov_rad` with `SENSOR_HEIGHT`, `FOCAL_LENGTH`); `z_axis_length` = 180 km.
 - **Cloud strip (latitude bounds on ``LON_GLOBAL`` projected to disk polar angles):** height 15 km, first cloud latitude sweep ≈ **89.99° → 90.2°** geodetic (`SIMULATION.clouds` tuple).
-- **Camera discretization:** `camera_observation_line_n_bins` = 100 (primary vertical FOV). Primary `camera_observation_line_codes` and `camera_cloud_blocked_fraction` share this single ray grid (`simulation/sensor_kernel.py`).
-- **Secondary camera (dual setup):** `secondary_camera_observation_line_n_bins` = 200; observation line only — no secondary cloud-fraction stat in production.
+- **Camera discretization:** `camera_observation_line_n_bins` = 101 (primary vertical FOV; center ray = middle bin). Primary `camera_observation_line_codes` and `camera_cloud_blocked_fraction` share this single ray grid (`simulation/sensor_kernel.py`).
+- **Secondary camera (dual setup):** `secondary_camera_observation_line_n_bins` = 200; shares the fused ray batch; `secondary_camera_cloud_blocked_fraction` reuses the same earth-valid mask (no duplicate earth-hit batch).
+- **Reward geodesy:** `RewardKernel` skips per-target Vincenty `geodesic_distance` when `enable_distance_reward=False` and energy outer gate is off (capture-only nb08 path).
 - **Camera kernel backend:** `camera_kernel_backend` = `"accelerated"` (default). Batches primary + secondary observation-line rays per timestep via NumPy (`simulation/camera_2d.py`). Low-level `simulate_camera_strip_2d` remains for unit tests only.
 - **Episode cap:** `max_episode_steps` = 1000 (canonical rollout cap shared by gym and MPO runtime).
 
@@ -62,8 +63,9 @@ Source: `environment_definition/constants/SIMULATION.py` (`training_episode_simu
 
 - **Torque path:** external policy (`torque_command_source="external"`); warmup uses sequential baseline overflight (`SequentialTargetBaselinePolicy`), train/eval use `MPOAgent.get_action`. Both request torque; `AttitudeSafetyController` arbitrates before the wheel.
 - **Attitude safety:** `attitude_controller_enabled=True` — `AttitudeSafetyController` arbitrates every external torque command (off-nadir taper, safe-mode takeover) before the reaction-wheel plant.
-- **Replay buffer:** stores the **policy request** `[torque_request_nm, shutter_gym]` (shape `(2,)`); applied torque after arbitration is in `SimulationStateSeries.wheel_torque_cmd_nm`.
-- **Early stop on budget:** `TrainingWorkflowConfig.early_stop_on_budget_exhausted` (default `False`). When enabled, warmup/train episodes truncate once `TakePictureBudget.remaining == 0`; eval always runs the full configured horizon.
+- **Replay buffer:** stores the **policy request** `[torque_norm, shutter_gym]` (shape `(2,)`, gym space `[-1, 1]²`) **once per controller tick** (~0.8 s), not every sim step (~0.4 s); warmup baseline and MPO train share the same gate (`episode_runner.py`). Applied torque after arbitration is in `SimulationStateSeries.wheel_torque_cmd_nm`.
+- **MPO learn cadence:** `TrainingWorkflowConfig.train_every_n_steps` gates `agent.train()` on **controller-store count** (after each `store()` on a controller tick), not on the simulation-step index. Default `1` ⇒ one gradient update per controller tick (~968 `train()` calls per full 1935-step episode). `updates_per_step` repeats `train()` each time the gate opens. Warmup/eval use `train_updates_per_step=0` (collect only).
+- **Early stop on budget:** `TrainingWorkflowConfig.early_stop_on_budget_exhausted` (default `False`). When enabled, warmup/train episodes truncate once `TakePictureBudget.remaining == 0`; eval always runs the full configured horizon. `EpisodeRunner.run_serial` defaults to `False` when the flag is omitted (matches workflow).
 
 ---
 

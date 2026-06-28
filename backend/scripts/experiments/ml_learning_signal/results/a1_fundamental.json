@@ -1,0 +1,154 @@
+{
+  "run_at_utc": "2026-06-27T17:59:02.742157+00:00",
+  "experiment_id": "ml_learning_signal",
+  "hypothesis_id": "fundamental_limit",
+  "phase": "A1",
+  "frozen_input": {
+    "scenario": "s01 cached warmup + 3 train",
+    "seed": 7
+  },
+  "control": null,
+  "treatment": {
+    "kpis": {
+      "run_id": "ml_ls_a1_fundamental",
+      "run_dir": "C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\ml_learning_signal_baseline_17-19-54",
+      "warmup_from_cache": true,
+      "warmup_returns": [
+        145.08638823767077,
+        108.34964246510562,
+        95.43579973508072,
+        47.01253258538355,
+        50.63812323407264
+      ],
+      "warmup_return_mean": 89.30449725146266,
+      "train_returns": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "train_return_mean": 0.0,
+      "train_return_best": 0.0,
+      "increasing_signal": {
+        "train_returns_ep1_ep3": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "all_nonzero": false,
+        "ep2_or_ep3_above_ep1": false,
+        "strictly_increasing_ep1_ep3": false,
+        "strong_lead": false
+      },
+      "reference_runs": {
+        "ml_learning_signal_baseline_17-19-54_ep1": {
+          "kl_mean": 173603,
+          "eta_mean": 21.0
+        },
+        "ml_learning_signal_baseline_17-19-54_ep2": {
+          "kl_mean": 237777,
+          "eta_mean": 1354.8
+        },
+        "nb-s01-08-2026-06-27_08-10-34_ep3": {
+          "kl_mean": 1800000.0,
+          "eta_mean": 87000000.0
+        },
+        "nb-s01-08-2026-06-27_12-19-52_ep1": {
+          "return": 3.73,
+          "note": "1 train ep only; lucky sparse capture"
+        }
+      },
+      "debug_episodes": [],
+      "last_train_learning": {}
+    },
+    "shutter_probe": {
+      "n_samples": 5000,
+      "p_shutter_fire": 0.7734,
+      "shutter_gym_mean": 0.5067161765504629,
+      "shutter_gym_std": 0.7245192119968309,
+      "shutter_unit_mean": 0.7533580882752314,
+      "shutter_unit_std": 0.36225960599841545,
+      "frac_unit_above_threshold": 0.7734,
+      "threshold": 0.5
+    },
+    "buffer_stats": {
+      "buffer_size": 9675,
+      "positive_reward_transitions": 14,
+      "positive_reward_fraction": 0.0014470284237726098,
+      "max_reward": 92.24541473388672,
+      "mean_reward": 0.04615219488470437,
+      "buffer_shutter_fire_actions": 44,
+      "buffer_shutter_fire_fraction": 0.00454780361757106
+    },
+    "onpolicy_train_ep0": {
+      "ts": 1782583105236,
+      "episode_return": 0.0,
+      "steps": 37,
+      "n_shutter_cmds": 10,
+      "shutter_cmd_rate": 0.2702702702702703,
+      "positive_reward_steps": 0,
+      "max_step_reward": 0.0,
+      "warmup_shutter_cmds_ep0": 10,
+      "learning_stats": {
+        "phase": "train",
+        "episode_idx": 0,
+        "episode_return": 0.0,
+        "steps": 37,
+        "n_train_updates": 37,
+        "q_loss_mean": 12.018168295519677,
+        "pi_loss_mean": -0.19425286408010367,
+        "kl_mean": 1519.0073154552563,
+        "kl_mu_mean": 758.4073650643633,
+        "kl_sigma_mean": 760.5999486768568,
+        "eta_mean": 2.769785243111688,
+        "buffer_size": 9712,
+        "in_exploration": true
+      },
+      "buffer_size_after": 9712
+    }
+  },
+  "delta": {
+    "strong_lead": false,
+    "p_shutter_fire_sampled": 0.7734,
+    "train_returns_ep1_ep3": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "parity": {
+    "required": false,
+    "passed": true,
+    "notes": "diagnostic"
+  },
+  "instrumentation": {
+    "hooks_valid": true
+  },
+  "debug_examples": {
+    "mechanism": "Capture reward requires shutter at target overflight geometry. Warmup buffer holds 14/9675 (0.14%) positive transitions from baseline-timed shutters; a fresh policy samples shutter-open ~77% of actions but on-policy train ep0 fires 10 shutters in 37 steps, exhausting capture budget with 0 reward. MPO mixes off-policy positives with on-policy zeros; KL vs targets 0.1/1e-4 blows to 1e5\u20131e11 by ep3 \u2014 3 episodes cannot yield a reliable increasing train curve.",
+    "kl_refs": {
+      "ml_learning_signal_baseline_17-19-54_ep1": {
+        "kl_mean": 173603,
+        "eta_mean": 21.0
+      },
+      "ml_learning_signal_baseline_17-19-54_ep2": {
+        "kl_mean": 237777,
+        "eta_mean": 1354.8
+      },
+      "nb-s01-08-2026-06-27_08-10-34_ep3": {
+        "kl_mean": 1800000.0,
+        "eta_mean": 87000000.0
+      },
+      "nb-s01-08-2026-06-27_12-19-52_ep1": {
+        "return": 3.73,
+        "note": "1 train ep only; lucky sparse capture"
+      }
+    }
+  },
+  "files_changed": [
+    "a_fundamental_limit/probe_shutter_reward.py",
+    "a_fundamental_limit/probe_onpolicy_train_ep.py",
+    "a_fundamental_limit/write_deliverables.py"
+  ],
+  "verdict": "supported",
+  "closeout": "Fundamental limit: timing-critical sparse capture + off-policy warmup + KL blow-up."
+}

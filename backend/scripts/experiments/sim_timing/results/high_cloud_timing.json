@@ -1,61 +1,61 @@
 {
-  "sim_loop_wall_s": 3.4358414000016637,
+  "sim_loop_wall_s": 3.5870806999882916,
   "n_steps": 1292,
-  "steps_per_s": 376.03598350010407,
-  "per_step_wall_ms": 2.6593199690415354,
-  "measured_in_loop_s": 3.4309078996739117,
+  "steps_per_s": 360.18147013091095,
+  "per_step_wall_ms": 2.7763782507649317,
+  "measured_in_loop_s": 3.5795171997888247,
   "measured_episode_extra_s": 0.0,
-  "measured_grand_total_s": 3.4309078996739117,
-  "unaccounted_in_loop_s": 0.004933500327751972,
+  "measured_grand_total_s": 3.5795171997888247,
+  "unaccounted_in_loop_s": 0.007563500199466944,
   "categories": [
     {
       "key": "sensor_camera_rays",
       "label": "Visual: camera ray kernel",
-      "total_s": 1.7363686997559853,
-      "per_step_ms": 1.3439386221021559,
-      "pct_of_sim_loop": 50.536928152595884
+      "total_s": 1.7655363000376383,
+      "per_step_ms": 1.3665141641158192,
+      "pct_of_sim_loop": 49.21930805859486
     },
     {
       "key": "reward_ml",
       "label": "Reward / ML-side scoring",
-      "total_s": 0.607704800189822,
-      "per_step_ms": 0.47035975246890244,
-      "pct_of_sim_loop": 17.687219211850923
+      "total_s": 0.6178533001948381,
+      "per_step_ms": 0.4782146286337756,
+      "pct_of_sim_loop": 17.224404797942093
     },
     {
       "key": "stepper_bookkeeping",
       "label": "Stepper bookkeeping (residual per step)",
-      "total_s": 0.4134723999450216,
-      "per_step_ms": 0.32002507735682784,
-      "pct_of_sim_loop": 12.034094470857164
+      "total_s": 0.501207199471537,
+      "per_step_ms": 0.38793126894081814,
+      "pct_of_sim_loop": 13.972565475685366
     },
     {
       "key": "robotics_dynamics",
       "label": "Reaction wheel & attitude dynamics",
-      "total_s": 0.4103045999218011,
-      "per_step_ms": 0.31757321975371605,
-      "pct_of_sim_loop": 11.941895802338328
+      "total_s": 0.41472340005566366,
+      "per_step_ms": 0.3209933436963341,
+      "pct_of_sim_loop": 11.56158544347824
     },
     {
       "key": "geodesy",
       "label": "Geodesy transforms (disk to geodetic)",
-      "total_s": 0.2516529001004528,
-      "per_step_ms": 0.19477778645545885,
-      "pct_of_sim_loop": 7.3243456493751715
-    },
-    {
-      "key": "orbit_kinematics",
-      "label": "Orbit position lookup (precomputed ephemeris)",
-      "total_s": 0.006310700002359226,
-      "per_step_ms": 0.004884442726284231,
-      "pct_of_sim_loop": 0.18367262244282204
+      "total_s": 0.2674636001320323,
+      "per_step_ms": 0.20701517038082995,
+      "pct_of_sim_loop": 7.456302840716835
     },
     {
       "key": "controller_actuator",
       "label": "Controller / policy (actuator command)",
-      "total_s": 0.005093799758469686,
-      "per_step_ms": 0.003942569472499756,
-      "pct_of_sim_loop": 0.14825479891089324
+      "total_s": 0.006554400286404416,
+      "per_step_ms": 0.005073065237155121,
+      "pct_of_sim_loop": 0.182722409518855
+    },
+    {
+      "key": "orbit_kinematics",
+      "label": "Orbit position lookup (precomputed ephemeris)",
+      "total_s": 0.006178999610710889,
+      "per_step_ms": 0.004782507438630719,
+      "pct_of_sim_loop": 0.172257056015803
     },
     {
       "key": "environment_clouds",
@@ -90,51 +90,51 @@
     {
       "key": "sensor_camera_rays",
       "label": "Visual: camera ray kernel",
-      "total_s": 1.7363686997559853,
-      "per_step_ms": 1.3439386221021559,
-      "pct_of_sim_loop": 50.536928152595884
+      "total_s": 1.7655363000376383,
+      "per_step_ms": 1.3665141641158192,
+      "pct_of_sim_loop": 49.21930805859486
     },
     {
       "key": "reward_ml",
       "label": "Reward / ML-side scoring",
-      "total_s": 0.607704800189822,
-      "per_step_ms": 0.47035975246890244,
-      "pct_of_sim_loop": 17.687219211850923
+      "total_s": 0.6178533001948381,
+      "per_step_ms": 0.4782146286337756,
+      "pct_of_sim_loop": 17.224404797942093
     },
     {
       "key": "stepper_bookkeeping",
       "label": "Stepper bookkeeping (residual per step)",
-      "total_s": 0.4134723999450216,
-      "per_step_ms": 0.32002507735682784,
-      "pct_of_sim_loop": 12.034094470857164
+      "total_s": 0.501207199471537,
+      "per_step_ms": 0.38793126894081814,
+      "pct_of_sim_loop": 13.972565475685366
     },
     {
       "key": "robotics_dynamics",
       "label": "Reaction wheel & attitude dynamics",
-      "total_s": 0.4103045999218011,
-      "per_step_ms": 0.31757321975371605,
-      "pct_of_sim_loop": 11.941895802338328
+      "total_s": 0.41472340005566366,
+      "per_step_ms": 0.3209933436963341,
+      "pct_of_sim_loop": 11.56158544347824
     },
     {
       "key": "geodesy",
       "label": "Geodesy transforms (disk to geodetic)",
-      "total_s": 0.2516529001004528,
-      "per_step_ms": 0.19477778645545885,
-      "pct_of_sim_loop": 7.3243456493751715
-    },
-    {
-      "key": "orbit_kinematics",
-      "label": "Orbit position lookup (precomputed ephemeris)",
-      "total_s": 0.006310700002359226,
-      "per_step_ms": 0.004884442726284231,
-      "pct_of_sim_loop": 0.18367262244282204
+      "total_s": 0.2674636001320323,
+      "per_step_ms": 0.20701517038082995,
+      "pct_of_sim_loop": 7.456302840716835
     },
     {
       "key": "controller_actuator",
       "label": "Controller / policy (actuator command)",
-      "total_s": 0.005093799758469686,
-      "per_step_ms": 0.003942569472499756,
-      "pct_of_sim_loop": 0.14825479891089324
+      "total_s": 0.006554400286404416,
+      "per_step_ms": 0.005073065237155121,
+      "pct_of_sim_loop": 0.182722409518855
+    },
+    {
+      "key": "orbit_kinematics",
+      "label": "Orbit position lookup (precomputed ephemeris)",
+      "total_s": 0.006178999610710889,
+      "per_step_ms": 0.004782507438630719,
+      "pct_of_sim_loop": 0.172257056015803
     }
   ],
   "context": {
@@ -144,5 +144,5 @@
     "include_cameras": true,
     "controller_mode": "builtin"
   },
-  "run_at_utc": "2026-06-27T13:47:37.472983+00:00"
+  "run_at_utc": "2026-06-27T17:19:36.292551+00:00"
 }

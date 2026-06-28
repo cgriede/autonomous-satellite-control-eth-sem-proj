@@ -109,6 +109,12 @@ def _reward_program_rows(reward_config: Any) -> list[tuple[str, str]]:
         rows.append(("reward (area novelty)", "on"))
     if getattr(reward_config, "enable_energy", False):
         rows.append(("reward (energy)", "wheel momentum penalty"))
+    if getattr(reward_config, "enable_shutter_waste_penalty", False):
+        k = getattr(reward_config, "k_shutter_waste", 0.0)
+        rows.append(("reward (shutter waste)", f"-{k:g} on accepted shutter with ~0 applied credit"))
+    if getattr(reward_config, "enable_torque_effort", False):
+        k = getattr(reward_config, "k_torque_effort", 0.0)
+        rows.append(("reward (torque effort)", f"-{k:g} × (tau/tau_max)² per step"))
     if getattr(reward_config, "enable_cloud_penalty", False):
         rows.append(("reward (cloud penalty)", "primary observation line"))
     if getattr(reward_config, "enable_secondary_cloud_penalty", False):
@@ -200,7 +206,7 @@ def build_simulation_info_rows(
         ("orbit period", f"{meta.orbit_period_s:.1f} s"),
         ("episode theta start (rel. center)", f"{meta.start_angle_deg:.3f} deg"),
         ("episode theta end (rel. center)", f"{meta.end_angle_deg:.3f} deg"),
-        ("sat motion span scale", f"{stepper._sat_motion_span_scale:.3f}"),
+        ("sat motion span scale", f"{stepper._sat_motion_span_scale * 100:.1f}%"),
         ("target areas", str(len(stepper._target_areas))),
         ("cloud patches", str(len(stepper._clouds))),
         ("render mode", str(meta.render_mode)),
@@ -448,12 +454,17 @@ def _render_info_panel_html(
     title: str,
     border_style: str,
 ) -> str:
+    import io
+
     from rich.console import Console
     from rich.panel import Panel
 
     from utils.notebook.display import wrap_notebook_rich_html
 
-    console = Console(record=True, width=110)
+    # ponytail: StringIO prevents Rich's Jupyter console from auto-displaying on
+    # console.print — _display_info_panel already calls IPython display(HTML(...)).
+    buffer = io.StringIO()
+    console = Console(file=buffer, record=True, width=110, force_terminal=True)
     console.print(
         Panel(
             _build_info_table(rows),
@@ -495,6 +506,32 @@ def _display_info_panel(
         for label, value in rows:
             print(f"  {label}: {value}", file=out)
         print(file=out)
+
+
+def build_warmup_phase_summary_rows(
+    results: list[Any],
+    *,
+    agent: Any | None = None,
+) -> list[tuple[str, str]]:
+    """Episode-level warmup summary for a single post-phase live-stats panel."""
+    if not results:
+        return [("phase", "warmup"), ("status", "no episodes")]
+
+    returns = [float(r.episode_return) for r in results]
+    steps = [int(r.steps) for r in results]
+    rows: list[tuple[str, str]] = [
+        ("phase", "warmup complete"),
+        ("episodes", str(len(results))),
+        ("mean return", f"{sum(returns) / len(returns):.2f}"),
+        ("total return", f"{sum(returns):.2f}"),
+        ("last ep return", f"{returns[-1]:.2f}"),
+        ("last ep steps", f"{steps[-1]}"),
+    ]
+    if agent is not None:
+        rows.append(("buffer", str(len(getattr(agent, "buffer", [])))))
+        rows.append(("agent steps", str(int(getattr(agent, "step_counter", 0)))))
+    rows.append(("status", "episode done"))
+    return rows
 
 
 def render_training_panel_html(

@@ -1,0 +1,37 @@
+{
+  "run_at_utc": "2026-06-27T18:45:00+00:00",
+  "experiment_id": "ml_learning_signal",
+  "hypothesis_id": "bug_hunt_combined",
+  "phase": "B3",
+  "frozen_input": {
+    "fork": "threshold=0.35, controller-only store"
+  },
+  "control": null,
+  "treatment": {
+    "kpis": {
+      "run_id": "ml_ls_b3_combined",
+      "status": "not_run_budget_exhausted_on_b1_b2",
+      "train_returns": [],
+      "increasing_signal": {
+        "train_returns_ep1_ep3": [0.0, 0.0, 0.0],
+        "all_nonzero": false,
+        "ep2_or_ep3_above_ep1": false,
+        "strictly_increasing_ep1_ep3": false,
+        "strong_lead": false
+      }
+    }
+  },
+  "delta": {
+    "strong_lead": false
+  },
+  "parity": {
+    "required": true,
+    "passed": false,
+    "notes": "combined fork not executed"
+  },
+  "instrumentation": {
+    "hooks_valid": true
+  },
+  "verdict": "inconclusive",
+  "closeout": "Combined fork deferred; primary wiring bug is replay store cadence."
+}

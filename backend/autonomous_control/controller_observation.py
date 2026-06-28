@@ -34,6 +34,7 @@ class ControllerEpisodeContext:
 
     capture_budget_remaining: float
     target_anchor_xy_km: np.ndarray
+    captured_target_indices: frozenset[int] = frozenset()
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -121,6 +122,11 @@ def mission_scalar_values_from_context(
     values: dict[str, float] = {}
     if cfg.include_capture_budget:
         values["capture_budget_remaining"] = float(episode_context.capture_budget_remaining)
+    if cfg.include_captured_target_mask:
+        captured = episode_context.captured_target_indices
+        n_targets = int(episode_context.target_anchor_xy_km.shape[0])
+        for i in range(n_targets):
+            values[f"target_already_imaged_{i}"] = 1.0 if i in captured else 0.0
     if cfg.include_target_bearing_errors:
         errors = compute_target_bearing_errors_rad(
             sat_pos_xy_km=timestep.sat_pos_xy_km,
@@ -190,6 +196,7 @@ def controller_observation_layout(
     mission_keys = mission_scalar_key_names(
         n_targets=int(n_mission_targets),
         include_budget=cfg.include_capture_budget,
+        include_captured_mask=cfg.include_captured_target_mask,
         include_bearings=cfg.include_target_bearing_errors,
     )
     scalar_keys = cfg.attitude_keys + cfg.orbit_keys + mission_keys

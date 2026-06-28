@@ -23,7 +23,10 @@ from environment_definition.constants.AUTONOMOUS_CONTROL_REWARD import (
     REWARD_AREA_NOVELTY_WEIGHT,
     REWARD_ENERGY_LINEAR_COEFFICIENT,
     REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT,
+    REWARD_SHUTTER_WASTE_PENALTY,
+    REWARD_TORQUE_EFFORT_COEFFICIENT,
 )
+from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 
 if TYPE_CHECKING:
@@ -57,6 +60,11 @@ class RewardConfig:
     # Take-picture mode: latent = coverage × quality; applied only on shutter (budget-limited).
     enable_image_quality_capture: bool = False
     k_image_quality_capture: float = float(REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT)
+    enable_shutter_waste_penalty: bool = False
+    k_shutter_waste: float = float(REWARD_SHUTTER_WASTE_PENALTY)
+    shutter_waste_reward_epsilon: float = 1e-3
+    enable_torque_effort: bool = False
+    k_torque_effort: float = float(REWARD_TORQUE_EFFORT_COEFFICIENT)
 
 
 @dataclass(frozen=True)
@@ -85,6 +93,7 @@ class RewardSignals:
     wheel_inertia: Any | None = None  # pint Quantity (kg*m^2)
     omega_before: Any | None = None  # pint Quantity (rad/s)
     omega_after: Any | None = None  # pint Quantity (rad/s)
+    wheel_torque_cmd_nm: float | None = None  # agent-requested wheel torque [N*m]
 
 
 def _distance_m(q: "Quantity") -> float:
@@ -247,6 +256,21 @@ def energy_reward(
     return -k_energy * e_j
 
 
+def torque_effort_penalty(
+    *,
+    wheel_torque_cmd_nm: float,
+    k_torque_effort: float,
+    tau_max_nm: float | None = None,
+) -> float:
+    """Per-step control-effort penalty: ``-k * (tau / tau_max)^2`` on normalized torque."""
+    if tau_max_nm is None:
+        tau_max_nm = float(REACTION_WHEEL_MAX_TORQUE.to(ureg.N * ureg.m).magnitude)
+    if tau_max_nm <= 0.0:
+        raise ValueError("tau_max_nm must be positive.")
+    tau_norm = float(wheel_torque_cmd_nm) / float(tau_max_nm)
+    return -float(k_torque_effort) * tau_norm * tau_norm
+
+
 def compute_reward(
     *,
     signals: RewardSignals,
@@ -276,6 +300,8 @@ def compute_reward(
         "secondary_cloud_penalty": 0.0,
         "latent_capture_reward": 0.0,
         "image_quality_capture_reward": 0.0,
+        "shutter_waste_penalty": 0.0,
+        "torque_effort_penalty": 0.0,
     }
 
     if cfg.enable_distance_reward:
@@ -344,6 +370,17 @@ def compute_reward(
             k_capture=cfg.k_image_quality_capture,
         )
 
+    if cfg.enable_shutter_waste_penalty and signals.picture_taken:
+        applied = components["image_quality_capture_reward"]
+        if applied < cfg.shutter_waste_reward_epsilon:
+            components["shutter_waste_penalty"] = -cfg.k_shutter_waste
+
+    if cfg.enable_torque_effort and signals.wheel_torque_cmd_nm is not None:
+        components["torque_effort_penalty"] = torque_effort_penalty(
+            wheel_torque_cmd_nm=float(signals.wheel_torque_cmd_nm),
+            k_torque_effort=cfg.k_torque_effort,
+        )
+
     total = (
         components["distance_reward"]
         + components["area_intersection_reward"]
@@ -352,6 +389,8 @@ def compute_reward(
         + components["cloud_penalty"]
         + components["secondary_cloud_penalty"]
         + components["image_quality_capture_reward"]
+        + components["shutter_waste_penalty"]
+        + components["torque_effort_penalty"]
     )
     return total, components
 
@@ -365,4 +404,5 @@ __all__ = [
     "energy_from_wheel_momentum_change",
     "image_quality_capture_reward",
     "latent_capture_reward",
+    "torque_effort_penalty",
 ]

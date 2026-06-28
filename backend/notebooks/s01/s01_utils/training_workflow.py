@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import shutil
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -48,6 +48,7 @@ from autonomous_control.notebook_warmup_bundle_cache import (
 )
 from autonomous_control.training_runtime import EpisodeResult, make_attitude_control_env
 from environment_definition.constants import RenderMode, SIMULATION
+from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from simulation.setup_types import EnvironmentSetup, ResolvedSimulationSetup, SimulationOverrides
 from simulation.simulation_info import _reward_program_rows
@@ -55,8 +56,7 @@ from simulation.take_picture import TakePictureBudget, TakePictureConfig
 from s01_utils.baseline_overflight import (
     BASELINE_N_TARGETS,
     build_baseline_overflight_setup,
-    warmup_capture_slice_plan,
-    warmup_capture_target_range,
+    warmup_capture_targets,
 )
 from simulation.state_types import SimulationTimestepState
 from utils.ml_training.ml_training_utils import (
@@ -97,6 +97,7 @@ S01_TRAINING_FEATURE_CONFIG = ControllerFeatureConfig(
         "secondary_camera_observation_line_codes",
     ),
     include_capture_budget=True,
+    include_captured_target_mask=True,
     include_target_bearing_errors=True,
 )
 
@@ -108,6 +109,7 @@ _FEATURE_UNITS: dict[str, str] = {
     "camera_observation_line_codes": "obs code / bin",
     "secondary_camera_observation_line_codes": "obs code / bin",
     "capture_budget_remaining": "count",
+    "target_already_imaged": "1",
     "target_bearing_error_rad": "rad",
 }
 
@@ -124,19 +126,20 @@ _OBS_CODE_LABELS: dict[int, str] = {
 class TrainingWorkflowConfig:
     """Notebook-08 training knobs.
 
-    Warmup baseline slices: each warmup episode images a contiguous target index window
-    of ``warmup_targets_per_episode`` targets (see ``warmup_capture_target_range``).
-    Slice index is ``warmup_episode_idx % n_chunks`` (silent wrap). The last chunk may
-  cover fewer than ``warmup_targets_per_episode`` targets when ``n_targets`` is not a
-    multiple. If ``warmup_targets_per_episode > n_targets``, the window spans all targets.
+    Warmup baseline uses strided target lists per episode (see ``warmup_capture_targets``).
+
+    MPO update cadence (``EpisodeRunner.run_serial``, train mode only): replay ``store()``
+    runs every controller tick; ``train_every_n_steps`` throttles ``agent.train()`` to every
+    N-th controller store (not every simulation integration step). See
+    ``docs/presentation/machine-learning.md``.
     """
 
     seed: int = 7
     warmup_episodes: int = 10
     train_episodes: int = 10
     eval_episodes: int = 2
-    updates_per_step: int = 1
-    train_every_n_steps: int = 1
+    updates_per_step: int = 1  # MPO train() calls each time the learn gate opens
+    train_every_n_steps: int = 1  # open learn gate every N controller stores (not sim steps)
     collect_states: bool = False
     run_id: str | None = None
     feature_config: ControllerFeatureConfig = S01_TRAINING_FEATURE_CONFIG
@@ -196,6 +199,41 @@ class TrainingWorkflowResult:
         return list(self.artifact_errors)
 
 
+@dataclass
+class TrainingWorkflowContext:
+    """Mutable cross-phase state for notebook-08 warmup → train → eval."""
+
+    setup: TrainingWorkflowSetup
+    show_progress: bool = True
+    warmup_results: list[EpisodeResult] = field(default_factory=list)
+    train_results: list[EpisodeResult] = field(default_factory=list)
+    eval_results: list[EpisodeResult] = field(default_factory=list)
+    episode_rows: list[dict[str, Any]] = field(default_factory=list)
+    global_idx: int = 0
+    artifact_errors: list[str] = field(default_factory=list)
+    worker: BackgroundArtifactWorker | None = None
+    progress_display: TrainingProgressDisplay | None = None
+    telemetry_writer: RunTelemetryWriter | None = None
+    paths: dict[str, Path] = field(default_factory=dict)
+    checkpoint_path: Path | None = None
+    _closed: bool = False
+
+    @property
+    def config(self) -> TrainingWorkflowConfig:
+        return self.setup.config
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        if self.worker is not None and self.config.background_artifacts:
+            self.artifact_errors.extend(self.worker.shutdown(wait=False))
+            self.worker = None
+        if self.progress_display is not None:
+            self.progress_display.close()
+            self.progress_display = None
+        self._closed = True
+
+
 def _mpo_config_snapshot(mpo_config: MPOConfig) -> dict[str, object]:
     reward = mpo_config.reward
     return {
@@ -219,6 +257,11 @@ def _mpo_config_snapshot(mpo_config: MPOConfig) -> dict[str, object]:
         "reward": {
             "enable_distance_reward": reward.enable_distance_reward,
             "enable_image_quality_capture": reward.enable_image_quality_capture,
+            "enable_shutter_waste_penalty": reward.enable_shutter_waste_penalty,
+            "enable_torque_effort": reward.enable_torque_effort,
+            "k_shutter_waste": reward.k_shutter_waste,
+            "k_torque_effort": reward.k_torque_effort,
+            "shutter_waste_reward_epsilon": reward.shutter_waste_reward_epsilon,
             "enable_outer_gate": reward.enable_outer_gate,
             "enable_energy": reward.enable_energy,
             "enable_cloud_penalty": reward.enable_cloud_penalty,
@@ -361,12 +404,15 @@ def feature_config_registry_table(
     mission_keys = mission_scalar_key_names(
         n_targets=int(n_mission_targets),
         include_budget=feature_config.include_capture_budget,
+        include_captured_mask=feature_config.include_captured_target_mask,
         include_bearings=feature_config.include_target_bearing_errors,
     )
     for key in mission_keys:
         unit = _FEATURE_UNITS.get(key, _FEATURE_UNITS.get("target_bearing_error_rad", "—"))
         if key.startswith("target_bearing_error_rad_"):
             unit = _FEATURE_UNITS["target_bearing_error_rad"]
+        elif key.startswith("target_already_imaged_"):
+            unit = _FEATURE_UNITS["target_already_imaged"]
         rows.append(
             {
                 "group": "mission",
@@ -396,6 +442,7 @@ def controller_encoder_routing_table(
     mission_keys = mission_scalar_key_names(
         n_targets=int(n_mission_targets),
         include_budget=feature_config.include_capture_budget,
+        include_captured_mask=feature_config.include_captured_target_mask,
         include_bearings=feature_config.include_target_bearing_errors,
     )
     scalar_keys = feature_config.attitude_keys + feature_config.orbit_keys + mission_keys
@@ -536,12 +583,15 @@ def feature_scalar_snapshot_table(
     mission_keys = mission_scalar_key_names(
         n_targets=n_targets,
         include_budget=setup.feature_config.include_capture_budget,
+        include_captured_mask=setup.feature_config.include_captured_target_mask,
         include_bearings=setup.feature_config.include_target_bearing_errors,
     )
     for key in mission_keys:
         unit = _FEATURE_UNITS["target_bearing_error_rad"]
         if key == "capture_budget_remaining":
             unit = _FEATURE_UNITS["capture_budget_remaining"]
+        elif key.startswith("target_already_imaged_"):
+            unit = _FEATURE_UNITS["target_already_imaged"]
         rows.append(
             {
                 "scalar_index": scalar_index,
@@ -629,6 +679,7 @@ def display_feature_tables(
         Markdown(
             "Edit `S01_TRAINING_FEATURE_CONFIG` in `s01_utils/training_workflow.py` "
             "(timestep key tuples **and** `include_capture_budget` / "
+            "`include_captured_target_mask` / "
             "`include_target_bearing_errors`). Notebook 08 should assign "
             "`FEATURE_CONFIG = tw.S01_TRAINING_FEATURE_CONFIG` rather than duplicating keys."
         )
@@ -702,6 +753,8 @@ def build_training_workflow_setup(
     capture_reward = RewardConfig(
         enable_distance_reward=False,
         enable_image_quality_capture=True,
+        enable_shutter_waste_penalty=True,
+        enable_torque_effort=True,
     )
     mission_setup = replace(
         build_s01_training_mission_setup(seed=cfg.seed),
@@ -780,6 +833,7 @@ def build_training_workflow_setup(
                 "orbit_keys": list(cfg.feature_config.orbit_keys),
                 "vision_keys": list(cfg.feature_config.vision_keys),
                 "include_capture_budget": cfg.feature_config.include_capture_budget,
+                "include_captured_target_mask": cfg.feature_config.include_captured_target_mask,
                 "include_target_bearing_errors": cfg.feature_config.include_target_bearing_errors,
             },
             "observation": {
@@ -847,14 +901,12 @@ def print_training_setup_summary(setup: TrainingWorkflowSetup) -> None:
     print(f"  early stop:        {cfg.early_stop_on_budget_exhausted} (warmup/train; eval always full horizon)")
     print(f"  warmup cache:      {cfg.use_warmup_bundle_cache} (rebuild={cfg.rebuild_warmup_bundle_cache})")
     n_targets = len(setup.mission_setup.resolve(require_camera=True).target_areas or ())
-    per_slice, n_chunks = warmup_capture_slice_plan(
-        n_targets=n_targets,
-        targets_per_episode=cfg.warmup_targets_per_episode,
-    )
+    per = min(cfg.warmup_targets_per_episode, n_targets)
+    stride = max(1, (n_targets + per - 1) // per)
+    sample = warmup_capture_targets(0, n_targets=n_targets, targets_per_episode=cfg.warmup_targets_per_episode)
     print(
-        f"  warmup target win: {cfg.warmup_targets_per_episode} targets/ep "
-        f"→ {n_chunks} slice(s) of up to {per_slice} on {n_targets} targets "
-        f"(ep idx wraps mod {n_chunks})"
+        f"  warmup targets/ep: {per} on {n_targets} "
+        f"(ep0 start 0 then +{stride} each → {list(sample)})"
     )
 
 
@@ -875,16 +927,89 @@ def _summarize_phase(phase: str, results: list[EpisodeResult]) -> PhaseKPIs:
     )
 
 
+def compute_action_diagnostics_from_episodes(
+    episodes: list[EpisodeResult],
+    *,
+    phase: str,
+    tau_max_nm: float | None = None,
+    shutter_applied_epsilon: float = 1.0,
+) -> dict[str, Any]:
+    """Post-run action/reward diagnostics (required after first training run)."""
+    if tau_max_nm is None:
+        tau_max_nm = float(REACTION_WHEEL_MAX_TORQUE.to(ureg.N * ureg.m).magnitude)
+    if not episodes:
+        return {"phase": phase, "episodes": 0}
+
+    torque_norms: list[float] = []
+    shutter_rewards: list[float] = []
+    shutter_omega_abs: list[float] = []
+    n_shutter_cmds = 0
+    n_shutter_meaningful = 0
+
+    for ep in episodes:
+        series = ep.simulation_series
+        interval = max(1, int(ep.effective_controller_update_interval_steps))
+        agent_cmds = np.asarray(
+            series.wheel_torque_agent_cmd_nm
+            if series.wheel_torque_agent_cmd_nm is not None
+            else series.wheel_torque_cmd_nm,
+            dtype=float,
+        )
+        dt_s = float(series.metadata.sim_dt_s)
+        body_z = np.asarray(series.body_z_angle_rad, dtype=float)
+        omega_est = np.diff(body_z) / dt_s if body_z.size > 1 and dt_s > 0.0 else np.zeros(0)
+
+        for i in range(ep.steps):
+            if i % interval != 0:
+                continue
+            step_k = i + 1
+            if step_k >= agent_cmds.shape[0]:
+                continue
+            torque_norms.append(float(np.clip(agent_cmds[step_k] / tau_max_nm, -1.0, 1.0)))
+
+        cmd_steps = tuple(series.metadata.take_picture_cmd_steps or ())
+        for step_k in cmd_steps:
+            if step_k < 0 or step_k >= series.simulation_reward.shape[0]:
+                continue
+            n_shutter_cmds += 1
+            reward_k = float(series.simulation_reward[step_k])
+            shutter_rewards.append(reward_k)
+            if reward_k > float(shutter_applied_epsilon):
+                n_shutter_meaningful += 1
+            if omega_est.size > 0:
+                idx = min(max(step_k - 1, 0), omega_est.size - 1)
+                shutter_omega_abs.append(abs(float(omega_est[idx])))
+
+    torque_arr = np.asarray(torque_norms, dtype=np.float64)
+    return {
+        "phase": phase,
+        "episodes": len(episodes),
+        "torque_norm_mean": float(np.mean(np.abs(torque_arr))) if torque_arr.size else 0.0,
+        "torque_norm_std": float(np.std(torque_arr)) if torque_arr.size else 0.0,
+        "torque_saturated_fraction": float(np.mean(np.abs(torque_arr) > 0.9))
+        if torque_arr.size
+        else 0.0,
+        "shutter_cmd_count": int(n_shutter_cmds),
+        "shutter_meaningful_fraction": (
+            float(n_shutter_meaningful) / float(n_shutter_cmds) if n_shutter_cmds else 0.0
+        ),
+        "shutter_applied_epsilon": float(shutter_applied_epsilon),
+        "mean_abs_omega_rad_s_at_shutter": float(np.mean(shutter_omega_abs))
+        if shutter_omega_abs
+        else 0.0,
+    }
+
+
 S01_WARMUP_SEED_TAG = "warmup_episode"
 S01_WARMUP_MISSION_PROFILE = "s01_training"
 
 
-def _warmup_capture_target_range(
+def _warmup_capture_targets(
     setup: TrainingWorkflowSetup,
     warmup_episode_idx: int,
-) -> tuple[int, int]:
+) -> tuple[int, ...]:
     n_targets = len(setup.mission_setup.resolve(require_camera=True).target_areas or ())
-    return warmup_capture_target_range(
+    return warmup_capture_targets(
         warmup_episode_idx,
         n_targets=n_targets,
         targets_per_episode=setup.config.warmup_targets_per_episode,
@@ -912,6 +1037,7 @@ def s01_training_warmup_fingerprint(
         episode_count=int(episode_count),
         warmup_controller="baseline",
         feature_config=setup.feature_config,
+        reward_config=setup.mpo_config.reward,
         early_stop_on_budget_exhausted=bool(setup.config.early_stop_on_budget_exhausted),
         n_mission_targets=n_targets,
         warmup_seed_tag=S01_WARMUP_SEED_TAG,
@@ -974,7 +1100,7 @@ def load_or_build_s01_training_warmup_episodes(
 
     episodes_built: list[EpisodeResult] = []
     for warmup_idx in range(episode_count):
-        capture_range = _warmup_capture_target_range(setup, warmup_idx)
+        capture_targets = _warmup_capture_targets(setup, warmup_idx)
         result = setup.runner.run_serial(
             setup.agent,
             feature_config=setup.feature_config,
@@ -986,7 +1112,7 @@ def load_or_build_s01_training_warmup_episodes(
             collect_states=True,
             progress_display=progress_display,
             train_every_n_steps=cfg.train_every_n_steps,
-            warmup_capture_target_range=capture_range,
+            warmup_capture_targets=capture_targets,
             np_rng=np.random.default_rng(
                 derive_seed(cfg.seed, S01_WARMUP_SEED_TAG, warmup_idx)
             ),
@@ -1026,274 +1152,309 @@ def _save_checkpoint(agent: MPOAgent, path: Path) -> Path:
     return path
 
 
+def open_training_workflow(
+    setup: TrainingWorkflowSetup,
+    *,
+    show_progress: bool = True,
+) -> TrainingWorkflowContext:
+    """Start a training run session (telemetry, progress display, artifact worker)."""
+    ctx = TrainingWorkflowContext(setup=setup, show_progress=show_progress)
+    ctx.paths = artifact_paths_map(setup.run_dir)
+    if setup.config.background_artifacts:
+        ctx.worker = BackgroundArtifactWorker(setup.run_dir)
+    ctx.telemetry_writer = RunTelemetryWriter(setup.run_dir)
+    ctx.telemetry_writer.on_run_started(metadata={"workflow": "s01_notebook_08"})
+    if show_progress:
+        ctx.progress_display = TrainingProgressDisplay(
+            config=TrainingProgressConfig(
+                live_feed_interval_steps=setup.config.live_feed_interval_steps,
+                telemetry_writer=ctx.telemetry_writer,
+            ),
+            agent=setup.agent,
+        )
+    return ctx
+
+
+def _ctx_run_episode(ctx: TrainingWorkflowContext, **kwargs: Any) -> EpisodeResult:
+    setup = ctx.setup
+    cfg = ctx.config
+    warmup_idx = kwargs.get("episode_idx", 0)
+    if kwargs.get("mode") == "warmup" and "warmup_capture_targets" not in kwargs:
+        kwargs = {
+            **kwargs,
+            "warmup_capture_targets": _warmup_capture_targets(setup, int(warmup_idx)),
+        }
+    return setup.runner.run_serial(
+        setup.agent,
+        feature_config=setup.feature_config,
+        observation_layout=setup.observation_layout,
+        progress_display=ctx.progress_display,
+        train_every_n_steps=cfg.train_every_n_steps,
+        collect_states=cfg.collect_states,
+        **kwargs,
+    )
+
+
+def _ctx_record_episode(
+    ctx: TrainingWorkflowContext,
+    *,
+    phase: str,
+    episode_idx: int,
+    result: EpisodeResult,
+    heading: str,
+) -> None:
+    learning_row = learning_stats_to_row(result.learning_stats)
+    ctx.episode_rows.append(
+        episode_row_from_result(
+            global_idx=ctx.global_idx,
+            phase=phase,
+            episode_idx=episode_idx,
+            episode_return=result.episode_return,
+            steps=result.steps,
+            learning_row=learning_row,
+        )
+    )
+    append_run_markdown_event(
+        ctx.setup.run_dir,
+        heading=heading,
+        payload=_episode_markdown_payload(result),
+    )
+    ctx.global_idx += 1
+
+
+def run_warmup(ctx: TrainingWorkflowContext) -> list[EpisodeResult]:
+    """Baseline overflight warmup episodes (fills replay buffer)."""
+    setup = ctx.setup
+    cfg = ctx.config
+    if cfg.warmup_episodes <= 0:
+        return ctx.warmup_results
+
+    warmup_bar = tqdm(
+        total=cfg.warmup_episodes,
+        desc="Warmup",
+        unit="ep",
+        disable=not ctx.show_progress,
+        position=0,
+    )
+    if ctx.progress_display is not None:
+        ctx.progress_display.set_phase_bar(warmup_bar)
+        ctx.progress_display.set_phase_episode_total(cfg.warmup_episodes)
+        ctx.progress_display.set_live_feed_interval_steps(cfg.warmup_live_feed_interval_steps)
+    try:
+        if cfg.use_warmup_bundle_cache:
+            cached_warmups, warmup_from_cache = load_or_build_s01_training_warmup_episodes(
+                setup,
+                progress_display=ctx.progress_display,
+                show_progress=ctx.show_progress,
+                episode_bar=warmup_bar,
+            )
+            for warmup_idx, result in enumerate(cached_warmups):
+                ctx.warmup_results.append(result)
+                _ctx_record_episode(
+                    ctx,
+                    phase="warmup",
+                    episode_idx=warmup_idx,
+                    result=result,
+                    heading=f"Warmup episode {warmup_idx + 1} (baseline overflight)",
+                )
+                if warmup_from_cache:
+                    warmup_bar.update(1)
+        else:
+            for warmup_idx in range(cfg.warmup_episodes):
+                result = _ctx_run_episode(
+                    ctx,
+                    mode="warmup",
+                    episode_idx=warmup_idx,
+                    show_config_panel=warmup_idx == 0,
+                    early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
+                    np_rng=np.random.default_rng(
+                        derive_seed(cfg.seed, S01_WARMUP_SEED_TAG, warmup_idx)
+                    ),
+                )
+                ctx.warmup_results.append(result)
+                _ctx_record_episode(
+                    ctx,
+                    phase="warmup",
+                    episode_idx=warmup_idx,
+                    result=result,
+                    heading=f"Warmup episode {warmup_idx + 1} (baseline overflight)",
+                )
+                warmup_bar.update(1)
+    finally:
+        warmup_bar.close()
+    if ctx.progress_display is not None and ctx.warmup_results:
+        ctx.progress_display.show_warmup_summary(ctx.warmup_results)
+    return ctx.warmup_results
+
+
+def run_training(ctx: TrainingWorkflowContext) -> list[EpisodeResult]:
+    """Policy training episodes + checkpoint save."""
+    cfg = ctx.config
+    train_bar = tqdm(
+        total=cfg.train_episodes,
+        desc="Train",
+        unit="ep",
+        disable=not ctx.show_progress,
+        position=0,
+    )
+    if ctx.progress_display is not None:
+        ctx.progress_display.set_phase_bar(train_bar)
+        ctx.progress_display.set_phase_episode_total(cfg.train_episodes)
+        ctx.progress_display.set_live_feed_interval_steps(cfg.live_feed_interval_steps)
+    try:
+        for ep in range(cfg.train_episodes):
+            result = _ctx_run_episode(
+                ctx,
+                mode="train",
+                train_updates_per_step=cfg.updates_per_step,
+                episode_idx=ep,
+                show_config_panel=ep == 0,
+                early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
+                np_rng=np.random.default_rng(derive_seed(cfg.seed, "train_episode", ep)),
+            )
+            ctx.train_results.append(result)
+            _ctx_record_episode(
+                ctx,
+                phase="train",
+                episode_idx=ep,
+                result=result,
+                heading=f"Train episode {ep + 1}",
+            )
+            train_bar.set_postfix(**_train_postfix(result))
+            train_bar.update(1)
+    finally:
+        train_bar.close()
+
+    ctx.checkpoint_path = _save_checkpoint(ctx.setup.agent, checkpoint_path(ctx.setup.run_dir))
+    return ctx.train_results
+
+
+def run_eval(ctx: TrainingWorkflowContext) -> TrainingWorkflowResult:
+    """Eval episodes, finalize CSV/metrics, export plots/video."""
+    cfg = ctx.config
+    eval_bar = tqdm(
+        total=cfg.eval_episodes,
+        desc="Eval",
+        unit="ep",
+        disable=not ctx.show_progress,
+        position=0,
+    )
+    if ctx.progress_display is not None:
+        ctx.progress_display.set_phase_bar(eval_bar)
+        ctx.progress_display.set_phase_episode_total(cfg.eval_episodes)
+        ctx.progress_display.set_live_feed_interval_steps(cfg.live_feed_interval_steps)
+    try:
+        for ep in range(cfg.eval_episodes):
+            result = _ctx_run_episode(
+                ctx,
+                mode="eval",
+                train_updates_per_step=0,
+                episode_idx=ep,
+                show_config_panel=ep == 0,
+                early_stop_on_budget_exhausted=False,
+                np_rng=np.random.default_rng(derive_seed(cfg.seed, "eval_episode", ep)),
+            )
+            ctx.eval_results.append(result)
+            _ctx_record_episode(
+                ctx,
+                phase="eval",
+                episode_idx=ep,
+                result=result,
+                heading=f"Eval episode {ep + 1}",
+            )
+            eval_bar.set_postfix(reward=f"{result.episode_return:.1f}")
+            eval_bar.update(1)
+    finally:
+        eval_bar.close()
+
+    finalize_episodes_csv(ctx.setup.run_dir, ctx.episode_rows)
+    action_diagnostics = {
+        "train": compute_action_diagnostics_from_episodes(ctx.train_results, phase="train"),
+        "eval": compute_action_diagnostics_from_episodes(ctx.eval_results, phase="eval"),
+    }
+    write_summary_metrics_json(
+        ctx.setup.run_dir,
+        ctx.episode_rows,
+        action_diagnostics=action_diagnostics,
+    )
+
+    last_train_result = ctx.train_results[-1] if ctx.train_results else None
+    reward_jobs: list[tuple[Any, str, Path]] = []
+    video_jobs: list[tuple[Any, Path]] = []
+    if last_train_result is not None:
+        reward_jobs.append(
+            (
+                last_train_result.simulation_series,
+                "train last",
+                ctx.paths["train_last_reward_plot"],
+            )
+        )
+    if ctx.eval_results:
+        best_eval_idx = int(
+            max(range(len(ctx.eval_results)), key=lambda i: _episode_return(ctx.eval_results[i]))
+        )
+        best_eval = ctx.eval_results[best_eval_idx]
+        reward_jobs.append(
+            (
+                best_eval.simulation_series,
+                f"eval best (ep {best_eval_idx + 1})",
+                ctx.paths["eval_best_reward_plot"],
+            )
+        )
+        video_jobs.append((best_eval.simulation_series, ctx.paths["eval_best_video"]))
+
+    if cfg.background_artifacts and ctx.worker is not None:
+        for series, label, out_path in reward_jobs:
+            ctx.worker.submit_reward_plot(series, label=label, out_path=out_path)
+        for series, out_path in video_jobs:
+            ctx.worker.submit_video_export(series, out_path)
+        ctx.worker.submit_run_plots(ctx.episode_rows)
+    else:
+        ctx.artifact_errors.extend(
+            run_artifacts_sync(
+                reward_jobs=reward_jobs,
+                video_jobs=video_jobs,
+                run_dir=ctx.setup.run_dir,
+                episode_rows=ctx.episode_rows,
+            )
+        )
+
+    worker = ctx.worker
+    if worker is not None:
+        ctx.artifact_errors.extend(worker.shutdown(wait=True))
+        ctx.worker = None
+
+    result = TrainingWorkflowResult(
+        warmup_results=ctx.warmup_results,
+        train_results=ctx.train_results,
+        eval_results=ctx.eval_results,
+        checkpoint_path=ctx.checkpoint_path or checkpoint_path(ctx.setup.run_dir),
+        train_kpis=_summarize_phase("train", ctx.train_results),
+        eval_kpis=_summarize_phase("eval", ctx.eval_results),
+        artifact_paths=ctx.paths,
+        artifact_errors=list(ctx.artifact_errors),
+        _artifact_worker=None,
+    )
+    ctx.close()
+    return result
+
+
 def run_training_workflow(
     setup: TrainingWorkflowSetup,
     *,
     show_progress: bool = True,
 ) -> TrainingWorkflowResult:
-    cfg = setup.config
-    warmup_results: list[EpisodeResult] = []
-    train_results: list[EpisodeResult] = []
-    eval_results: list[EpisodeResult] = []
-    episode_rows: list[dict[str, Any]] = []
-    artifact_errors: list[str] = []
-    paths = artifact_paths_map(setup.run_dir)
-    global_idx = 0
-
-    worker: BackgroundArtifactWorker | None = None
-    if cfg.background_artifacts:
-        worker = BackgroundArtifactWorker(setup.run_dir)
-
-    telemetry_writer = RunTelemetryWriter(setup.run_dir)
-    telemetry_writer.on_run_started(metadata={"workflow": "s01_notebook_08"})
-    progress_display: TrainingProgressDisplay | None = None
-    if show_progress:
-        progress_display = TrainingProgressDisplay(
-            config=TrainingProgressConfig(
-                live_feed_interval_steps=cfg.live_feed_interval_steps,
-                telemetry_writer=telemetry_writer,
-            ),
-            agent=setup.agent,
-        )
-
-    def run_episode(**kwargs: Any) -> EpisodeResult:
-        warmup_idx = kwargs.get("episode_idx", 0)
-        if kwargs.get("mode") == "warmup" and "warmup_capture_target_range" not in kwargs:
-            kwargs = {
-                **kwargs,
-                "warmup_capture_target_range": _warmup_capture_target_range(
-                    setup, int(warmup_idx)
-                ),
-            }
-        return setup.runner.run_serial(
-            setup.agent,
-            feature_config=setup.feature_config,
-            observation_layout=setup.observation_layout,
-            progress_display=progress_display,
-            train_every_n_steps=cfg.train_every_n_steps,
-            collect_states=cfg.collect_states,
-            **kwargs,
-        )
-
-    def record_episode(
-        *,
-        phase: str,
-        episode_idx: int,
-        result: EpisodeResult,
-        heading: str,
-    ) -> None:
-        nonlocal global_idx
-        learning_row = learning_stats_to_row(result.learning_stats)
-        episode_rows.append(
-            episode_row_from_result(
-                global_idx=global_idx,
-                phase=phase,
-                episode_idx=episode_idx,
-                episode_return=result.episode_return,
-                steps=result.steps,
-                learning_row=learning_row,
-            )
-        )
-        append_run_markdown_event(
-            setup.run_dir,
-            heading=heading,
-            payload=_episode_markdown_payload(result),
-        )
-        global_idx += 1
-
+    ctx = open_training_workflow(setup, show_progress=show_progress)
     try:
-        warmup_idx = 0
-        if cfg.warmup_episodes > 0:
-            warmup_bar = tqdm(
-                total=cfg.warmup_episodes,
-                desc="Warmup",
-                unit="ep",
-                disable=not show_progress,
-                position=0,
-            )
-            if progress_display is not None:
-                progress_display.set_phase_bar(warmup_bar)
-                progress_display.set_phase_episode_total(cfg.warmup_episodes)
-            try:
-                if progress_display is not None:
-                    progress_display.set_live_feed_interval_steps(
-                        cfg.warmup_live_feed_interval_steps
-                    )
-                if cfg.use_warmup_bundle_cache:
-                    cached_warmups, warmup_from_cache = (
-                        load_or_build_s01_training_warmup_episodes(
-                            setup,
-                            progress_display=progress_display,
-                            show_progress=show_progress,
-                            episode_bar=warmup_bar,
-                        )
-                    )
-                    for warmup_idx, result in enumerate(cached_warmups):
-                        warmup_results.append(result)
-                        record_episode(
-                            phase="warmup",
-                            episode_idx=warmup_idx,
-                            result=result,
-                            heading=f"Warmup episode {warmup_idx + 1} (baseline overflight)",
-                        )
-                        if warmup_from_cache:
-                            warmup_bar.update(1)
-                else:
-                    for warmup_idx in range(cfg.warmup_episodes):
-                        result = run_episode(
-                            mode="warmup",
-                            episode_idx=warmup_idx,
-                            show_config_panel=warmup_idx == 0,
-                            early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
-                            np_rng=np.random.default_rng(
-                                derive_seed(cfg.seed, S01_WARMUP_SEED_TAG, warmup_idx)
-                            ),
-                        )
-                        warmup_results.append(result)
-                        record_episode(
-                            phase="warmup",
-                            episode_idx=warmup_idx,
-                            result=result,
-                            heading=f"Warmup episode {warmup_idx + 1} (baseline overflight)",
-                        )
-                        warmup_bar.update(1)
-            finally:
-                warmup_bar.close()
-
-        train_bar = tqdm(
-            total=cfg.train_episodes,
-            desc="Train",
-            unit="ep",
-            disable=not show_progress,
-            position=0,
-        )
-        if progress_display is not None:
-            progress_display.set_phase_bar(train_bar)
-            progress_display.set_phase_episode_total(cfg.train_episodes)
-            progress_display.set_live_feed_interval_steps(cfg.live_feed_interval_steps)
-        last_train_result: EpisodeResult | None = None
-        try:
-            for ep in range(cfg.train_episodes):
-                result = run_episode(
-                    mode="train",
-                    train_updates_per_step=cfg.updates_per_step,
-                    episode_idx=ep,
-                    show_config_panel=ep == 0,
-                    early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
-                    np_rng=np.random.default_rng(derive_seed(cfg.seed, "train_episode", ep)),
-                )
-                train_results.append(result)
-                last_train_result = result
-                record_episode(
-                    phase="train",
-                    episode_idx=ep,
-                    result=result,
-                    heading=f"Train episode {ep + 1}",
-                )
-                train_bar.set_postfix(**_train_postfix(result))
-                train_bar.update(1)
-        finally:
-            train_bar.close()
-
-        ckpt = _save_checkpoint(setup.agent, checkpoint_path(setup.run_dir))
-
-        eval_bar = tqdm(
-            total=cfg.eval_episodes,
-            desc="Eval",
-            unit="ep",
-            disable=not show_progress,
-            position=0,
-        )
-        if progress_display is not None:
-            progress_display.set_phase_bar(eval_bar)
-            progress_display.set_phase_episode_total(cfg.eval_episodes)
-            progress_display.set_live_feed_interval_steps(cfg.live_feed_interval_steps)
-        try:
-            for ep in range(cfg.eval_episodes):
-                result = run_episode(
-                    mode="eval",
-                    train_updates_per_step=0,
-                    episode_idx=ep,
-                    show_config_panel=ep == 0,
-                    early_stop_on_budget_exhausted=False,
-                    np_rng=np.random.default_rng(derive_seed(cfg.seed, "eval_episode", ep)),
-                )
-                eval_results.append(result)
-                record_episode(
-                    phase="eval",
-                    episode_idx=ep,
-                    result=result,
-                    heading=f"Eval episode {ep + 1}",
-                )
-                eval_bar.set_postfix(reward=f"{result.episode_return:.1f}")
-                eval_bar.update(1)
-        finally:
-            eval_bar.close()
-
-        finalize_episodes_csv(setup.run_dir, episode_rows)
-        write_summary_metrics_json(setup.run_dir, episode_rows)
-
-        reward_jobs: list[tuple[Any, str, Path]] = []
-        video_jobs: list[tuple[Any, Path]] = []
-        if last_train_result is not None:
-            reward_jobs.append(
-                (
-                    last_train_result.simulation_series,
-                    "train last",
-                    paths["train_last_reward_plot"],
-                )
-            )
-        if eval_results:
-            best_eval_idx = int(
-                max(range(len(eval_results)), key=lambda i: _episode_return(eval_results[i]))
-            )
-            best_eval = eval_results[best_eval_idx]
-            reward_jobs.append(
-                (
-                    best_eval.simulation_series,
-                    f"eval best (ep {best_eval_idx + 1})",
-                    paths["eval_best_reward_plot"],
-                )
-            )
-            video_jobs.append((best_eval.simulation_series, paths["eval_best_video"]))
-
-        if cfg.background_artifacts and worker is not None:
-            for series, label, out_path in reward_jobs:
-                worker.submit_reward_plot(series, label=label, out_path=out_path)
-            for series, out_path in video_jobs:
-                worker.submit_video_export(series, out_path)
-            worker.submit_run_plots(episode_rows)
-        else:
-            sync_errors = run_artifacts_sync(
-                reward_jobs=reward_jobs,
-                video_jobs=video_jobs,
-                run_dir=setup.run_dir,
-                episode_rows=episode_rows,
-            )
-            artifact_errors.extend(sync_errors)
-
-        if worker is not None:
-            artifact_errors.extend(worker.shutdown(wait=True))
-            worker = None
-
-        return TrainingWorkflowResult(
-            warmup_results=warmup_results,
-            train_results=train_results,
-            eval_results=eval_results,
-            checkpoint_path=ckpt,
-            train_kpis=_summarize_phase("train", train_results),
-            eval_kpis=_summarize_phase("eval", eval_results),
-            artifact_paths=paths,
-            artifact_errors=artifact_errors,
-            _artifact_worker=worker,
-        )
+        run_warmup(ctx)
+        run_training(ctx)
+        return run_eval(ctx)
     except Exception:
-        if worker is not None and cfg.background_artifacts:
-            worker.shutdown(wait=False)
+        if ctx.worker is not None and ctx.config.background_artifacts:
+            ctx.worker.shutdown(wait=False)
         raise
     finally:
-        if progress_display is not None:
-            progress_display.close()
+        ctx.close()
 
 
 def print_training_kpis(result: TrainingWorkflowResult) -> None:
@@ -1320,6 +1481,33 @@ def print_training_kpis(result: TrainingWorkflowResult) -> None:
             print(f"    {phase} ep {ep_no}: {steps}/{configured} steps")
     if result.artifact_errors:
         print(f"  artifact errors:   {len(result.artifact_errors)}")
+    diag_path = result.artifact_paths["config"].parent / "summary_metrics.json"
+    if diag_path.exists():
+        import json
+
+        summary = json.loads(diag_path.read_text(encoding="utf-8"))
+        diag = summary.get("action_diagnostics", {})
+        train_diag = diag.get("train", {})
+        if train_diag:
+            print("  action diagnostics (train):")
+            print(
+                f"    torque |norm| mean/std: "
+                f"{train_diag.get('torque_norm_mean', 0):.3f} / "
+                f"{train_diag.get('torque_norm_std', 0):.3f}"
+            )
+            print(
+                f"    torque saturated (>0.9): "
+                f"{100.0 * float(train_diag.get('torque_saturated_fraction', 0)):.1f}%"
+            )
+            print(
+                f"    shutters meaningful (reward > ε): "
+                f"{100.0 * float(train_diag.get('shutter_meaningful_fraction', 0)):.1f}% "
+                f"({train_diag.get('shutter_cmd_count', 0)} cmds)"
+            )
+            print(
+                f"    mean |ω| at shutter [rad/s]: "
+                f"{float(train_diag.get('mean_abs_omega_rad_s_at_shutter', 0)):.4f}"
+            )
 
 
 def display_training_artifacts(result: TrainingWorkflowResult) -> None:

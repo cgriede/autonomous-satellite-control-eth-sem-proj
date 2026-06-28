@@ -1,0 +1,48 @@
+{
+  "run_at_utc": "2026-06-27T18:30:00+00:00",
+  "experiment_id": "ml_learning_signal",
+  "hypothesis_id": "shared_baseline",
+  "phase": "baseline",
+  "frozen_input": {
+    "seed": 7,
+    "warmup_episodes": 5,
+    "train_episodes": 3,
+    "use_warmup_bundle_cache": true
+  },
+  "control": null,
+  "treatment": {
+    "kpis": {
+      "run_dir": "backend/autonomous_control/models/ml_learning_signal_baseline_17-19-54",
+      "warmup_returns": [145.09, 108.35, 95.44, 47.01, 50.64],
+      "warmup_return_mean": 89.30,
+      "train_returns": [0.0, 0.0, 0.0],
+      "train_return_mean": 0.0,
+      "increasing_signal": {
+        "train_returns_ep1_ep3": [0.0, 0.0, 0.0],
+        "all_nonzero": false,
+        "ep2_or_ep3_above_ep1": false,
+        "strictly_increasing_ep1_ep3": false,
+        "strong_lead": false
+      }
+    },
+    "note": "Backfilled from episodes.csv after run_baseline.py crashed post-train (NameError: np in _episode_debug_row; import since fixed)."
+  },
+  "delta": {
+    "strong_lead": false,
+    "train_returns_ep1_ep3": [0.0, 0.0, 0.0]
+  },
+  "parity": {
+    "required": true,
+    "passed": true,
+    "notes": "production path"
+  },
+  "instrumentation": {
+    "hooks_valid": true
+  },
+  "debug_examples": {
+    "train_returns": [0.0, 0.0, 0.0]
+  },
+  "files_changed": [],
+  "verdict": "inconclusive",
+  "closeout": "Shared baseline recovered from completed run; original CLI exited code 1 after ~64 min due to missing numpy import at KPI aggregation."
+}

@@ -62,14 +62,63 @@ class ControllerMissionScalarsTest(unittest.TestCase):
         n_targets = 3
         feature_config = ControllerFeatureConfig(
             include_capture_budget=True,
+            include_captured_target_mask=True,
             include_target_bearing_errors=True,
         )
         layout = controller_observation_layout(
             feature_config=feature_config,
             n_mission_targets=n_targets,
         )
-        expected = 3 + 1 + n_targets  # attitude + orbit + budget + bearings
+        expected = 3 + 1 + n_targets + n_targets  # attitude + orbit + budget + mask + bearings
         self.assertEqual(layout.scalar_dim, expected)
+
+    def test_captured_target_mask_in_observation(self) -> None:
+        ts = _minimal_timestep()
+        n_targets = 3
+        anchors = np.array(
+            [[6371.0, 0.0], [6371.0, 100.0], [6371.0, 200.0]],
+            dtype=float,
+        )
+        feature_config = ControllerFeatureConfig(
+            include_capture_budget=True,
+            include_captured_target_mask=True,
+        )
+        layout = controller_observation_layout(
+            feature_config=feature_config,
+            n_mission_targets=n_targets,
+        )
+        context_empty = ControllerEpisodeContext(
+            capture_budget_remaining=10.0,
+            target_anchor_xy_km=anchors,
+            captured_target_indices=frozenset(),
+        )
+        obs_empty = build_controller_observation_from_timestep(
+            timestep=ts,
+            feature_config=feature_config,
+            layout=layout,
+            episode_context=context_empty,
+        )
+        context_captured = ControllerEpisodeContext(
+            capture_budget_remaining=9.0,
+            target_anchor_xy_km=anchors,
+            captured_target_indices=frozenset({0, 2}),
+        )
+        obs_captured = build_controller_observation_from_timestep(
+            timestep=ts,
+            feature_config=feature_config,
+            layout=layout,
+            episode_context=context_captured,
+        )
+        idx0 = layout.scalar_keys.index("target_already_imaged_0")
+        idx1 = layout.scalar_keys.index("target_already_imaged_1")
+        idx2 = layout.scalar_keys.index("target_already_imaged_2")
+        budget_idx = layout.scalar_keys.index("capture_budget_remaining")
+        self.assertAlmostEqual(float(obs_empty.scalars[budget_idx]), 10.0)
+        self.assertAlmostEqual(float(obs_captured.scalars[budget_idx]), 9.0)
+        self.assertAlmostEqual(float(obs_empty.scalars[idx0]), 0.0)
+        self.assertAlmostEqual(float(obs_captured.scalars[idx0]), 1.0)
+        self.assertAlmostEqual(float(obs_captured.scalars[idx1]), 0.0)
+        self.assertAlmostEqual(float(obs_captured.scalars[idx2]), 1.0)
 
     def test_build_observation_requires_context_when_mission_enabled(self) -> None:
         ts = _minimal_timestep()

@@ -10,8 +10,14 @@ from autonomous_control.reward import (
     applied_capture_reward,
     compute_reward,
     latent_capture_reward,
+    torque_effort_penalty,
 )
-from environment_definition.constants.AUTONOMOUS_CONTROL_REWARD import REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT
+from environment_definition.constants.AUTONOMOUS_CONTROL_REWARD import (
+    REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT,
+    REWARD_SHUTTER_WASTE_PENALTY,
+    REWARD_TORQUE_EFFORT_COEFFICIENT,
+)
+from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from simulation.take_picture import TakePictureBudget, TakePictureConfig, resolve_capture_frame_index
 
@@ -127,6 +133,73 @@ class CaptureRewardTest(unittest.TestCase):
         self.assertAlmostEqual(components["latent_capture_reward"], expected_latent)
         self.assertAlmostEqual(components["image_quality_capture_reward"], expected_latent)
         self.assertAlmostEqual(total, expected_latent)
+
+    def test_shutter_waste_penalty_on_zero_applied(self) -> None:
+        cfg = RewardConfig(
+            enable_distance_reward=False,
+            enable_image_quality_capture=True,
+            enable_shutter_waste_penalty=True,
+        )
+        signals = RewardSignals(
+            distance_to_target=500.0 * ureg.km,
+            picture_taken=True,
+            capture_target_novel=False,
+            target_visible=True,
+            camera_image_quality=0.9,
+            primary_target_pixel_coverage=1.0,
+        )
+        total, components = compute_reward(signals=signals, cfg=cfg)
+        self.assertAlmostEqual(components["image_quality_capture_reward"], 0.0)
+        self.assertAlmostEqual(components["shutter_waste_penalty"], -REWARD_SHUTTER_WASTE_PENALTY)
+        self.assertAlmostEqual(total, -REWARD_SHUTTER_WASTE_PENALTY)
+
+    def test_shutter_waste_penalty_skipped_on_good_capture(self) -> None:
+        cfg = RewardConfig(
+            enable_distance_reward=False,
+            enable_image_quality_capture=True,
+            enable_shutter_waste_penalty=True,
+        )
+        signals = RewardSignals(
+            distance_to_target=500.0 * ureg.km,
+            picture_taken=True,
+            target_visible=True,
+            camera_image_quality=0.8,
+            primary_target_pixel_coverage=0.5,
+        )
+        _total, components = compute_reward(signals=signals, cfg=cfg)
+        self.assertGreater(components["image_quality_capture_reward"], 1.0)
+        self.assertEqual(components["shutter_waste_penalty"], 0.0)
+
+    def test_torque_effort_penalty_scales_with_normalized_torque(self) -> None:
+        tau_max = float(REACTION_WHEEL_MAX_TORQUE.to(ureg.N * ureg.m).magnitude)
+        half_pen = torque_effort_penalty(
+            wheel_torque_cmd_nm=0.5 * tau_max,
+            k_torque_effort=REWARD_TORQUE_EFFORT_COEFFICIENT,
+            tau_max_nm=tau_max,
+        )
+        full_pen = torque_effort_penalty(
+            wheel_torque_cmd_nm=tau_max,
+            k_torque_effort=REWARD_TORQUE_EFFORT_COEFFICIENT,
+            tau_max_nm=tau_max,
+        )
+        self.assertAlmostEqual(half_pen, -REWARD_TORQUE_EFFORT_COEFFICIENT * 0.25)
+        self.assertAlmostEqual(full_pen, -REWARD_TORQUE_EFFORT_COEFFICIENT)
+
+    def test_torque_effort_in_compute_reward(self) -> None:
+        cfg = RewardConfig(
+            enable_distance_reward=False,
+            enable_torque_effort=True,
+        )
+        tau_max = float(REACTION_WHEEL_MAX_TORQUE.to(ureg.N * ureg.m).magnitude)
+        signals = RewardSignals(
+            distance_to_target=500.0 * ureg.km,
+            picture_taken=False,
+            target_visible=False,
+            wheel_torque_cmd_nm=tau_max,
+        )
+        total, components = compute_reward(signals=signals, cfg=cfg)
+        self.assertAlmostEqual(components["torque_effort_penalty"], -REWARD_TORQUE_EFFORT_COEFFICIENT)
+        self.assertAlmostEqual(total, -REWARD_TORQUE_EFFORT_COEFFICIENT)
 
 
 if __name__ == "__main__":

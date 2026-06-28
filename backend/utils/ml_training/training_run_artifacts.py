@@ -151,7 +151,12 @@ def _phase_summary(rows: list[dict[str, Any]], phase: str) -> dict[str, float]:
     }
 
 
-def write_summary_metrics_json(run_dir: Path, rows: list[dict[str, Any]]) -> Path:
+def write_summary_metrics_json(
+    run_dir: Path,
+    rows: list[dict[str, Any]],
+    *,
+    action_diagnostics: dict[str, Any] | None = None,
+) -> Path:
     train_rows = [r for r in rows if r.get("phase") == "train"]
     eval_rows = [r for r in rows if r.get("phase") == "eval"]
     best_eval_idx = -1
@@ -180,6 +185,8 @@ def write_summary_metrics_json(run_dir: Path, rows: list[dict[str, Any]]) -> Pat
         "best_eval_episode_idx": best_eval_idx,
         "last_train_learning": last_train_learning,
     }
+    if action_diagnostics is not None:
+        payload["action_diagnostics"] = action_diagnostics
     path = run_dir / "summary_metrics.json"
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path

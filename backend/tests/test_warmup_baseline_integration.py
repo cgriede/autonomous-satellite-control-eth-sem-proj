@@ -39,7 +39,9 @@ class WarmupBaselineIntegrationTest(unittest.TestCase):
         agent = _BufferAgent()
         result = EpisodeRunner(setup).run_serial(agent, mode="warmup", collect_states=True)
         self.assertGreater(result.steps, 0)
-        self.assertEqual(len(agent.buffer), result.steps)
+        interval = result.effective_controller_update_interval_steps
+        expected_stores = (result.steps + interval - 1) // interval
+        self.assertEqual(len(agent.buffer), expected_stores)
         shutter_plus = sum(1 for _obs, action, _r, _n, _d in agent.buffer if float(action[1]) > 0.0)
         for _obs, action, _r, _n, _d in agent.buffer:
             self.assertEqual(action.shape, (2,))

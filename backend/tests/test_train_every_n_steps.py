@@ -1,4 +1,4 @@
-"""EpisodeRunner train_every_n_steps gating."""
+"""EpisodeRunner train_every_n_steps gating (counts controller stores, not sim steps)."""
 
 from __future__ import annotations
 

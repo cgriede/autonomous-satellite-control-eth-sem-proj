@@ -14,7 +14,7 @@ OBSERVATION_CLOUD = np.int8(2)
 OBSERVATION_TARGET = np.int8(3)
 
 # Keep this scalar import-safe (available before camera_optics import can recurse).
-DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS = 100
+DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS = 101
 
 from simulation.camera_optics import pinhole_full_fov_rad
 
