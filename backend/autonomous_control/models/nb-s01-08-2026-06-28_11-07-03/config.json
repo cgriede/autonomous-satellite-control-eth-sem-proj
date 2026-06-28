@@ -1,0 +1,89 @@
+{
+  "artifact_paths": {
+    "config": "C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_11-07-03\\config.json",
+    "episodes_csv": "C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_11-07-03\\episodes.csv",
+    "eval_best_reward_plot": "C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_11-07-03\\episodes\\eval_best_reward.png",
+    "eval_best_video": "C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_11-07-03\\videos\\eval_best.mp4",
+    "learning_curves_plot": "C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_11-07-03\\plots\\learning_curves.png",
+    "returns_plot": "C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_11-07-03\\plots\\returns_by_episode.png",
+    "summary_json": "C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_11-07-03\\summary_metrics.json",
+    "train_last_reward_plot": "C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_11-07-03\\episodes\\train_last_reward.png"
+  },
+  "features": {
+    "attitude_keys": [
+      "body_z_angle_rad",
+      "omega_sat_rad_s"
+    ],
+    "include_capture_budget": true,
+    "include_target_bearing_errors": true,
+    "orbit_keys": [
+      "theta_orbit_rad",
+      "primary_camera_image_quality"
+    ],
+    "vision_keys": [
+      "camera_observation_line_codes",
+      "secondary_camera_observation_line_codes"
+    ]
+  },
+  "mission": {
+    "cloud_count": 25,
+    "max_episode_steps": 1936,
+    "orbit_end_deg": 37.091184820606344,
+    "orbit_start_deg": -32.69281732973161,
+    "profile": "baseline_overflight",
+    "sampled_altitude_km": 528.7583065070219,
+    "target_count": 50
+  },
+  "mpo": {
+    "batch_size": 256,
+    "buffer_size": 50000,
+    "cnn_embedding_dim": 32,
+    "code_embed_dim": 8,
+    "gamma": 0.99,
+    "learning_rate_eta": 0.001,
+    "learning_rate_pi": 0.00015,
+    "learning_rate_q": 0.00045,
+    "num_cnn_layers": 2,
+    "num_samples_pi": 40,
+    "num_samples_q": 80,
+    "num_units_actor": 90,
+    "num_units_critic": 140,
+    "reward": {
+      "enable_cloud_penalty": false,
+      "enable_distance_reward": false,
+      "enable_energy": false,
+      "enable_image_quality_capture": true,
+      "enable_outer_gate": true
+    },
+    "target_kl_mu": 0.1,
+    "target_kl_sigma": 0.0001,
+    "tau": 0.005,
+    "warmup_episodes": 1
+  },
+  "observation": {
+    "encoder_output_dim": 180,
+    "scalar_dim": 55,
+    "vision_keys": [
+      "camera_observation_line_codes",
+      "secondary_camera_observation_line_codes"
+    ],
+    "vision_seq_lens": [
+      101,
+      200
+    ]
+  },
+  "workflow": {
+    "background_artifacts": false,
+    "collect_states": false,
+    "early_stop_on_budget_exhausted": false,
+    "eval_episodes": 0,
+    "rebuild_warmup_bundle_cache": false,
+    "seed": 7,
+    "train_episodes": 0,
+    "train_every_n_steps": 1,
+    "updates_per_step": 1,
+    "use_warmup_bundle_cache": false,
+    "warmup_episodes": 1,
+    "warmup_targets_per_episode": 10
+  }
+}

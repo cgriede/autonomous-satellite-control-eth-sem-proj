@@ -1,0 +1,33 @@
+{
+  "best_eval_episode_idx": -1,
+  "eval": {
+    "avg_reward_mean": NaN,
+    "episodes": 0.0,
+    "return_best": NaN,
+    "return_mean": NaN,
+    "return_std": NaN
+  },
+  "last_train_learning": {
+    "eta_mean": 3.0368185815885087,
+    "kl_mean": 0.3829305125877427,
+    "kl_mu_mean": 0.19146561259719483,
+    "kl_sigma_mean": 0.1914648988277156,
+    "n_train_updates": 1935,
+    "pi_loss_mean": -0.6948251201508889,
+    "q_loss_mean": 15.775472736674377
+  },
+  "train": {
+    "avg_reward_mean": 0.0,
+    "episodes": 3.0,
+    "return_best": 0.0,
+    "return_mean": 0.0,
+    "return_std": 0.0
+  },
+  "warmup": {
+    "avg_reward_mean": 0.046152194961996205,
+    "episodes": 5.0,
+    "return_best": 145.08638823767077,
+    "return_mean": 89.30449725146266,
+    "return_std": 36.86632214724206
+  }
+}

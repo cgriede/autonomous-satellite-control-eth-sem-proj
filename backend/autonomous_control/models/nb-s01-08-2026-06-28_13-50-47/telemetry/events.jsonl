@@ -1,0 +1,3 @@
+{"event":"run_started","timestamp_utc":"2026-06-28T13:50:47.680352+00:00","run_dir":"C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_13-50-47","workflow":"s01_notebook_08"}
+{"event":"training_log","timestamp_utc":"2026-06-28T13:51:06.753840+00:00","message":"[run_serial] end mode=warmup steps=1935 total_reward=533.227990 avg_reward=0.275570","phase":"warmup","episode_idx":0}
+{"event":"training_log","timestamp_utc":"2026-06-28T13:51:25.149122+00:00","message":"[run_serial] end mode=warmup steps=1935 total_reward=448.678231 avg_reward=0.231875","phase":"warmup","episode_idx":1}

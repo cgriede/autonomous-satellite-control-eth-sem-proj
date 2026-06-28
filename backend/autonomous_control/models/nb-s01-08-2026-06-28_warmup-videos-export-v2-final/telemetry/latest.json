@@ -1,0 +1,6 @@
+{
+  "event":"run_started",
+  "timestamp_utc":"2026-06-28T11:55:19.515345+00:00",
+  "run_dir":"C:\\Users\\cedri\\code\\autonomous-satellite-control-eth-sem-proj\\backend\\autonomous_control\\models\\nb-s01-08-2026-06-28_warmup-videos-export-v2-final",
+  "workflow":"s01_notebook_08"
+}
