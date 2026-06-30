@@ -1,0 +1,46 @@
+{
+  "episodes": [
+    {
+      "phase": "train",
+      "episode_idx": 36,
+      "rank": 1,
+      "episode_return": 169.91710994976904,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\episodes\\train_ep_36_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\videos\\train_ep_36_rank1.mp4"
+    },
+    {
+      "phase": "train",
+      "episode_idx": 40,
+      "rank": 2,
+      "episode_return": 133.95664154233995,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\episodes\\train_ep_40_rank2_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\videos\\train_ep_40_rank2.mp4"
+    },
+    {
+      "phase": "train",
+      "episode_idx": 22,
+      "rank": 3,
+      "episode_return": 127.7554160842819,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\episodes\\train_ep_22_rank3_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\videos\\train_ep_22_rank3.mp4"
+    },
+    {
+      "phase": "eval",
+      "episode_idx": 0,
+      "rank": 1,
+      "episode_return": 106.36074741388494,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\episodes\\eval_ep_0_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\videos\\eval_ep_0_rank1.mp4"
+    },
+    {
+      "phase": "eval",
+      "episode_idx": 1,
+      "rank": 2,
+      "episode_return": 106.36074741388494,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\episodes\\eval_ep_1_rank2_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217165798903_ml_sac_shutter_split_15-43-20\\videos\\eval_ep_1_rank2.mp4"
+    }
+  ],
+  "train_video_count": 3,
+  "eval_video_count": 2
+}
