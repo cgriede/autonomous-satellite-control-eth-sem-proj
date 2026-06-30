@@ -1,0 +1,14 @@
+{
+  "episodes": [
+    {
+      "phase": "eval",
+      "episode_idx": 0,
+      "rank": 1,
+      "episode_return": -46.352961889904314,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138176094_ml_mpo_learn_cadence_cadence_1_1_10_23-23-43\\episodes\\eval_ep_0_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138176094_ml_mpo_learn_cadence_cadence_1_1_10_23-23-43\\videos\\eval_ep_0_rank1.mp4"
+    }
+  ],
+  "train_video_count": 0,
+  "eval_video_count": 1
+}
