@@ -1,0 +1,56 @@
+{
+  "action_dim": 2,
+  "actor_dropout": 0.0,
+  "attitude_controller_enabled": true,
+  "attitude_request_mode": "vector",
+  "base_seed": 7,
+  "camera_observation_line_n_bins": 101,
+  "controller_interval_s": 1.5,
+  "digest_sha256_hex": "9a3115995ba55b3276208ed36301888be51748753e7c57bff9d9adbf38ee5011",
+  "early_stop_on_budget_exhausted": false,
+  "enable_torque_effort": true,
+  "episode_count": 5,
+  "feature_config": {
+    "attitude_keys": [
+      "body_z_angle_rad",
+      "omega_sat_rad_s"
+    ],
+    "include_capture_budget": true,
+    "include_captured_target_mask": true,
+    "include_target_bearing_errors": true,
+    "orbit_keys": [
+      "theta_orbit_rad",
+      "primary_camera_image_quality"
+    ],
+    "vision_keys": [
+      "camera_observation_line_codes",
+      "secondary_camera_observation_line_codes"
+    ]
+  },
+  "learning_rate_pi": 0.00045,
+  "learning_rate_q": 0.001,
+  "max_episode_steps": 517,
+  "mission_profile": "s01_training",
+  "mpo_dual_arm": "vector_torque_effort",
+  "n_mission_targets": 50,
+  "nb_warmup_bundle_version": 10,
+  "obs_dim": 406,
+  "reward_config": {
+    "enable_budget_exhausted_shutter_penalty": true,
+    "enable_distance_reward": false,
+    "enable_image_quality_capture": true,
+    "enable_shutter_waste_penalty": false,
+    "enable_torque_effort": true,
+    "k_shutter_waste": 5.0,
+    "k_torque_effort": 0.1,
+    "shutter_waste_reward_epsilon": 0.001
+  },
+  "reward_mode": "sparse",
+  "satellite_altitude_m": 528758.3065070219,
+  "secondary_camera_observation_line_n_bins": 200,
+  "sim_dt_s": 1.5,
+  "warmup_controller": "baseline",
+  "warmup_episodes": 5,
+  "warmup_seed_tag": "warmup_episode",
+  "warmup_targets_per_episode": 10
+}
