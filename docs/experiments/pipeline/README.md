@@ -37,7 +37,9 @@ Each phase block uses **What / Why / How** subsections (see skill `reference.md`
 | 5 | `ml_mpo_model_size` | [05-mpo-model-size.md](4-documentation/05-mpo-model-size.md) | `backend/scripts/experiments/ml_mpo_model_size/` | 4 | **not_supported** | — |
 | 6 | `ml_modular_encoder_r2` | [0-06-modular-encoder-r2.md](99-archive/0-06-modular-encoder-r2.md) | `backend/scripts/experiments/ml_modular_encoder_r2/` | — | **deferred** | — |
 | 7 | `ml_sac_vector_budget_penalty` | [07-sac-vector-budget-penalty.md](4-documentation/07-sac-vector-budget-penalty.md) | `backend/scripts/experiments/ml_sac_vector_budget_penalty/` | 4 | **supported** | — |
-| 8 | `ml_mpo_decoupled_dual` | [08-mpo-decoupled-dual-fix.md](0-initialized/08-mpo-decoupled-dual-fix.md) | `backend/scripts/experiments/ml_mpo_decoupled_dual/` | 0 | pending | — |
+| 8 | `ml_mpo_decoupled_dual_torque` | [08-mpo-decoupled-dual-fix.md](0-initialized/08-mpo-decoupled-dual-fix.md) | `backend/scripts/experiments/ml_mpo_decoupled_dual_torque/` | 0 | pending | — |
+| 9 | `ml_mpo_decoupled_dual_vector` | [09-mpo-decoupled-dual-vector.md](0-initialized/09-mpo-decoupled-dual-vector.md) | `backend/scripts/experiments/ml_mpo_decoupled_dual_vector/` | 0 | pending | Exp 8 |
+| 9 | `ml_sac_shutter_reward_split` | [09-sac-shutter-reward-split.md](0-initialized/09-sac-shutter-reward-split.md) | `backend/scripts/experiments/ml_sac_shutter_reward_split/` | 1 | pending | — |
 
 ## Shared knobs (all pipeline experiments)
 
@@ -87,7 +89,8 @@ All training outputs live under **`backend/autonomous_control/runs/`**. Folder n
 | `ml_encoder_` (not `r2`) | **Exp 2** | `ml_modular_encoder` | `scripts/experiments/ml_modular_encoder/` |
 | `ml_encoder_r2_` | **Exp 6** | `ml_modular_encoder_r2` | `scripts/experiments/ml_modular_encoder_r2/` |
 | `ml_mpo_model_size_` | **Exp 5** | `ml_mpo_model_size` | `scripts/experiments/ml_mpo_model_size/` |
-| `ml_mpo_decoupled_dual_` | **Exp 8** | `ml_mpo_decoupled_dual` | `scripts/experiments/ml_mpo_decoupled_dual/` |
+| `ml_mpo_decoupled_dual_torque_` | **Exp 8** | `ml_mpo_decoupled_dual_torque` | `scripts/experiments/ml_mpo_decoupled_dual_torque/` |
+| `ml_mpo_decoupled_dual_vector_` | **Exp 9** | `ml_mpo_decoupled_dual_vector` | `scripts/experiments/ml_mpo_decoupled_dual_vector/` |
 | `ml_sac_vector_budget_` | **Exp 7** | `ml_sac_vector_budget_penalty` | `scripts/experiments/ml_sac_vector_budget_penalty/` |
 | `ml_shutter_` | **Exp 1** | `ml_shutter_threshold` | `scripts/experiments/ml_shutter_threshold/` |
 | `ml_overnight_` | *(legacy)* | H0–H6 overnight campaign | `scripts/experiments/ml_algo_overnight/` |

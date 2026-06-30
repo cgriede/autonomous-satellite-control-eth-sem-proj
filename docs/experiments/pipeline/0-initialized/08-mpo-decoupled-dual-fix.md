@@ -1,11 +1,11 @@
 ---
 experiment_id: 8
-slug: ml_mpo_decoupled_dual
-title: "Exp 8 — MPO decoupled-KL dual (learn or bust)"
+slug: ml_mpo_decoupled_dual_torque
+title: "Exp 8 — MPO fixed dual, sparse, torque mode"
 current_phase: 0
 overall_verdict: pending
 blocked_by: null
-code_path: backend/scripts/experiments/ml_mpo_decoupled_dual/
+code_path: backend/scripts/experiments/ml_mpo_decoupled_dual_torque/
 plan_ref: ".cursor/plans/sac_vs_mpo_compare_821ab4d5.plan.md — MPO debug track"
 phases:
   "0": { status: in_progress, documented_utc: "2026-06-30T15:10:00Z", completed_utc: null }
@@ -15,15 +15,17 @@ phases:
   "4": { status: pending, documented_utc: null, completed_utc: null }
 run_lock_holder: null
 decision_ids: [D-022]
-predecessor: ml_sac_mpo_compare
+predecessor: ml_mpo_model_size
 investigation: docs/research/mpo-learning-collapse-investigation.md
 ---
 
-# Exp 8 — MPO decoupled-KL dual (`ml_mpo_decoupled_dual`)
+# Exp 8 — MPO fixed dual, sparse, torque mode (`ml_mpo_decoupled_dual_torque`)
 
-**Agent:** MPO only · **Action:** torque (production default) · **Reward:** sparse · **dt:** 1.5 s / 1.5 s
-**Predecessor:** [Exp 3](../4-documentation/03-sac-mpo-compare.md) (SAC learns, MPO does not) · [Exp 5](../4-documentation/05-mpo-model-size.md) (width ruled out)
+**Agent:** MPO (fixed decoupled-KL dual) · **Action:** torque (production default) · **Reward:** sparse · **dt:** 1.5 s / 1.5 s
+**Fix commit:** `d5af20c` — `fix(mpo): implement decoupled-KL dual`
+**Predecessor:** [Exp 5](../4-documentation/05-mpo-model-size.md) (torque mode, identical collapse across widths — pre-fix)
 **Investigation:** [mpo-learning-collapse-investigation.md](../../research/mpo-learning-collapse-investigation.md) · [D-022](../../research/DECISIONS.md)
+**Pair:** [Exp 9](09-mpo-decoupled-dual-vector.md) (same fixed agent, vector mode)
 
 ---
 
@@ -31,97 +33,76 @@ investigation: docs/research/mpo-learning-collapse-investigation.md
 
 ### 0.1 Experiment scope (What)
 
-**Core question:** MPO has **never learned** on this task (flat penalty floor since Exp 1), while SAC learns on the **same sparse reward**. The deep dive ([investigation](../../research/mpo-learning-collapse-investigation.md)) classified the "KL explosion" as a **symptom** of an **unconstrained M-step**: the implementation uses a **single `log_eta`** as both the E-step softmax temperature and the M-step trust-region multiplier, updated from the parametric policy KL against a mis-scaled `target_kl_sigma=1e-4`. The policy collapses to **saturated max-torque** actions within one episode.
-
-Does implementing the **correct decoupled-KL MPO dual** unblock MPO learning?
+**Core question:** With the MPO dual now correctly implemented (E-step Q-value dual η + enforced M-step α_μ/α_Σ trust region, committed in `d5af20c`), does MPO achieve `learning_mode=true` on sparse reward in torque mode — the same mode that produced the −51.6 / −243.5 collapse in all prior runs?
 
 **Hypothesis (H8):**
 
-> An MPO agent with a **decoupled dual** — E-step temperature η solved from the **Q-based dual** (ε_E ≈ 0.1) **and separate, enforced** M-step trust-region multipliers **α_μ, α_Σ** (decoupled KL, sane targets ε_μ ≈ 1e-2, ε_Σ ≈ 1e-4) — achieves `learning_mode=true` (returns rise above the −51.6 floor) with **bounded** KL/η, on the same sparse reward and frozen protocol where the current MPO collapses.
+> The fixed MPO agent achieves `learning_mode=true` (returns rise above the −51.6 floor established by Exp 3/5) with bounded KL/η, on the same sparse + torque + dt-1.5 s protocol that previously collapsed.
 
 | ID | Claim | Success criterion | Falsified if |
 |----|-------|-------------------|--------------|
-| **H8a** | Decoupled dual unblocks learning | A1 `learning_mode=true` **or** eval return ≥ **20%** above A0 floor (−51.6 → ≥ −41) with rising best-train | A1 also pins at the −51.6 floor |
-| **H8b** | KL/η stay bounded | A1 `kl_mean` stays within ~10× target through training; **no** monotonic η→1e11 ramp (cf. A0 η→1.5e11) | KL/η still explode like A0 |
-| **H8c** | Policy escapes saturation | A1 train `torque_saturated_fraction` < **0.9** (A0 ≈ 0.998) | Still ≈ 1.0 (degenerate saturated action) |
-| **H8d** | Symptom-vs-cause resolved | KL bounded **and** returns rise ⇒ dual was **causal**; KL bounded **but** returns flat ⇒ KL was a **pure symptom** (reframe to reward/credit) | — (diagnostic, always informative) |
+| **H8a** | Dual fix unblocks learning | `learning_mode=true` **or** eval return ≥ −41 (≥20% above −51.6 floor) with rising best-train trajectory | Returns still pin at −51.6 floor |
+| **H8b** | KL/η stay bounded | `kl_mean` stays within ~10× target over 50 eps; no monotonic η→1e11 ramp | KL/η still explode |
+| **H8c** | Policy escapes saturation | Train `torque_saturated_fraction` < 0.9 (was 0.998 in all prior MPO runs) | Still ~1.0 |
+| **H8d** | α_μ/α_Σ remain finite and active | Both alpha values track KL constraint errors; neither collapses to 0 or explodes | Either hits extremes immediately |
 
-**Overall:** **supported** if H8a **and** H8b; **not_supported** if A1 collapses like A0 (then H8d still yields the cause verdict).
+**Overall:** **supported** if H8a **and** H8b; **not_supported** otherwise (then H8d still resolves symptom-vs-cause for Exp 9 design).
 
-**Arms:**
+**Single arm:** no control re-run of the broken implementation needed — Exp 3/5 already provide the pre-fix baseline at identical protocol.
 
-| Arm | Dual | Runs? | Purpose |
-|-----|------|-------|---------|
-| **A0** `dual_baseline` | current single-`log_eta` (production) | **Yes** (control re-run, sparse, 50 ep) | Reproduce −51.6 + η→1e11 under frozen protocol; parity anchor |
-| **A1** `decoupled_dual` | E-step Q-dual η (ε_E=0.1) + enforced α_μ/α_Σ (ε_μ=1e-2, ε_Σ=1e-4) | **Yes** (treatment) | Test H8 |
-| A2 `temp_only` | E-step Q-dual η only; keep scalar trust region | **Optional** ablation | Isolate E-step coupling if A1 ambiguous (ponytail — defer unless needed) |
-
-**Frozen protocol** (match Exp 5 / Exp 3 MPO so A0 is comparable):
+**Frozen protocol** (match Exp 3 `compare_mpo` / Exp 5 `mpo_s` exactly for comparability):
 
 | Knob | Value |
 |------|-------|
-| dt | 1.5 s / 1.5 s ([D-002](../../research/DECISIONS.md)) |
+| dt | 1.5 s / 1.5 s |
 | seed | 7 |
-| warmup | 5 (rebuild per arm) |
+| warmup | 5 (rebuild) |
 | train | 50 |
 | eval | 2 |
-| reward | **sparse** (SAC-learnable regime; dense ruled out [D-007](../../research/DECISIONS.md)) |
-| heads | S = 90/140 (production default; width ruled out [D-018](../../research/DECISIONS.md)) |
-| videos | 3 train + 2 eval (default workflow) |
+| reward | sparse |
+| action mode | **torque** (production default) |
+| actor/critic units | S = 90/140 (production default) |
+| new hparams | `eps_eta=0.1`, `target_kl_mu=0.1`, `target_kl_sigma=0.01`, `lr_alpha=1e-3` (fixed-dual defaults from `MPOConfig`) |
+| videos | 3 train + 2 eval |
 
-**Out of scope:** width sweep (Exp 5 closed), dense reward (Exp 3 closed), encoder A0/A1 (Exp 2/6), vector OBC (Exp 4/7), critic-recipe changes (LayerNorm/ELU — deferred follow-up), **any production `controller_agent.py` edit** until Phase 4 promote ([D-003](../../research/DECISIONS.md)).
+**Out of scope:** dense reward (Exp 3), width sweep (Exp 5), vector mode (→ Exp 9), encoder changes.
 
-**Gate:** Phase 2 requires `pipeline_run_guard.check_pipeline_run_clear(slug="ml_mpo_decoupled_dual")` ([D-012](../../research/DECISIONS.md)).
+**Gate:** `pipeline_run_guard.check_pipeline_run_clear(slug="ml_mpo_decoupled_dual_torque")` before Phase 2.
 
 ### 0.2 Thought process (Why)
 
 | Prior fact | Implication |
 |------------|-------------|
-| KL ≈1e5 at **first** train ep while η≈4 ([investigation §3a](../../research/mpo-learning-collapse-investigation.md)) | η-largeness is downstream → fix the **dual**, not η scale |
-| η frozen=1.0 still explodes KL + diverges critic (§3c) | M-step is unconstrained → must enforce α_μ/α_Σ trust region |
-| Width identical collapse (Exp 5, [D-018](../../research/DECISIONS.md)) | Not capacity — algorithm/dual lever |
-| Dense only raises floor (Exp 3, [D-007](../../research/DECISIONS.md)) | Stay sparse (SAC-learnable) |
-| SAC learns sparse (Exp 3, [D-017](../../research/DECISIONS.md)) | Target regime is reachable; MPO dual is the gap |
-
-**Reject / defer:**
-
-| Path | Why |
-|------|-----|
-| Tune η LR / `target_kl_sigma` numbers only | Prior `ml_ls_*` probes already nudged LR/KL with no effect; the **structure** (single η, no α) is the defect |
-| Dense reward to "help" MPO | [D-007](../../research/DECISIONS.md) — raises floor only |
-| Width / encoder changes | Exp 5 / Exp 2 closed |
-| Edit production agent now | [D-003](../../research/DECISIONS.md) — fork only until Phase 4 |
+| All MPO runs pre-fix collapsed to −51.6 / −243.5 within ep 1 | torque + sparse is the hard baseline to beat |
+| `h1b_stable_eta`: η frozen=1.0 still explodes KL, critic diverges | M-step unconstrained — α fix is the lever |
+| KL≈5.6e4 at ep 0 while η≈4 ([investigation §3a](../../research/mpo-learning-collapse-investigation.md)) | η lag confirms dual is the cause, not symptom |
+| SAC learns sparse torque (Exp 3, [D-017](../../research/DECISIONS.md)) | Environment is learnable — MPO just needed the correct algorithm |
+| Width identical collapse (Exp 5, [D-018](../../research/DECISIONS.md)) | Not capacity — the fix targets the right lever |
 
 #### 0.2.1 Shoulders of giants
 
-- **Abdolmaleki et al. 2018 — decoupled-KL MPO** (`docs/research/1812.02256v1.pdf`): E-step temperature η from the Q-based dual; **separate** parametric M-step KL constraints on mean and covariance with Lagrange multipliers **α_μ, α_Σ** (ε_μ, ε_Σ). **Maps to** A1 — the exact mechanism missing from `controller_agent.py`.
-- **Abdolmaleki et al. 2018 — MPO** ([arXiv:1806.06920](https://arxiv.org/abs/1806.06920)): E-step/M-step structure; robustness claim across tasks with **same** hyperparameters when the dual is correct.
-- **Co-Adaptation NeurIPS 2021** (via [model-size-investigation.md](../../research/model-size-investigation.md)): MPO is recipe-sensitive (LayerNorm/ELU, critic wider). Noted as **deferred** critic-side follow-up, not in A1 scope.
-- **Internal:** [mpo-learning-collapse-investigation.md](../../research/mpo-learning-collapse-investigation.md) symptom-vs-cause verdict; Exp 3/5 traces.
+- **Abdolmaleki et al. 2018 (`docs/research/1812.02256v1.pdf`)** — decoupled-KL MPO: E-step Q-dual η + separate α_μ/α_Σ M-step trust region. The exact structure implemented in `d5af20c`.
+- **Abdolmaleki et al. 2018 (`arXiv:1806.06920`)** — MPO robustness claim: same hyperparameters across tasks when the dual is correct.
 
 ### 0.3 Preliminary implementation remarks (How)
 
-**Scaffold:** copy `backend/scripts/experiments/ml_mpo_model_size/` (closest MPO fork): `_run_guard.py` (→ `pipeline_run_guard`), `_sim_constants_fork.py` (1.5/1.5), `_warmup_fingerprint_patch.py`, runner pattern → new slug `ml_mpo_decoupled_dual/`.
+**Scaffold:** copy `ml_mpo_model_size/` (nearest MPO fork); swap `MPOConfig` fields to production defaults (the fix is already in production `MPOConfig` / `controller_agent.py`). No agent fork needed — use `MPOAgent` directly.
 
 | Component | Planned path |
 |-----------|--------------|
-| Entry | `run_mpo_decoupled_dual.py` (`--arm {dual_baseline,decoupled_dual}`, `--smoke`, `--show-progress`) |
-| Runner | `_dual_runner.py` |
-| **Dual fork** | `_mpo_dual_fork.py` — subclass/patch `MPOAgent.train` with E-step Q-dual η + α_μ/α_Σ M-step constraints; **no production edit** |
+| Entry | `run_mpo_torque.py` (`--smoke`, `--show-progress`) |
+| Runner | `_torque_runner.py` — standard MPO train/eval loop, no reward or agent fork |
+| dt constants | `_sim_constants_fork.py` — 1.5 s / 1.5 s |
 | Mutex | `_run_guard.py` → `pipeline_run_guard` |
-| Results | `results/mpo_decoupled_dual.json`, `mpo_decoupled_dual_analysis.md` |
+| Results | `results/mpo_torque.json`, `mpo_torque_analysis.md` |
 
-**Dual math (A1, from `1812.02256` §E/M-step):**
-- E-step temperature: η minimizes `g(η) = η·ε_E + η·mean_s log mean_a exp(Q(s,a)/η)`; weights `= softmax(Q/η)` (η from Q-dual, **not** policy KL).
-- M-step: maximize `Σ q(a|s) log π_θ(a|s)` s.t. `KL_μ < ε_μ`, `KL_Σ < ε_Σ`; Lagrangian with **separate** `α_μ, α_Σ` updated by `α ← α + lr·(ε − KL)` (projected ≥0).
+**Smoke:** one warmup + one train step; assert `log_alpha_mu` and `log_alpha_sigma` present on agent; check `kl_mean` finite in returned metrics; `torque_saturated_fraction` logged.
 
-**Smoke:** both arms run ≥1 train step; assert η, α_μ, α_Σ finite and updating; A0 reproduces the single-`log_eta` behavior.
+**Comparators (read-only, no re-run):**
 
-**Risks / open questions:**
-- Numerical stability of the E-step η dual (clip η ∈ [1e-3, 1e3]; log-space).
-- KL is currently pre-tanh — keep pre-tanh for A1 parity, flag squashed-space KL as a follow-up only if A1 bounds KL but returns stay flat (H8d branch).
-- Wall time: 2 arms × ~33 min ≈ 70 min (Exp 5 reference).
-
-**Follow-up (if inconclusive):** H8d "KL bounded but flat" ⇒ open a reward/credit experiment with bounded-KL MPO as the new baseline; "still explodes" ⇒ A2 temp-only ablation + critic recipe (Co-Adaptation).
+| Run | Return | Notes |
+|-----|--------|-------|
+| `9998217224670341_ml_compare_compare_mpo_23-22-09` | −51.6 | Exp 3 MPO dense — KL→1.5e11 |
+| `9998217218692971_ml_mpo_model_size_mpo_s_01-01-46` | −51.6 | Exp 5 mpo_s sparse — KL→0 frozen |
 
 *(Phases 1–4 appended by `/document-experiment-step`.)*
