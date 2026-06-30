@@ -1,0 +1,46 @@
+{
+  "episodes": [
+    {
+      "phase": "train",
+      "episode_idx": 38,
+      "rank": 1,
+      "episode_return": 11.191824131882372,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\episodes\\train_ep_38_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\videos\\train_ep_38_rank1.mp4"
+    },
+    {
+      "phase": "train",
+      "episode_idx": 49,
+      "rank": 2,
+      "episode_return": 9.591824204940556,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\episodes\\train_ep_49_rank2_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\videos\\train_ep_49_rank2.mp4"
+    },
+    {
+      "phase": "train",
+      "episode_idx": 3,
+      "rank": 3,
+      "episode_return": 8.231914669123517,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\episodes\\train_ep_3_rank3_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\videos\\train_ep_3_rank3.mp4"
+    },
+    {
+      "phase": "eval",
+      "episode_idx": 0,
+      "rank": 1,
+      "episode_return": -3.910671988262961,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\episodes\\eval_ep_0_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\videos\\eval_ep_0_rank1.mp4"
+    },
+    {
+      "phase": "eval",
+      "episode_idx": 1,
+      "rank": 2,
+      "episode_return": -3.910671988262961,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\episodes\\eval_ep_1_rank2_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217212521862_ml_encoder_r2_sac_a0_02-44-37\\videos\\eval_ep_1_rank2.mp4"
+    }
+  ],
+  "train_video_count": 3,
+  "eval_video_count": 2
+}

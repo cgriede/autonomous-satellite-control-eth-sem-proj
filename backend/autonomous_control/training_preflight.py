@@ -28,7 +28,7 @@ from environment_definition.constants import SIMULATION
 from .config.randomness import RandomnessConfig, apply_global_seed, derive_seed
 from .controller_agent import MPOAgent
 from .controller_baselines import MaxTorqueSweepPolicy, RandomTorquePolicy
-from paths import MODELS_ROOT
+from paths import RUNS_ROOT
 
 from .feature_selection import ControllerFeatureConfig, select_controller_inputs_from_timestep
 from .notebook_warmup_bundle_cache import encode_feature_config_snapshot
@@ -453,7 +453,7 @@ def digest_for_training_preflight_fingerprint(payload: dict[str, Any]) -> str:
 
 
 def default_training_preflight_cache_path() -> Path:
-    cache_dir = MODELS_ROOT / ".cache"
+    cache_dir = RUNS_ROOT / ".cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir / "training_preflight_gate.json"
 

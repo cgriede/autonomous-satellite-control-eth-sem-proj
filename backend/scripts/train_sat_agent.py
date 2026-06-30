@@ -10,7 +10,7 @@ Scenario:
   - Preflight: inline feature checks + full ML training pytest suite
 
 Verification: s01_utils/training_workflow.py
-Artifacts: autonomous_control/models/nb-s01-08-<timestamp>/
+Artifacts: autonomous_control/runs/nb-s01-08-<timestamp>/
 Export: eval_best.mp4 in run directory
 """
 

@@ -1,0 +1,62 @@
+%% ML agent training loop — SAC & MPO (shared stack)
+%% Source: autonomous_control/controller_agent.py, ml_algo_overnight/agents/sac_agent_fork.py
+
+flowchart TB
+    subgraph setup["Episode setup"]
+        ES[EnvironmentSetup.resolve]
+        BS[build_stepper → SimulationStepper]
+        ER[EpisodeRunner.run_serial]
+        ES --> BS --> ER
+    end
+
+    subgraph obs["Observation (per controller tick)"]
+        TS[SimulationTimestepState]
+        FS[select_controller_inputs]
+        CO[ControllerObservation]
+        ENC[ControllerEncoder<br/>scalar MLP + 1D-CNN vision]
+        TS --> FS --> CO --> ENC
+    end
+
+    subgraph policy["Policy & action"]
+        ACT[Actor → Gaussian π(a|s)]
+        ADP[action_adapter<br/>dim0: torque or vector u<br/>dim1: shutter]
+        ACT --> ADP
+    end
+
+    subgraph sim["Canonical sim step"]
+        STEP[stepper.step(τ)]
+        RW[AttitudeSafety / OBC PD / vector resolver]
+        DYN[DynamicsKernel.propagate]
+        SEN[SensorKernel ray batch]
+        RW2[RewardKernel.evaluate]
+        STEP --> RW --> DYN --> SEN --> RW2
+    end
+
+    subgraph learn["Learning (every train_every_n_steps)"]
+        BUF[(ReplayBuffer)]
+        STORE[agent.store(s,a,r,s',done)]
+        STORE --> BUF
+    end
+
+    ENC --> ACT
+    ADP --> STEP
+    RW2 --> TS
+    CO --> STORE
+
+    subgraph sac["SAC (sparse reward)"]
+        SAC_T[train: twin Q + fixed α entropy<br/>target = r + γ(min Q' − α log π')]
+        SAC_P[π loss = α log π − Q]
+        SAC_U[soft-update targets]
+        BUF --> SAC_T --> SAC_P --> SAC_U
+    end
+
+    subgraph mpo["MPO (dense reward)"]
+        MPO_T[train: Q with action samples<br/>y = r + γ mean(Q')]
+        MPO_P[π loss = −Σ w·log π<br/>w = softmax(Q/η)]
+        MPO_E[η dual: KL(π_old‖π_new) → target]
+        MPO_U[soft-update targets]
+        BUF --> MPO_T --> MPO_P --> MPO_E --> MPO_U
+    end
+
+    learn -.-> sac
+    learn -.-> mpo

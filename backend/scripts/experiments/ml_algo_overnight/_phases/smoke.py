@@ -22,8 +22,8 @@ for path in (BACKEND_DIR, S01_DIR, EXPERIMENT_ROOT):
         sys.path.insert(0, str(path))
 
 from autonomous_control.config.randomness import derive_seed
-from autonomous_control.notebook_warmup_bundle_cache import preload_warmup_buffer_from_episodes
 from s01_utils import training_workflow as tw
+from utils.ml_training.ml_training_utils import remove_run_dirs_for_slug
 from utils.ml_training.training_run_artifacts import export_training_episode_video_sync
 
 from _frozen_baseline import EXPERIMENT_SEED, frozen_training_config
@@ -34,6 +34,7 @@ from _warmup_fingerprint_patch import activate_warmup_fingerprint_patch, set_war
 
 SMOKE_JSON = RESULTS_DIR / "smoke.json"
 SMOKE_VIDEO = RESULTS_DIR / "smoke_test.mp4"
+SMOKE_RUN_ID = "ml_overnight_smoke"
 
 
 def phase_smoke(*, allow_cpu: bool = False) -> dict[str, Any]:
@@ -77,10 +78,11 @@ def phase_smoke(*, allow_cpu: bool = False) -> dict[str, Any]:
     activate_reward_fork("sparse")
 
     cfg = frozen_training_config(
-        run_id="ml_overnight_smoke",
+        run_id=SMOKE_RUN_ID,
         train_episodes=0,
         rebuild_warmup_bundle_cache=False,
     )
+    remove_run_dirs_for_slug(SMOKE_RUN_ID)
     cfg = replace(
         cfg,
         warmup_episodes=1,
@@ -98,14 +100,19 @@ def phase_smoke(*, allow_cpu: bool = False) -> dict[str, Any]:
         mode="warmup",
         episode_idx=0,
         collect_states=False,
+        show_training_context=False,
         train_updates_per_step=0,
         feature_config=setup.feature_config,
         observation_layout=setup.observation_layout,
-        np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, "smoke", "warmup", 0)),
+        np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, "smoke/warmup", 0)),
     )
     timings["warmup_s"] = time.perf_counter() - t_warmup
+    buffer_size = len(setup.agent.buffer)
+    if buffer_size == 0:
+        raise RuntimeError(
+            "Warmup produced an empty replay buffer; cannot run train() smoke step."
+        )
 
-    preload_warmup_buffer_from_episodes(setup.agent, [warmup])
     t_train = time.perf_counter()
     train_stats = setup.agent.train()
     timings["train_s"] = time.perf_counter() - t_train
@@ -116,10 +123,11 @@ def phase_smoke(*, allow_cpu: bool = False) -> dict[str, Any]:
         mode="eval",
         episode_idx=0,
         collect_states=True,
+        show_training_context=False,
         train_updates_per_step=0,
         feature_config=setup.feature_config,
         observation_layout=setup.observation_layout,
-        np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, "smoke", "video", 0)),
+        np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, "smoke/video", 0)),
     )
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     export_training_episode_video_sync(replay.simulation_series, SMOKE_VIDEO)

@@ -21,10 +21,10 @@ Use this when the user wants a quick PM/status readout of the repo.
 
 Before answering backlog/sprint questions or updating the board:
 
-1. Run `python backend/scripts/backlog_xlsx.py check` (see commands below).
-2. If check **passes** → read rows from `BACKLOG_XLSX` via `read_backlog_entries`.
-3. If workbook **missing** → **ask the user** where the live `.xlsx` lives; do not silently use `backlog.md`. Default path: repo root `backlog.xlsx` (`backend/ENV/PATHS.py`). Offer `init` only after confirmation.
-4. If user names a **different path** → update `ENV.PATHS.BACKLOG_XLSX` or use `--path`, then re-check.
+1. Run `python .cursor/tools/backlog/backlog_xlsx.py check` (see commands below).
+2. If check **passes** → read rows via `list` or `read_backlog_entries` (see [pm-backlog-review](../pm-backlog-review/SKILL.md)).
+3. If workbook **missing** → **ask the user** where the live `.xlsx` lives; do not silently use `backlog.md`. Default: repo root `backlog.xlsx`. Offer `init` only after confirmation.
+4. If user names a **different path** → pass `--path` on CLI, then re-check.
 
 **Forbidden:** treating `backlog.md` as the sprint board when an xlsx workflow exists or was requested.
 
@@ -32,14 +32,12 @@ Before answering backlog/sprint questions or updating the board:
 
 ### 1. Live backlog
 
-Use `backend/scripts/backlog_xlsx.py` after preflight passes.
+Use `.cursor/tools/backlog/backlog_xlsx.py` after preflight passes.
 
 ```powershell
-$env:PYTHONPATH = "backend"
-conda activate ASC
-python backend/scripts/backlog_xlsx.py check
-python backend/scripts/backlog_xlsx.py list
-python -c "from ENV.PATHS import BACKLOG_XLSX; from scripts.backlog_xlsx import read_backlog_entries; print(len(read_backlog_entries(BACKLOG_XLSX)))"
+conda activate auto-sat
+python .cursor/tools/backlog/backlog_xlsx.py check
+python .cursor/tools/backlog/backlog_xlsx.py list
 ```
 
 Surface at least: `uid`, `Sprint`, `prio`, `Size`, `status`, `dep on`, `name`, `notes / blockers`.

@@ -35,8 +35,48 @@ Source: `environment_definition/attitude_control_env.py` (`SatelliteAttitudeCont
     - **Target novelty:** observation-line codes are indexed `T0`, `T1`, … (`OBSERVATION_TARGET` = 3 = T0, then 4 = T1, …). ASCII line uses `0`, `1`, … for T0, T1. Repeat shutter on an already-captured target index consumes budget but `capture_target_novel = false` → applied reward `0`.
   - Cloud-blocked fraction scales down both latent and applied credit; full block → zero
 - **Shutter waste penalty** (nb08 default on): when `enable_shutter_waste_penalty`, accepted shutter with applied capture credit below `shutter_waste_reward_epsilon` → `shutter_waste_penalty = −k_shutter_waste` (`REWARD_SHUTTER_WASTE_PENALTY = 5.0`, tunable starting guess).
-- **Torque effort penalty** (nb08 default on): when `enable_torque_effort`, every step → `torque_effort_penalty = −k_torque_effort × (τ_cmd / τ_max)²` on agent-requested torque (`REWARD_TORQUE_EFFORT_COEFFICIENT = 0.1`, tunable starting guess). Source: `autonomous_control/reward.py`, `simulation/stepper.py` (`wheel_torque_agent_cmd_nm`).
+- **Budget-exhausted shutter penalty** (nb08 default **on**, Exp 7 promoted): when `enable_budget_exhausted_shutter_penalty`, agent shutter command while `capture_budget_remaining ≤ 0` → add `−k_shutter_waste` at that step in `simulation/stepper.py::apply_shutter_capture` (distinct from shutter-waste term above; does not change applied capture credit on valid budgeted shutters). Source: `autonomous_control/reward.py` (`budget_exhausted_shutter_command_penalty`).
+- **Torque effort penalty** (nb08 default on): see slide *Control-effort vs wheel-energy penalty* below.
 - **Passive-policy fallback:** penalty-only dense terms can yield a “do nothing” optimum; if post-change training shows near-zero torque/shutter activity, add potential-based pointing shaping (`Φ = −min bearing to nearest unseen target`) before MPO hyperparameter tuning.
+
+---
+
+# Control-effort vs wheel-energy penalty
+
+Two distinct dense penalties on reaction-wheel actuation exist in `autonomous_control/reward.py`. **Notebook 08 enables torque effort, not energy** (`enable_torque_effort=True`, `enable_energy=False` in `training_workflow.py`).
+
+**Torque effort (control regularizer, nb08 default)**
+
+- Toggle: `RewardConfig.enable_torque_effort`
+- Formula (every control step):  
+  `torque_effort_penalty = −k_torque_effort × (τ_cmd / τ_max)²`
+- Signal: **agent-requested** wheel torque `wheel_torque_agent_cmd_nm` (normalized action × `REACTION_WHEEL_MAX_TORQUE`), **before** attitude-safety arbitration; not the post-limit torque applied to dynamics.
+- Units: dimensionless squared normalized command; coefficient `k_torque_effort` is **not** J⁻¹ (`REWARD_TORQUE_EFFORT_COEFFICIENT = 0.1`, tunable starting guess).
+- Gating: none — applies on every step when enabled.
+- Role: LQR-style **control-effort** shaping to discourage policy torque saturation (±τ_max stick inputs) and give a direct gradient on the torque action dimension. This is **not** a physical energy or power accounting term.
+
+**Wheel-energy penalty (physical proxy, off in nb08)**
+
+- Toggle: `RewardConfig.enable_energy`
+- Formula: `energy_reward = −k_energy × E` with  
+  `E = (ΔH)² / (2 I_w)` [J], `ΔH = |I_w ω_after − I_w ω_before|`, `H = I_w ω` (`energy_from_wheel_momentum_change`).
+- Signal: **actual** wheel speed change after propagation (`omega_before`, `omega_after` on the wheel).
+- Units: joules × `REWARD_ENERGY_LINEAR_COEFFICIENT` (`k_energy = 10.0`; chosen so typical step energies do not dwarf ±100 capture credit).
+- Gating: when `enable_outer_gate`, only inside `CAMERA_VIEWING_DISTANCE_THRESHOLD` (same gate as legacy distance band).
+- Role: penalize kinetic-energy proxy associated with **momentum transferred to the wheel**, not commanded torque magnitude.
+
+**Why nb08 uses torque effort instead of energy**
+
+| Aspect | Torque effort | Wheel energy |
+|--------|---------------|--------------|
+| Penalizes | Commanded τ (policy output) | Observed Δω_w after dynamics |
+| Saturation at ±τ_max | Full penalty at max command | Weak if wheel already saturated (small ΔH) |
+| RL credit assignment | Direct on action | Indirect via wheel state / inertia |
+| Physical interpretation | Control cost regularizer | Joule-scale momentum-change proxy |
+
+For **reporting:** describe torque effort as a normalized **actuation regularizer** added for learning stability (anti-saturation), not as mission electrical or mechanical energy minimization. A future experiment can enable `enable_energy` (or a `τ·ω·Δt` work integral) if the objective should track physical wheel cost instead.
+
+Sources: `autonomous_control/reward.py` (`torque_effort_penalty`, `energy_reward`), `simulation/stepper.py` (`wheel_torque_agent_cmd_nm`), `environment_definition/constants/AUTONOMOUS_CONTROL_REWARD.py`.
 
 **Episode end conditions:**
 
@@ -93,10 +133,24 @@ Source: `autonomous_control/mpo_config.py` (`MPOConfig.num_cnn_layers`), `autono
 
 ---
 
+# Action interface — attitude request mode
+
+Source: `autonomous_control/action_adapter.py`, `TrainingWorkflowConfig.attitude_request_mode`, `simulation/obc_pointing_request.py`.
+
+| Config | Default | dim0 semantics |
+|--------|---------|----------------|
+| `attitude_request_mode="torque"` | **yes** | RW torque fraction → `AttitudeSafetyController` |
+| `attitude_request_mode="vector"` | no | `u ∈ [-1,1]` → `f_n = max_safe·u` → hold-last OBC PD → τ |
+
+Set on **`TrainingWorkflowConfig`** (notebook 08 / all pipeline runners). Vector mode disables torque-effort reward penalty automatically.
+
+---
+
 # Traceability
 
 | Topic | Primary code |
 |--------|----------------|
 | Reward & step | `simulation/reward_kernel.py`, `autonomous_control/reward.py`, `simulation/episode_capture.py` |
+| Control-effort vs energy | `autonomous_control/reward.py` (`torque_effort_penalty`, `energy_reward`); constants `AUTONOMOUS_CONTROL_REWARD.py` |
 | MPO trainer | `autonomous_control/controller_agent.py`, `autonomous_control/episode_runner.py` |
 | Notebook 08 workflow | `notebooks/s01/s01_utils/training_workflow.py` |

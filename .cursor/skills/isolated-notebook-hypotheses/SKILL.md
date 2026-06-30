@@ -9,7 +9,8 @@ disable-model-invocation: true
 
 # Isolated Notebook Hypotheses
 
-> **Superseded by [`hypothesis-experiment-cycle`](../hypothesis-experiment-cycle/SKILL.md)** — same workflow, generalized for `backend/scripts/experiments/<slug>/` and notebook hypotheses folders.
+> **Superseded by [`hypothesis-experiment-cycle`](../hypothesis-experiment-cycle/SKILL.md)** — same workflow, generalized for `backend/scripts/experiments/<slug>/` and notebook hypotheses folders.  
+> **Numbered ML pipeline:** JSON contract + analysis card template still apply; orchestration lives in [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md) → [`skill-chain.md`](../experiment-knowledge-pipeline/skill-chain.md).
 
 ## Use When
 
@@ -61,7 +62,7 @@ If a branch needs parser or regex changes, fork the helper too, e.g. `fib_ocr_pa
 - Keep each experiment to **one logical code change** and **at most 3 full runs** after the baseline.
 - Require machine-readable output in `results/<experiment_id>.json` using the **fixed result contract** below.
 - After each run, fill the **per-hypothesis analysis card** from that JSON before closing the slice.
-- On Windows PowerShell, use `;` not `&&` when chaining `conda activate ASC` and `python ...`.
+- On Windows PowerShell, use `;` not `&&` when chaining `conda activate auto-sat` and `python ...`.
 
 ## Evidence-first rule
 

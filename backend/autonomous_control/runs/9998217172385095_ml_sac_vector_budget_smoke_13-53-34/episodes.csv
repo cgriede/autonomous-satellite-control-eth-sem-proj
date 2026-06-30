@@ -1,0 +1,3 @@
+global_idx,phase,episode_idx,episode_return,avg_reward,steps,n_train_updates,q_loss_mean,pi_loss_mean,kl_mean,kl_mu_mean,kl_sigma_mean,eta_mean,buffer_size,in_exploration
+0,warmup,0,-31.99728382203442,-0.062010239965182984,516,0,nan,nan,nan,nan,nan,nan,0,False
+1,train,0,-130.0,-0.25193798449612403,516,516,0.5330963074049169,0.41897102703824063,nan,nan,nan,nan,1032,True

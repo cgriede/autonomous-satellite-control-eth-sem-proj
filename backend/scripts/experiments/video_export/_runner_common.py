@@ -9,7 +9,7 @@ import time
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import numpy as np
 
@@ -22,11 +22,24 @@ if str(EXPERIMENT_ROOT) not in sys.path:
 
 from environment_definition.constants import RenderMode
 from render.render_main import _resolve_ffmpeg_executable, render_from_series
-from simulation.run_simulation import run_simulation
 
-from _frozen_baseline import build_baseline_sim_config, build_high_cloud_setup
+from fixtures._series_io import load_frozen_series
 
 RESULTS_DIR = EXPERIMENT_ROOT / "results"
+
+EncoderKind = Literal["ffmpeg", "mpl"]
+
+__all__ = [
+    "RESULTS_DIR",
+    "EncoderKind",
+    "bench_video_export",
+    "load_frozen_series",
+    "patch_lite_export_panels",
+    "probe_video",
+    "write_analysis_card",
+    "write_hypothesis_result",
+    "write_result",
+]
 
 
 def _json_default(obj: Any) -> Any:
@@ -80,13 +93,6 @@ def write_hypothesis_result(
     write_result(path, payload)
 
 
-def build_frozen_simulation_series():
-    setup = build_high_cloud_setup()
-    sim_cfg = build_baseline_sim_config()
-    series = run_simulation(setup=setup, simulation_config=sim_cfg)
-    return setup, series
-
-
 def probe_video(path: Path) -> dict[str, Any]:
     p = path.resolve()
     info: dict[str, Any] = {
@@ -136,10 +142,31 @@ def probe_video(path: Path) -> dict[str, Any]:
     return info
 
 
+def _peak_rss_mb() -> float | None:
+    try:
+        import resource
+
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        rss = getattr(usage, "ru_maxrss", 0)
+        if sys.platform == "win32":
+            return float(rss) / (1024 * 1024)
+        return float(rss) / 1024
+    except (ImportError, AttributeError):
+        return None
+
+
+def _mpl_export_patch(export_path: Path | None) -> Path:
+    from _export_fork import save_one_pass_video_fork
+
+    return save_one_pass_video_fork(export_path, frame_stride=1)
+
+
 def bench_video_export(
     series,
     out_path: Path,
     *,
+    fixture_id: str | None = None,
+    encoder: EncoderKind = "ffmpeg",
     export_patch: Callable[[Path | None], Path] | None = None,
     render_pre_hook: Callable[[], Callable[[], None]] | None = None,
 ) -> dict[str, Any]:
@@ -151,8 +178,12 @@ def bench_video_export(
         out_path.unlink()
 
     original_save = render_mod.save_one_pass_video_30x
-    if export_patch is not None:
-        render_mod.save_one_pass_video_30x = export_patch
+    patch = export_patch
+    if patch is None and encoder == "mpl":
+        patch = _mpl_export_patch
+
+    if patch is not None:
+        render_mod.save_one_pass_video_30x = patch
 
     restore_render = render_pre_hook() if render_pre_hook is not None else None
     try:
@@ -170,8 +201,9 @@ def bench_video_export(
 
     video = probe_video(out_path)
     n_frames_drawn = None
-    if export_patch is not None and hasattr(export_patch, "_last_n_frames_drawn"):
-        n_frames_drawn = export_patch._last_n_frames_drawn
+    active_patch = patch
+    if active_patch is not None and hasattr(active_patch, "_last_n_frames_drawn"):
+        n_frames_drawn = active_patch._last_n_frames_drawn
 
     from environment_definition.constants import RENDER, SIMULATION
     from environment_definition.constants.UNIT_REGISTRY import UREG
@@ -180,21 +212,32 @@ def bench_video_export(
     anim_ms = RENDER.animation_interval.to(UREG.ms).magnitude
     dt_sim_s = (anim_ms / 1000.0) * export_speed_multiplier
     sim_total_s = float(series.metadata.sim_total_s)
+    stride = max(1, int(RENDER.export_frame_stride))
     baseline_frames = max(2, int(np.ceil(sim_total_s / dt_sim_s)) + 1)
+    stride_indices = list(range(0, baseline_frames, stride))
+    if stride_indices[-1] != baseline_frames - 1:
+        stride_indices.append(baseline_frames - 1)
+    expected_drawn = len(stride_indices)
 
-    frames_per_s = (
-        float(n_frames_drawn) / max(export_wall_s, 1e-9)
-        if n_frames_drawn is not None
-        else float(baseline_frames) / max(export_wall_s, 1e-9)
-    )
+    drawn = int(n_frames_drawn) if n_frames_drawn is not None else int(expected_drawn)
+    frames_per_s = float(drawn) / max(export_wall_s, 1e-9)
 
-    return {
+    result: dict[str, Any] = {
         "export_wall_s": float(export_wall_s),
         "baseline_frame_count": int(baseline_frames),
-        "n_frames_drawn": int(n_frames_drawn) if n_frames_drawn is not None else int(baseline_frames),
+        "n_frames_drawn": drawn,
         "export_frames_per_s": float(frames_per_s),
         "video": video,
+        "encoder": encoder if export_patch is None else "patch",
+        "peak_rss_mb": _peak_rss_mb(),
     }
+    if fixture_id is not None:
+        result["fixture_id"] = fixture_id
+    if active_patch is not None and hasattr(active_patch, "_draw_wall_s"):
+        result["draw_wall_s"] = float(active_patch._draw_wall_s)
+    if active_patch is not None and hasattr(active_patch, "_encode_wall_s"):
+        result["encode_wall_s"] = float(active_patch._encode_wall_s)
+    return result
 
 
 def patch_lite_export_panels() -> tuple[dict[str, bool], Callable[[], None]]:

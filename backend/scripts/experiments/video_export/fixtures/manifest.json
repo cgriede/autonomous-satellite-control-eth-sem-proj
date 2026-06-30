@@ -1,0 +1,45 @@
+{
+  "baked_from": "bake_series_fixtures.py @ 2026-06-29T17:10:15.015670+00:00 git=03e437b58e6b",
+  "fixtures": {
+    "gate": {
+      "baked_from": "tests.test_training_run_artifacts._minimal_series(n=5)",
+      "bytes": 1077,
+      "export_frames_stride_1": 6,
+      "export_frames_stride_2": 4,
+      "fixture_id": "gate",
+      "n_bins": 4,
+      "n_clouds": 1,
+      "n_sim_steps": 5,
+      "path": "gate_minimal.pkl.gz",
+      "sha256_hex": "40cecde6e0799c5c6da622b2a07617539ad95685cf8ef48fbd25b5bb881ac8db",
+      "sim_total_s": 4.0
+    },
+    "high_cloud": {
+      "baked_from": "build_high_cloud_setup + run_simulation",
+      "bytes": 1210827,
+      "export_frames_stride_1": 575,
+      "export_frames_stride_2": 288,
+      "fixture_id": "high_cloud",
+      "n_bins": 101,
+      "n_clouds": 63,
+      "n_items": 63,
+      "n_sim_steps": 1293,
+      "path": "high_cloud_notebook.pkl.gz",
+      "sha256_hex": "ccae2fceb10463e69d3ac3a2e47a602c0bc8728f46281af71a522f1a8f84bead",
+      "sim_total_s": 516.5059775464335
+    },
+    "training_sparse": {
+      "baked_from": "S01 build_setup(seed=7) + DT_1.5s + run_simulation",
+      "bytes": 37870,
+      "export_frames_stride_1": 575,
+      "export_frames_stride_2": 288,
+      "fixture_id": "training_sparse",
+      "n_bins": 101,
+      "n_clouds": 2,
+      "n_sim_steps": 346,
+      "path": "training_sparse_episode.pkl.gz",
+      "sha256_hex": "eae38a8aa1d91d8e3d90cda1af4271e0a4b8fe9c5ab2200328b2a6eca847c02f",
+      "sim_total_s": 516.1162175897165
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "run_at_utc": "2026-06-29T17:07:35.525104+00:00",
+  "experiment_id": "ml_modular_encoder",
+  "dt_profile": {
+    "aborted": false,
+    "sim_dt_s": 1.5,
+    "controller_interval_s": 1.5,
+    "effective_controller_interval_s": 1.5,
+    "label": "dt_1.5s",
+    "train_episodes": 7,
+    "source": "ml_modular_encoder"
+  },
+  "vector_embed_dim": 8,
+  "arms": {
+    "sac_a0": {
+      "verdict": "inconclusive",
+      "encoder_kind": "flat",
+      "vector_embed_dim": 8,
+      "learning_mode": false,
+      "train_returns": [
+        -72.35391922942195,
+        -75.58881530389138,
+        -77.56925318829943,
+        -77.93108548944201,
+        -80.21586289234307,
+        -80.60056435885238,
+        -80.4862260254376
+      ],
+      "eval_return_mean": -78.89640871064435,
+      "wall_s": 986.6474215000053
+    },
+    "sac_a1": {
+      "verdict": "inconclusive",
+      "encoder_kind": "compress",
+      "vector_embed_dim": 8,
+      "learning_mode": false,
+      "train_returns": [
+        -75.12728716983953,
+        -80.16218262031303,
+        -79.85518310761873,
+        -81.27611524894881,
+        -80.83991325260558,
+        -82.976849357885,
+        -81.26159422815141
+      ],
+      "eval_return_mean": -86.53091190127648,
+      "wall_s": 969.8710464000033
+    }
+  }
+}

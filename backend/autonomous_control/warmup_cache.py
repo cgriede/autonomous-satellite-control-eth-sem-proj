@@ -16,14 +16,14 @@ from autonomous_control.controller_agent import MPOAgent
 from autonomous_control.controller_observation import ControllerObservationLayout
 from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.training_runtime import make_attitude_control_env, run_episode
-from paths import MODELS_ROOT
+from paths import RUNS_ROOT
 
 CACHE_VERSION = 2
 
 
 def default_cache_dir() -> Path:
 	"""Return the canonical cache directory for warmup replay data."""
-	out = MODELS_ROOT / "cached_warmup"
+	out = RUNS_ROOT / "cached_warmup"
 	out.mkdir(parents=True, exist_ok=True)
 	return out
 

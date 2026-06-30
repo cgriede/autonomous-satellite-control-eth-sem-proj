@@ -1,0 +1,7 @@
+{
+  "step_id": "exp4",
+  "slug": "ml_agent_reference_pointing",
+  "error": "Command '['C:\\\\Users\\\\cedri\\\\miniconda3\\\\envs\\\\auto-sat\\\\python.exe', 'run_agent_reference.py', '--show-progress', '--arms', 'ref0,ref1']' returned non-zero exit status 1.",
+  "traceback": "Traceback (most recent call last):\n  File \"D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_pipeline_overnight\\run_pipeline_overnight.py\", line 326, in main\n    run_child(step, argv)\n    ~~~~~~~~~^^^^^^^^^^^^\n  File \"D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_pipeline_overnight\\_orchestrator_common.py\", line 56, in run_child\n    subprocess.run(\n    ~~~~~~~~~~~~~~^\n        cmd,\n        ^^^^\n    ...<2 lines>...\n        check=True,\n        ^^^^^^^^^^^\n    )\n    ^\n  File \"C:\\Users\\cedri\\miniconda3\\envs\\auto-sat\\Lib\\subprocess.py\", line 577, in run\n    raise CalledProcessError(retcode, process.args,\n                             output=stdout, stderr=stderr)\nsubprocess.CalledProcessError: Command '['C:\\\\Users\\\\cedri\\\\miniconda3\\\\envs\\\\auto-sat\\\\python.exe', 'run_agent_reference.py', '--show-progress', '--arms', 'ref0,ref1']' returned non-zero exit status 1.\n",
+  "run_at_utc": "2026-06-29T23:56:21.188484+00:00"
+}

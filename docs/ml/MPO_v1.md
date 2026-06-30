@@ -10,7 +10,7 @@ This document describes the first wired integration of the MPO (Maximum a Poster
 - `backend/autonomous_control/mpo_config.py`: central hyperparameter/config source.
 - `backend/autonomous_control/training_runtime.py`: replay buffer, environment factory, episode loop.
 - `backend/utils/ml_training/ml_training_utils.py`: run directory, checkpoint pathing, run logs, aggregate JSONL.
-- `backend/paths.py`: pathlib constants including `MODELS_ROOT` (`backend/autonomous_control/models`).
+- `backend/paths.py`: pathlib constants including `RUNS_ROOT` (`backend/autonomous_control/runs`).
 - `backend/scripts/train_sat_agent.py`: training entrypoint.
 - `backend/scripts/eval_sat_agent.py`: evaluation entrypoint + optional trace/render video export.
 - `backend/render/render_main.py`: Sat Sim visualization/export pipeline (`Sat Sim Export`).
@@ -55,12 +55,12 @@ All tunable MPO constants are centralized in `backend/autonomous_control/mpo_con
 
 Artifact root is resolved from `backend/paths.py`:
 
-- `backend/autonomous_control/models/<timestamp>/`
+- `backend/autonomous_control/runs/<timestamp>/`
   - `agent.pt` (default checkpoint name)
   - `run_log.md` (human-readable run log)
   - `policy_trace.mp4` (optional state-trace video)
   - `sat_sim_export.mp4` (optional rendered world-effect video)
-- `backend/autonomous_control/models/runs.jsonl`
+- `backend/autonomous_control/runs/runs.jsonl`
   - append-only global run records for train/eval runs
 
 Primary episode-level artifact contract:
@@ -85,7 +85,7 @@ python scripts/train_sat_agent.py --seed 0 --train-episodes 20 --save-video
 ```
 
 ```bash
-python scripts/eval_sat_agent.py --checkpoint autonomous_control/models/<run_id>/agent.pt --eval-episodes 5
+python scripts/eval_sat_agent.py --checkpoint autonomous_control/runs/<run_id>/agent.pt --eval-episodes 5
 ```
 
 Optional video exports on eval:

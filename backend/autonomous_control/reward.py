@@ -12,7 +12,7 @@ Public API:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
@@ -32,6 +32,20 @@ from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 if TYPE_CHECKING:
     from pint import Quantity
 
+RewardCreditMode = Literal["sparse", "dense"]
+
+_CREDIT_MODE: RewardCreditMode = "sparse"
+
+
+def reward_credit_mode() -> RewardCreditMode:
+    """Whether per-step latent pointing-quality credit is included in the RL return."""
+    return _CREDIT_MODE
+
+
+def set_reward_credit_mode(mode: RewardCreditMode) -> None:
+    global _CREDIT_MODE
+    _CREDIT_MODE = mode
+
 
 @dataclass(frozen=True)
 class RewardConfig:
@@ -43,7 +57,7 @@ class RewardConfig:
     ``autonomous_control.mpo_config`` and embedded in ``MPOConfig.reward``.
     """
 
-    enable_distance_reward: bool = True
+    enable_distance_reward: bool = False
     enable_outer_gate: bool = True
     enable_energy: bool = False
     enable_area_intersection: bool = False
@@ -63,6 +77,8 @@ class RewardConfig:
     enable_shutter_waste_penalty: bool = False
     k_shutter_waste: float = float(REWARD_SHUTTER_WASTE_PENALTY)
     shutter_waste_reward_epsilon: float = 1e-3
+    # Penalty when agent issues shutter with capture budget already exhausted (Exp 7 → production).
+    enable_budget_exhausted_shutter_penalty: bool = True
     enable_torque_effort: bool = False
     k_torque_effort: float = float(REWARD_TORQUE_EFFORT_COEFFICIENT)
 
@@ -262,13 +278,25 @@ def torque_effort_penalty(
     k_torque_effort: float,
     tau_max_nm: float | None = None,
 ) -> float:
-    """Per-step control-effort penalty: ``-k * (tau / tau_max)^2`` on normalized torque."""
+    """Per-step control-effort penalty: ``-k * (tau / tau_max)^2`` on normalized torque.
+
+    Regularizes the **agent command** (not wheel kinetic energy). For the joule-based
+    wheel momentum-change term, see :func:`energy_reward` and
+    ``docs/presentation/machine-learning.md`` (Control-effort vs wheel-energy penalty).
+    """
     if tau_max_nm is None:
         tau_max_nm = float(REACTION_WHEEL_MAX_TORQUE.to(ureg.N * ureg.m).magnitude)
     if tau_max_nm <= 0.0:
         raise ValueError("tau_max_nm must be positive.")
     tau_norm = float(wheel_torque_cmd_nm) / float(tau_max_nm)
     return -float(k_torque_effort) * tau_norm * tau_norm
+
+
+def budget_exhausted_shutter_command_penalty(*, cfg: RewardConfig) -> float:
+    """Penalty applied at shutter issue time when ``budget.remaining <= 0`` (see ``stepper.apply_shutter_capture``)."""
+    if not cfg.enable_budget_exhausted_shutter_penalty:
+        return 0.0
+    return -float(cfg.k_shutter_waste)
 
 
 def compute_reward(
@@ -396,13 +424,17 @@ def compute_reward(
 
 __all__ = [
     "RewardConfig",
+    "RewardCreditMode",
     "RewardSignals",
     "applied_capture_reward",
+    "budget_exhausted_shutter_command_penalty",
     "compute_reward",
     "distance_band_reward",
     "energy_reward",
     "energy_from_wheel_momentum_change",
     "image_quality_capture_reward",
     "latent_capture_reward",
+    "reward_credit_mode",
+    "set_reward_credit_mode",
     "torque_effort_penalty",
 ]

@@ -31,5 +31,7 @@ REWARD_IMAGE_QUALITY_CAPTURE_WEIGHT = 100.0
 # Penalty when shutter fires but applied capture credit is ~0 (repeat target, no FOV, etc.).
 REWARD_SHUTTER_WASTE_PENALTY = 5.0
 
-# Per-step penalty on normalized commanded torque squared: -k * (tau/tau_max)^2.
+# Control-effort regularizer (not physical energy): -k * (tau_cmd/tau_max)^2 per step.
+# See docs/presentation/machine-learning.md — "Control-effort vs wheel-energy penalty".
+# Distinct from REWARD_ENERGY_LINEAR_COEFFICIENT (wheel momentum-change penalty in joules).
 REWARD_TORQUE_EFFORT_COEFFICIENT = 0.1

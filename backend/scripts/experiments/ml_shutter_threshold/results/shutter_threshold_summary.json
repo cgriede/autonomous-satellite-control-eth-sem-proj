@@ -1,0 +1,71 @@
+{
+  "run_at_utc": "2026-06-29T15:23:23.879846+00:00",
+  "experiment_id": "ml_shutter_threshold",
+  "dt_profile": {
+    "aborted": false,
+    "sim_dt_s": 1.5,
+    "controller_interval_s": 1.5,
+    "effective_controller_interval_s": 1.5,
+    "label": "dt_1.5s",
+    "train_episodes": 7,
+    "source": "ml_shutter_threshold"
+  },
+  "arms": {
+    "mpo_t05": {
+      "verdict": "inconclusive",
+      "threshold": 0.5,
+      "learning_mode": false,
+      "train_returns": [
+        -99.86918842298402,
+        -101.59999999999805,
+        -101.59999911785125,
+        -101.59999999999805,
+        -101.59999999999805,
+        -101.59999999999805,
+        -101.59999999999805
+      ],
+      "shutter_cmds_per_episode": [
+        516,
+        516,
+        516,
+        516,
+        516,
+        516,
+        516
+      ],
+      "eval_return_mean": -101.59999999999805,
+      "wall_s": null
+    },
+    "mpo_t09": {
+      "verdict": "inconclusive",
+      "threshold": 0.9,
+      "learning_mode": false,
+      "train_returns": [
+        -99.9037047432253,
+        -101.59999999999805,
+        -101.59999912977213,
+        -101.59999999999805,
+        -101.59999999999805,
+        -101.59999999999805,
+        -101.59999999999805
+      ],
+      "shutter_cmds_per_episode": [
+        508,
+        516,
+        516,
+        516,
+        516,
+        516,
+        516
+      ],
+      "eval_return_mean": -101.59999999999805,
+      "wall_s": 1198.1501024999961
+    }
+  },
+  "plots": [
+    "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_shutter_threshold\\results\\plots\\shutter_unit_hist.png",
+    "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_shutter_threshold\\results\\plots\\fire_rate_vs_threshold.png",
+    "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_shutter_threshold\\results\\plots\\shutter_cmds_per_episode.png",
+    "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_shutter_threshold\\results\\plots\\train_returns.png"
+  ]
+}

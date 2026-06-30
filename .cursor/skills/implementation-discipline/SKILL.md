@@ -19,6 +19,8 @@ Before touching code, ask about:
 
 If critical ambiguity remains, do not implement yet.
 
+**Pipeline promote requests:** if the user asks to merge an experiment fork to production, confirm pipeline closeout is done (`4-documentation/`, verdict set) before editing `autonomous_control/` / `simulation/` — see learnings.md `pipeline-closeout-before-promote`.
+
 ## 2. Reflect back the working understanding
 
 State the concrete behavior you are about to change and the limits of the change. Keep the implementation aligned to that scope; avoid opportunistic refactors.

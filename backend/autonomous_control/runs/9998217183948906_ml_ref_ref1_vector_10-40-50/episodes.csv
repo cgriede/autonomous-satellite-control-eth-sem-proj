@@ -1,0 +1,9 @@
+global_idx,phase,episode_idx,episode_return,avg_reward,steps,n_train_updates,q_loss_mean,pi_loss_mean,kl_mean,kl_mu_mean,kl_sigma_mean,eta_mean,buffer_size,in_exploration
+0,warmup,0,-41.95058876765694,-0.08129959063499406,516,0,nan,nan,nan,nan,nan,nan,0,False
+1,warmup,1,-59.95000355647308,-0.11618217743502535,516,0,nan,nan,nan,nan,nan,nan,0,False
+2,warmup,2,-59.939623787038364,-0.11616206160278753,516,0,nan,nan,nan,nan,nan,nan,0,False
+3,warmup,3,-40.30906163699676,-0.07811833650580767,516,0,nan,nan,nan,nan,nan,nan,0,False
+4,warmup,4,-40.56654312848805,-0.07861733164435669,516,0,nan,nan,nan,nan,nan,nan,0,False
+5,train,0,-98.13004838178676,-0.1901745123678038,516,516,0.36437113265427507,0.5577347280399859,nan,nan,nan,nan,3096,True
+6,eval,0,50.69824217790142,0.09825240732151438,516,0,nan,nan,nan,nan,nan,nan,0,False
+7,eval,1,50.69824217790142,0.09825240732151438,516,0,nan,nan,nan,nan,nan,nan,0,False

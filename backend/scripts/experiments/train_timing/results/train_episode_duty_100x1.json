@@ -1,0 +1,145 @@
+{
+  "episode_wall_s": 7.213064200012013,
+  "n_sim_steps": 516,
+  "n_controller_stores": 516,
+  "n_train_updates": 5,
+  "steps_per_s": 71.53686501211796,
+  "per_step_wall_ms": 13.978806589170569,
+  "measured_s": 7.094714600854786,
+  "unaccounted_s": 0.1183495991572272,
+  "categories": [
+    {
+      "key": "sim_step",
+      "label": "Simulation step (integrate + shutter capture)",
+      "total_s": 3.640619400131982,
+      "per_step_ms": 7.055463953744151,
+      "pct_of_wall": 50.47257724568594
+    },
+    {
+      "key": "get_action",
+      "label": "Policy inference (get_action)",
+      "total_s": 2.6259925006888807,
+      "per_step_ms": 5.089132753273025,
+      "pct_of_wall": 36.40606027996406
+    },
+    {
+      "key": "train",
+      "label": "Learner update (train)",
+      "total_s": 0.7248395000351593,
+      "per_step_ms": 1.4047277132464326,
+      "pct_of_wall": 10.04898168012912
+    },
+    {
+      "key": "obs_build",
+      "label": "Controller observation build",
+      "total_s": 0.09627360015292652,
+      "per_step_ms": 0.18657674448241574,
+      "pct_of_wall": 1.3347115384439
+    },
+    {
+      "key": "store",
+      "label": "Replay buffer store",
+      "total_s": 0.006989599845837802,
+      "per_step_ms": 0.013545736135344577,
+      "pct_of_wall": 0.09690194974039133
+    },
+    {
+      "key": "state_copy",
+      "label": "Per-step state copy (collect_states)",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    },
+    {
+      "key": "controller_baseline",
+      "label": "Warmup baseline controller tick",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    },
+    {
+      "key": "progress",
+      "label": "Progress display / live feed",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    }
+  ],
+  "top_7_consumers": [
+    {
+      "key": "sim_step",
+      "label": "Simulation step (integrate + shutter capture)",
+      "total_s": 3.640619400131982,
+      "per_step_ms": 7.055463953744151,
+      "pct_of_wall": 50.47257724568594
+    },
+    {
+      "key": "get_action",
+      "label": "Policy inference (get_action)",
+      "total_s": 2.6259925006888807,
+      "per_step_ms": 5.089132753273025,
+      "pct_of_wall": 36.40606027996406
+    },
+    {
+      "key": "train",
+      "label": "Learner update (train)",
+      "total_s": 0.7248395000351593,
+      "per_step_ms": 1.4047277132464326,
+      "pct_of_wall": 10.04898168012912
+    },
+    {
+      "key": "obs_build",
+      "label": "Controller observation build",
+      "total_s": 0.09627360015292652,
+      "per_step_ms": 0.18657674448241574,
+      "pct_of_wall": 1.3347115384439
+    },
+    {
+      "key": "store",
+      "label": "Replay buffer store",
+      "total_s": 0.006989599845837802,
+      "per_step_ms": 0.013545736135344577,
+      "pct_of_wall": 0.09690194974039133
+    },
+    {
+      "key": "state_copy",
+      "label": "Per-step state copy (collect_states)",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    },
+    {
+      "key": "controller_baseline",
+      "label": "Warmup baseline controller tick",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    }
+  ],
+  "thread_env": {
+    "OMP_NUM_THREADS": "4",
+    "MKL_NUM_THREADS": "4",
+    "OPENBLAS_NUM_THREADS": "4",
+    "ASC_CPU_THREADS": null
+  },
+  "context": {
+    "run_slug": "train_timing_duty_100x1",
+    "mode": "train",
+    "dt_label": "dt_1.5s",
+    "sim_dt_s": 1.5,
+    "controller_interval_s": 1.5,
+    "updates_per_step": 1,
+    "train_every_n_steps": 100,
+    "batch_size": 256,
+    "buffer_size_before_train": 516,
+    "warmup_wall_s": 3.9268614999891724,
+    "episode_return": -85.03597413703574,
+    "n_train_updates_reported": 5,
+    "device": "cuda",
+    "cuda_available": true,
+    "device_name": "NVIDIA GeForce RTX 5070",
+    "num_samples_q": 80,
+    "num_samples_pi": 40
+  },
+  "run_at_utc": "2026-06-30T11:06:04.455800+00:00"
+}

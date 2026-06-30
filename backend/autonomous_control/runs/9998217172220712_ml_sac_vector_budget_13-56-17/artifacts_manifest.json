@@ -1,0 +1,14 @@
+{
+  "episodes": [
+    {
+      "phase": "eval",
+      "episode_idx": 0,
+      "rank": 1,
+      "episode_return": 10.581257604467492,
+      "reward_plot": null,
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\videos\\eval_ep_0_rank1.mp4"
+    }
+  ],
+  "train_video_count": 0,
+  "eval_video_count": 1
+}

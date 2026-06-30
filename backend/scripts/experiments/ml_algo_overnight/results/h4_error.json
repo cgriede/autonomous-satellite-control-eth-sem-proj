@@ -1,0 +1,8 @@
+{
+  "run_at_utc": "2026-06-28T23:17:14.469504+00:00",
+  "experiment_id": "ml_algo_overnight",
+  "phase_id": "h4",
+  "error": "'SACAgent' object has no attribute 'eta_optimizer'",
+  "traceback": "Traceback (most recent call last):\n  File \"D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_algo_overnight\\run_overnight.py\", line 85, in _run_phase_safe\n    return fn(**kwargs)\n  File \"D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_algo_overnight\\_phases\\h4_sac.py\", line 37, in phase_h4_sac\n    kpis = run_hypothesis_phase(spec, show_progress=show_progress)\n  File \"D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_algo_overnight\\_runner_common.py\", line 306, in run_hypothesis_phase\n    if spec.agent_setup_hook is not None:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"D:\\code\\sem-proj-asc\\backend\\notebooks\\s01\\s01_utils\\training_workflow.py\", line 1450, in run_training_workflow\n    run_training(ctx)\n    ~~~~~~~~~~~~^^^^^\n  File \"D:\\code\\sem-proj-asc\\backend\\notebooks\\s01\\s01_utils\\training_workflow.py\", line 1328, in run_training\n    ctx.checkpoint_path = _save_checkpoint(ctx.setup.agent, checkpoint_path(ctx.setup.run_dir))\n                          ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\code\\sem-proj-asc\\backend\\notebooks\\s01\\s01_utils\\training_workflow.py\", line 1145, in _save_checkpoint\n    \"eta_optimizer\": agent.eta_optimizer.state_dict(),\n                     ^^^^^^^^^^^^^^^^^^^\nAttributeError: 'SACAgent' object has no attribute 'eta_optimizer'. Did you mean: 'pi_optimizer'?\n",
+  "verdict": "error"
+}

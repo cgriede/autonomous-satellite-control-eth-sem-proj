@@ -122,6 +122,7 @@ Priority when multiple surfaces match:
 - **Do not** mark `applied` without reading every `.cursor/skills/**/SKILL.md`.
 - **Do not** commit unless the user asked.
 - **Do not** treat pytest green or agent-regenerated artefacts as user approval to ship — see learnings.md `human-confirm-before-review-ship` and [minimal-feature-review](../minimal-feature-review/SKILL.md) Phase 5.
+- **Do not** promote experiment forks to production before pipeline closeout — see learnings.md `pipeline-closeout-before-promote`.
 - If a learning contradicts a skill bullet, **fix the skill** and note the conflict in the summary.
 
 ## Related skills

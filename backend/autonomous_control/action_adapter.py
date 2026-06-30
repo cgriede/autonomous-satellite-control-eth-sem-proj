@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
 from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
+
+AttitudeRequestMode = Literal["torque", "vector"]
+
 
 @dataclass(frozen=True)
 class AutonomousControllerAction:
@@ -16,6 +19,7 @@ class AutonomousControllerAction:
 
     wheel_torque_cmd: Any  # pint Quantity, N*m
     active_observation: bool
+
 
 POLICY_RAW_DIM = 2
 DEFAULT_SHUTTER_THRESHOLD = 0.5
@@ -72,8 +76,23 @@ def policy_output_to_gym_action(
     *,
     tau_limit: Any | None = None,
     active_threshold: float = DEFAULT_SHUTTER_THRESHOLD,
+    attitude_request_mode: AttitudeRequestMode = "torque",
 ) -> tuple[AutonomousControllerAction, np.ndarray]:
     """Parse policy output and return controller action plus stored gym action vector."""
+    if raw.shape != (POLICY_RAW_DIM,):
+        raise ValueError(f"Expected raw shape ({POLICY_RAW_DIM},), got {raw.shape}.")
+
+    if attitude_request_mode == "vector":
+        u = float(np.clip(raw[0], -1.0, 1.0))
+        shutter_gym = float(np.clip(raw[1], -1.0, 1.0))
+        stored = np.array([u, shutter_gym], dtype=np.float32)
+        active = shutter_cmd_from_gym(shutter_gym, threshold=active_threshold)
+        placeholder = AutonomousControllerAction(
+            wheel_torque_cmd=0.0 * ureg.N * ureg.m,
+            active_observation=active,
+        )
+        return placeholder, stored
+
     if tau_limit is None:
         tau_limit = REACTION_WHEEL_MAX_TORQUE
     parsed = raw_policy_to_action(
@@ -86,6 +105,7 @@ def policy_output_to_gym_action(
 
 
 __all__ = [
+    "AttitudeRequestMode",
     "AutonomousControllerAction",
     "DEFAULT_SHUTTER_THRESHOLD",
     "POLICY_RAW_DIM",

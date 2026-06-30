@@ -22,10 +22,10 @@ Output includes **top 7 consumers** by total wall time.
 
 ## Run (repo root, PowerShell)
 
-Documented in `.cursor/skills/performance-optimization/SKILL.md` and `python-runtime-environment` (env: **ASC**).
+Documented in `.cursor/skills/performance-optimization/SKILL.md` and `python-runtime-environment` (env: **auto-sat**).
 
 ```powershell
-conda activate ASC
+conda activate auto-sat
 python backend/scripts/experiments/sim_timing/run_profile.py
 python backend/scripts/experiments/sim_timing/run_profile.py --scenario high_cloud
 python backend/scripts/experiments/sim_timing/run_profile.py --scenario high_cloud --with-render

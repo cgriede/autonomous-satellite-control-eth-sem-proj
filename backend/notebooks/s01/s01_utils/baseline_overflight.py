@@ -12,6 +12,7 @@ from typing import Any
 from environment_definition.constants.MISSION import LON_GLOBAL, ObservationTargetArea
 from environment_definition.constants.SATELLITE import MAX_PRIMARY_CAPTURES_PER_ORBIT
 from environment_definition.constants.SIMULATION import (
+    AttitudeRequestMode,
     Cloud,
     GeodeticLonLat,
     OBSERVATION_TARGET,
@@ -31,6 +32,8 @@ from simulation.attitude_controller import (
     target_boresight_rate_rad_s,
     target_pointing_safe_for_engage,
 )
+from simulation.capture_target import dominant_capture_target_index
+from simulation.obc_pointing_request import baseline_omega_target_rad_s
 from simulation.state_types import SimulationStateSeries, SimulationTimestepState
 from simulation.stepper_factory import build_stepper
 from simulation.take_picture import TakePictureBudget, TakePictureConfig
@@ -58,6 +61,37 @@ BASELINE_MISSION_SEED = 0
 BASELINE_LEAD_MARGIN_DEG = 20.0
 DEFAULT_TRACKING_THRESHOLD_DEG = 15.0
 MIN_CAPTURE_QUALITY = 0.25
+
+_DEBUG_LOG_PATH = Path(__file__).resolve().parents[4] / "debug-3904c6.log"
+
+
+def _dbg3904c6(
+    *,
+    hypothesis_id: str,
+    location: str,
+    message: str,
+    data: dict[str, Any],
+    run_id: str = "baseline",
+) -> None:
+    # region agent log
+    import json
+    import time
+
+    payload = {
+        "sessionId": "3904c6",
+        "runId": run_id,
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data,
+        "timestamp": int(time.time() * 1000),
+    }
+    try:
+        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload) + "\n")
+    except OSError:
+        pass
+    # endregion
 
 
 # Baseline cloud formation: rainforest-style clouds seeded along the target-grid corridor
@@ -520,17 +554,21 @@ class SequentialTargetBaselinePolicy:
         omega_orbit_rad_s: float,
         sat_inertia: Any,
         tau_max_nm: float,
+        skip_torque_request: bool = False,
     ) -> BaselinePolicyAction:
-        torque_request_nm = self.compute_torque_request_nm(
-            state,
-            sat_pos_xy_km=sat_pos_xy_km,
-            omega_orbit_rad_s=omega_orbit_rad_s,
-            sat_inertia=sat_inertia,
-            tau_max_nm=tau_max_nm,
-        )
+        if skip_torque_request:
+            torque_request_nm = 0.0
+        else:
+            torque_request_nm = self.compute_torque_request_nm(
+                state,
+                sat_pos_xy_km=sat_pos_xy_km,
+                omega_orbit_rad_s=omega_orbit_rad_s,
+                sat_inertia=sat_inertia,
+                tau_max_nm=tau_max_nm,
+            )
         take_picture = False
+        idx = int(obs.active_target_index)
         if obs.pointing_phase == "engage":
-            idx = int(obs.active_target_index)
             if idx >= self.n_targets or idx in self._shuttered:
                 pass
             else:
@@ -541,35 +579,57 @@ class SequentialTargetBaselinePolicy:
                 track_offset = float(obs.sat_track_offset_deg)
                 in_band = self._active_target_track_overlap(track_offset)
                 past_trailing = self._past_trailing_edge(track_offset)
+                locked = tracking_err <= threshold_rad
+                quality_ok = np.isfinite(quality) and quality >= MIN_CAPTURE_QUALITY
                 if in_band or past_trailing:
-                    locked = tracking_err <= threshold_rad
-                    quality_ok = np.isfinite(quality) and quality >= MIN_CAPTURE_QUALITY
-                    if locked or quality_ok or past_trailing:
-                        self._shuttered.add(idx)
-                        self.cmd_steps.append(int(step_idx))
-                        self._capture_i += 1
-                        next_idx = (
-                            int(self.capture_targets[self._capture_i])
-                            if self._capture_i < len(self.capture_targets)
-                            else self.n_targets
-                        )
-                        self.active_target_index = next_idx
-                        if next_idx < self.n_targets and (
-                            past_trailing
-                            or self._flown_over_target(idx, track_offset)
+                    should_shutter = locked or quality_ok or past_trailing
+                else:
+                    should_shutter = False
+                if should_shutter:
+                    dominant = dominant_capture_target_index(
+                        np.asarray(state.camera_observation_line_codes, dtype=np.int8)
+                    )
+                    _dbg3904c6(
+                        hypothesis_id="H1-H2",
+                        location="baseline_overflight.py:act",
+                        message="baseline_shutter",
+                        data={
+                            "mode": "vector" if skip_torque_request else "torque",
+                            "step_idx": int(step_idx),
+                            "target_idx": idx,
+                            "tracking_err_deg": float(np.rad2deg(tracking_err)),
+                            "quality": quality,
+                            "dominant": dominant,
+                            "locked": locked,
+                            "in_band": in_band,
+                            "past_trailing": past_trailing,
+                        },
+                    )
+                    self._shuttered.add(idx)
+                    self.cmd_steps.append(int(step_idx))
+                    self._capture_i += 1
+                    next_idx = (
+                        int(self.capture_targets[self._capture_i])
+                        if self._capture_i < len(self.capture_targets)
+                        else self.n_targets
+                    )
+                    self.active_target_index = next_idx
+                    if next_idx < self.n_targets and (
+                        past_trailing
+                        or self._flown_over_target(idx, track_offset)
+                    ):
+                        if self._safe_to_point_at_active(
+                            state,
+                            sat_pos_xy_km=sat_pos_xy_km,
+                            sat_inertia=sat_inertia,
+                            tau_max_nm=tau_max_nm,
                         ):
-                            if self._safe_to_point_at_active(
-                                state,
-                                sat_pos_xy_km=sat_pos_xy_km,
-                                sat_inertia=sat_inertia,
-                                tau_max_nm=tau_max_nm,
-                            ):
-                                self.pointing_phase = "engage"
-                            else:
-                                self.pointing_phase = "nadir"
+                            self.pointing_phase = "engage"
                         else:
                             self.pointing_phase = "nadir"
-                        take_picture = True
+                    else:
+                        self.pointing_phase = "nadir"
+                    take_picture = True
         return BaselinePolicyAction(
             torque_request_nm=float(torque_request_nm),
             take_picture=take_picture,
@@ -582,6 +642,7 @@ class BaselineOverflightRollout:
     policy: SequentialTargetBaselinePolicy
     cmd_steps: tuple[int, ...]
     n_safety_events: int
+    attitude_request_mode: AttitudeRequestMode = "torque"
 
 
 @dataclass(frozen=True)
@@ -662,15 +723,23 @@ def run_baseline_overflight_rollout(
     *,
     simulation_config: SimulationConfig | None = None,
     show_progress: bool = True,
+    capture_targets: tuple[int, ...] | None = None,
+    warmup_episode_idx: int = 0,
+    targets_per_episode: int | None = None,
+    attitude_request_mode: AttitudeRequestMode = "torque",
 ) -> BaselineOverflightRollout:
     from autonomous_control.baseline_overflight_step import (
         apply_baseline_shutter_if_requested,
-        baseline_overflight_controller_tick,
+        baseline_overflight_controller_tick_for_mode,
     )
     from tqdm import tqdm
 
+    mode = str(attitude_request_mode).lower()
+    if mode not in ("torque", "vector"):
+        raise ValueError(f"Unsupported attitude_request_mode: {attitude_request_mode!r}")
     sim_cfg = simulation_config or training_episode_simulation_config(
         torque_policy_label="sequential_target_baseline",
+        attitude_request_mode=mode,  # type: ignore[arg-type]
     )
     resolved = setup.resolve(require_camera=True)
     earth_radius_km = float(resolved.earth_radius.to(ureg.km).magnitude)
@@ -678,8 +747,27 @@ def run_baseline_overflight_rollout(
     tau_max_nm = float(
         resolved.satellite.reaction_wheel_max_torque.to(ureg.N * ureg.m).magnitude
     )
-    policy = build_overflight_policy(setup, earth_radius_km=earth_radius_km)
+    if capture_targets is None:
+        n_targets = len(setup.target_areas or ())
+        per = (
+            int(targets_per_episode)
+            if targets_per_episode is not None
+            else int(MAX_PRIMARY_CAPTURES_PER_ORBIT)
+        )
+        capture_targets = warmup_capture_targets(
+            int(warmup_episode_idx),
+            n_targets=n_targets,
+            targets_per_episode=per,
+        )
+    policy = build_overflight_policy(
+        setup,
+        earth_radius_km=earth_radius_km,
+        capture_targets=capture_targets,
+    )
     stepper = build_stepper(resolved, simulation_config=sim_cfg)
+    if mode == "vector":
+        ctrl0 = stepper.current_timestep_state()
+        stepper.reset_vector_pointing_episode(theta_orbit_rad=float(ctrl0.theta_orbit_rad))
     omega_orbit_rad_s = float(stepper._omega_orbit_rad_s)
     budget = TakePictureBudget.from_config(TakePictureConfig())
     total_steps = max(0, int(stepper._t_s.shape[0]) - 1)
@@ -687,9 +775,13 @@ def run_baseline_overflight_rollout(
     view_anchors = np.full((n_frames, 2), np.nan, dtype=float)
     active_target_idx = np.full(n_frames, -1, dtype=np.int32)
     take_picture_cmd = np.zeros(n_frames, dtype=bool)
-    current_torque_nm = 0.0
+    stored_action = np.array([0.0, -1.0], dtype=np.float32)
     take_picture_this_step = False
-    iterator = tqdm(total=total_steps, desc="baseline overflight", disable=not show_progress)
+    iterator = tqdm(
+        total=total_steps,
+        desc=f"baseline overflight ({mode})",
+        disable=not show_progress,
+    )
     try:
         while not stepper.done:
             state = stepper.current_timestep_state()
@@ -697,17 +789,19 @@ def run_baseline_overflight_rollout(
             k = int(state.step_idx)
             take_picture_this_step = False
             if stepper.should_update_controller():
-                _action, _gym, take_picture_this_step = baseline_overflight_controller_tick(
-                    policy=policy,
-                    stepper=stepper,
-                    state=state,
-                    sat_pos_xy_km=sat_xy,
-                    omega_orbit_rad_s=omega_orbit_rad_s,
-                    sat_inertia=sat_inertia,
-                    tau_max_nm=tau_max_nm,
-                    budget=budget,
+                _action, stored_action, take_picture_this_step = (
+                    baseline_overflight_controller_tick_for_mode(
+                        attitude_request_mode=mode,  # type: ignore[arg-type]
+                        policy=policy,
+                        stepper=stepper,
+                        state=state,
+                        sat_pos_xy_km=sat_xy,
+                        omega_orbit_rad_s=omega_orbit_rad_s,
+                        sat_inertia=sat_inertia,
+                        tau_max_nm=tau_max_nm,
+                        budget=budget,
+                    )
                 )
-                current_torque_nm = float(_action.torque_request_nm)
             if policy.pointing_phase == "engage":
                 ax, ay = policy.active_anchor()
                 view_anchors[k] = (ax, ay)
@@ -715,7 +809,26 @@ def run_baseline_overflight_rollout(
             else:
                 view_anchors[k] = _nadir_ground_xy_km(sat_xy, earth_radius_km=earth_radius_km)
                 active_target_idx[k] = -1
-            stepper.step(wheel_torque_cmd_nm=current_torque_nm)
+            if mode == "vector":
+                pointing_u = float(stored_action[0])
+                omega_target = baseline_omega_target_rad_s(
+                    policy,
+                    state,
+                    sat_pos_xy_km=sat_xy,
+                    omega_orbit_rad_s=omega_orbit_rad_s,
+                )
+                wheel_nm = stepper.resolve_vector_u_to_torque_nm(
+                    u=pointing_u,
+                    theta_orbit_rad=float(state.theta_orbit_rad),
+                    sat_pos_xy_km=sat_xy,
+                    body_z_rad=float(state.body_z_angle_rad),
+                    omega_sat_rad_s=float(state.omega_sat_rad_s),
+                    omega_target_rad_s=omega_target,
+                )
+            else:
+                pointing_u = None
+                wheel_nm = float(stored_action[0]) * tau_max_nm
+            stepper.step(wheel_torque_cmd_nm=wheel_nm, agent_pointing_cmd_u=pointing_u)
             cmd_step = apply_baseline_shutter_if_requested(
                 stepper=stepper,
                 take_picture_cmd=take_picture_this_step,
@@ -738,6 +851,7 @@ def run_baseline_overflight_rollout(
         policy=policy,
         cmd_steps=tuple(policy.cmd_steps),
         n_safety_events=len(stepper.attitude_safety_events),
+        attitude_request_mode=mode,  # type: ignore[arg-type]
     )
 
 

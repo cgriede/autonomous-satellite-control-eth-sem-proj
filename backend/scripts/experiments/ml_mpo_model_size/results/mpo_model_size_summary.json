@@ -1,0 +1,44 @@
+{
+  "run_at_utc": "2026-06-30T02:44:34.694155+00:00",
+  "experiment_id": "ml_mpo_model_size",
+  "ref_run_id": "ml_overnight_h1a_mpo_sparse_23-20-15",
+  "train_episodes": 50,
+  "reward_mode": "sparse",
+  "shared_mpo": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "actor_dropout": 0.0
+  },
+  "arms": {
+    "mpo_s": {
+      "size": "S",
+      "reward_mode": "sparse",
+      "learning_mode": true,
+      "train_return_best": -51.60000000000046,
+      "eval_return_mean": -51.60000000000046,
+      "num_units_actor": 90,
+      "num_units_critic": 140,
+      "wall_s": 1980.8809866999945
+    },
+    "mpo_m": {
+      "size": "M",
+      "reward_mode": "sparse",
+      "learning_mode": true,
+      "train_return_best": -51.60000000000046,
+      "eval_return_mean": -51.60000000000046,
+      "num_units_actor": 140,
+      "num_units_critic": 256,
+      "wall_s": 2010.7103454000026
+    },
+    "mpo_l": {
+      "size": "L",
+      "reward_mode": "sparse",
+      "learning_mode": true,
+      "train_return_best": -51.60000000000046,
+      "eval_return_mean": -51.60000000000046,
+      "num_units_actor": 256,
+      "num_units_critic": 512,
+      "wall_s": 2175.929967899996
+    }
+  }
+}

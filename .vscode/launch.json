@@ -75,7 +75,7 @@
       "justMyCode": true,
       "args": [
         "--checkpoint",
-        "${workspaceFolder}/backend/autonomous_control/models/REPLACE_WITH_RUN_ID/agent.pt",
+        "${workspaceFolder}/backend/autonomous_control/runs/REPLACE_WITH_RUN_ID/agent.pt",
         "--eval-episodes",
         "5"
       ],

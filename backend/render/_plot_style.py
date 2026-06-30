@@ -1,5 +1,10 @@
 """Shared styling for the dashboard time-series plots (mission-control dark theme)."""
 
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
 import matplotlib.pyplot as plt
 
 from environment_definition.constants import RENDER
@@ -48,3 +53,36 @@ def style_dashboard_legend(ax: plt.Axes, **kwargs) -> None:
     )
     if legend is not None:
         legend.get_frame().set_linewidth(0.8)
+
+
+def style_dashboard_figure(
+    fig: plt.Figure,
+    *,
+    title: str | None = None,
+    title_y: float = 0.995,
+    title_fontsize: int = 12,
+) -> None:
+    """Black figure background and muted suptitle for dashboard-style exports."""
+    fig.patch.set_facecolor(RENDER.space_background)
+    if title is not None:
+        fig.suptitle(
+            title,
+            color=RENDER.text_muted,
+            fontsize=title_fontsize,
+            y=title_y,
+        )
+
+
+def set_dashboard_xlabel(ax: plt.Axes, text: str) -> None:
+    ax.set_xlabel(text, color=RENDER.text_muted, fontsize=RENDER.plot_label_fontsize)
+
+
+def save_dashboard_figure(fig: plt.Figure, path: Path | str, *, dpi: int = 120, **kwargs: Any) -> None:
+    """Save preserving dark facecolor (avoids white margins in PNG)."""
+    fig.savefig(
+        path,
+        dpi=dpi,
+        facecolor=fig.get_facecolor(),
+        bbox_inches="tight",
+        **kwargs,
+    )

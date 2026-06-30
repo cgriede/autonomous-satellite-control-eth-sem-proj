@@ -67,6 +67,10 @@ def write_hypothesis_result(path: Path, **payload: Any) -> None:
 
 
 def _json_default(obj: Any) -> Any:
+    from dataclasses import asdict, is_dataclass
+
+    if is_dataclass(obj):
+        return asdict(obj)
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, (np.floating, np.integer)):
@@ -214,6 +218,7 @@ def export_phase_videos(
     train_results: list[EpisodeResult],
     eval_results: list[EpisodeResult],
 ) -> list[dict[str, Any]]:
+    """Legacy replay-based export; prefer workflow ``artifact_manifest`` (stored series)."""
     videos_dir = ensure_run_layout(setup.run_dir)["videos"]
     exported: list[dict[str, Any]] = []
     runner = setup.runner
@@ -232,7 +237,7 @@ def export_phase_videos(
             episode_idx=ep_idx,
             collect_states=True,
             train_updates_per_step=0,
-            np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, phase_id, "train_replay", ep_idx)),
+            np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, f"{phase_id}/train_replay", ep_idx)),
         )
         out_path = videos_dir / f"train_ep_{ep_idx}_rank{rank}.mp4"
         export_training_episode_video_sync(replay.simulation_series, out_path)
@@ -248,7 +253,7 @@ def export_phase_videos(
             collect_states=True,
             train_updates_per_step=0,
             early_stop_on_budget_exhausted=False,
-            np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, phase_id, "eval_replay", ep_idx)),
+            np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, f"{phase_id}/eval_replay", ep_idx)),
         )
         out_path = videos_dir / f"eval_ep_{ep_idx}.mp4"
         export_training_episode_video_sync(replay.simulation_series, out_path)
@@ -317,16 +322,16 @@ def run_hypothesis_phase(spec: PhaseSpec, *, show_progress: bool = False) -> dic
         agent_kind=spec.agent_kind,
     )
 
-    videos: list[dict[str, Any]] = []
-    try:
-        videos = export_phase_videos(
-            setup,
-            phase_id=spec.phase_id,
-            train_results=workflow_result.train_results,
-            eval_results=workflow_result.eval_results,
-        )
-    except Exception as exc:
-        append_overnight_log(f"VIDEO WARN {spec.phase_id}: {exc}")
+    videos = [
+        {
+            "kind": entry["phase"],
+            "episode_idx": entry["episode_idx"],
+            "rank": entry.get("rank"),
+            "path": entry["video"],
+        }
+        for entry in workflow_result.artifact_manifest
+        if entry.get("video")
+    ]
 
     debug_eps = [
         _episode_debug_row(ep, episode_idx=i) for i, ep in enumerate(workflow_result.train_results)

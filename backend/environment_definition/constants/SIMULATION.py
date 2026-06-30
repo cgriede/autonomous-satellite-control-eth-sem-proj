@@ -85,6 +85,7 @@ class RenderMode(str, Enum):
 BuiltinTorquePolicy = Literal["baseline", "random", "coast"]
 TorqueCommandSource = Literal["builtin", "external"]
 ObcPointingMode = Literal["none", "nadir", "target"]
+AttitudeRequestMode = Literal["torque", "vector"]
 
 BASELINE_TORQUE_POLICIES: frozenset[str] = frozenset({"baseline", "random", "coast"})
 
@@ -134,18 +135,25 @@ class SimulationConfig:
     attitude_controller_enabled: bool = False
     # OBC body pointing: overrides agent torque with nadir or ground-target tracking PD.
     obc_pointing_mode: ObcPointingMode = "none"
+    # Agent dim0 semantics when torque_command_source="external" (vector OBC).
+    attitude_request_mode: AttitudeRequestMode = "torque"
 
 
 def training_episode_simulation_config(
     *,
     torque_policy_label: str | None = None,
+    attitude_request_mode: AttitudeRequestMode = "torque",
 ) -> SimulationConfig:
     """Headless external-policy config for MPO warmup/train/eval episodes."""
+    mode = str(attitude_request_mode).lower()
+    if mode not in ("torque", "vector"):
+        raise ValueError(f"Unsupported attitude_request_mode: {attitude_request_mode!r}")
     return SimulationConfig(
         render_mode=RenderMode.HEADLESS,
         torque_command_source="external",
         torque_policy_label=torque_policy_label,
         attitude_controller_enabled=True,
+        attitude_request_mode=mode,  # type: ignore[arg-type]
     )
 
 

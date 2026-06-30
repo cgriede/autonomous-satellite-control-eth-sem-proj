@@ -1,0 +1,27 @@
+{
+  "run_at_utc": "2026-06-29T22:48:21.344870+00:00",
+  "phase": "smoke",
+  "experiment_id": "ml_agent_reference_pointing",
+  "passed": true,
+  "arm_id": "ref0",
+  "attitude_request_mode": "torque",
+  "warmup_return": 72.70010409874544,
+  "warmup_steps": 516,
+  "train_return": -68.40987697266239,
+  "train_steps": 516,
+  "buffer_size": 1032,
+  "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217226733828_ml_ref_smoke_22-47-45",
+  "config_experiment": {
+    "agent_kind": "sac",
+    "arm_id": "ref0",
+    "attitude_request_mode": "torque",
+    "dt_profile": {
+      "controller_interval_s": 1.5,
+      "label": "dt_1.5s",
+      "sim_dt_s": 1.5
+    },
+    "experiment_id": "ml_agent_reference_pointing",
+    "hypothesis_id": "agent_ref_torque_control",
+    "reward_mode": "sparse"
+  }
+}

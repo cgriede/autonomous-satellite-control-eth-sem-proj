@@ -1,0 +1,57 @@
+{
+  "action_diagnostics": {
+    "eval": {
+      "episodes": 2,
+      "mean_abs_omega_rad_s_at_shutter": 0.02927098872112466,
+      "phase": "eval",
+      "shutter_applied_epsilon": 1.0,
+      "shutter_cmd_count": 1936,
+      "shutter_meaningful_fraction": 0.0,
+      "torque_norm_mean": 1.0,
+      "torque_norm_std": 0.0,
+      "torque_saturated_fraction": 1.0
+    },
+    "train": {
+      "episodes": 7,
+      "mean_abs_omega_rad_s_at_shutter": 0.029213370964940207,
+      "phase": "train",
+      "shutter_applied_epsilon": 1.0,
+      "shutter_cmd_count": 6776,
+      "shutter_meaningful_fraction": 0.0,
+      "torque_norm_mean": 0.9987644865519808,
+      "torque_norm_std": 0.15211971259775917,
+      "torque_saturated_fraction": 0.9973435655253837
+    }
+  },
+  "best_eval_episode_idx": 0,
+  "eval": {
+    "avg_reward_mean": -0.12583979328164857,
+    "episodes": 2.0,
+    "return_best": -243.49999999999,
+    "return_mean": -243.49999999999,
+    "return_std": 0.0
+  },
+  "last_train_learning": {
+    "eta_mean": 1.0,
+    "kl_mean": 347840.59923811984,
+    "kl_mu_mean": 173920.29961905992,
+    "kl_sigma_mean": 173920.29961905992,
+    "n_train_updates": 968,
+    "pi_loss_mean": -0.869833723387935,
+    "q_loss_mean": 861.8838635909656
+  },
+  "train": {
+    "avg_reward_mean": -0.1256560691728122,
+    "episodes": 7.0,
+    "return_best": -241.01145775642388,
+    "return_mean": -243.14449384939158,
+    "return_std": 0.8708083384518227
+  },
+  "warmup": {
+    "avg_reward_mean": 0.23710226913846394,
+    "episodes": 5.0,
+    "return_best": 533.2279904263077,
+    "return_mean": 458.79289078292777,
+    "return_std": 86.73541108569738
+  }
+}

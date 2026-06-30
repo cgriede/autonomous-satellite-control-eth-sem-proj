@@ -5,7 +5,7 @@ Extract PNG frames from an MP4 for agent vision inspection.
 Outputs land under ``.cursor/video_frame_inspect/data/<run_id>/`` with a manifest
 the agent can read, then open individual PNGs via the Read tool.
 
-Usage (conda env ASC)::
+Usage (conda env auto-sat)::
 
     python .cursor/tools/video_frame_inspect/extract_frames.py PATH/to/video.mp4 --count 6
     python .cursor/tools/video_frame_inspect/extract_frames.py video.mp4 --sim-steps 0,1148,2522 --sim-n-steps 2523

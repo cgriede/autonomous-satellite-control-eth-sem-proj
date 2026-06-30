@@ -1,0 +1,31 @@
+{
+  "run_at_utc": "2026-06-30T11:29:48.174581+00:00",
+  "experiment_id": "ml_agent_reference_pointing",
+  "dt_profile": {
+    "aborted": false,
+    "sim_dt_s": 1.5,
+    "controller_interval_s": 1.5,
+    "effective_controller_interval_s": 1.5,
+    "label": "dt_1.5s",
+    "train_episodes": 50,
+    "source": "fixed_reference"
+  },
+  "arms": {
+    "ref0": {
+      "verdict": "supported",
+      "attitude_request_mode": "torque",
+      "learning_mode": true,
+      "eval_return_mean": -11.128067644895502,
+      "reference_clamp_count": 0,
+      "wall_s": 1399.9365129999933
+    },
+    "ref1": {
+      "verdict": "supported",
+      "attitude_request_mode": "vector",
+      "learning_mode": true,
+      "eval_return_mean": -24.08097393950901,
+      "reference_clamp_count": 0,
+      "wall_s": 1430.9405412000197
+    }
+  }
+}

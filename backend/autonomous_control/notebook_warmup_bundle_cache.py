@@ -18,7 +18,7 @@ import numpy as np
 
 from environment_definition.constants import SIMULATION
 from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
-from paths import MODELS_ROOT
+from paths import RUNS_ROOT
 
 from autonomous_control.config.randomness import derive_seed
 from autonomous_control.feature_selection import ControllerFeatureConfig
@@ -31,7 +31,7 @@ _META_FILENAME = "meta.json"
 
 
 def default_notebook_warmup_bundle_root() -> Path:
-    out = MODELS_ROOT / "cached_warmup" / "nb_bundle"
+    out = RUNS_ROOT / "cached_warmup" / "nb_bundle"
     out.mkdir(parents=True, exist_ok=True)
     return out
 
@@ -66,6 +66,7 @@ def encode_reward_config_snapshot(
         "enable_distance_reward": bool(cfg.enable_distance_reward),
         "enable_image_quality_capture": bool(cfg.enable_image_quality_capture),
         "enable_shutter_waste_penalty": bool(cfg.enable_shutter_waste_penalty),
+        "enable_budget_exhausted_shutter_penalty": bool(cfg.enable_budget_exhausted_shutter_penalty),
         "enable_torque_effort": bool(cfg.enable_torque_effort),
         "k_shutter_waste": float(cfg.k_shutter_waste),
         "k_torque_effort": float(cfg.k_torque_effort),
@@ -91,8 +92,10 @@ def warmup_fingerprint_payload(
     secondary_camera_observation_line_n_bins: int = 0,
     mission_profile: str = "generic",
     warmup_targets_per_episode: int = 0,
+    attitude_request_mode: str = "torque",
 ) -> dict[str, Any]:
     return {
+        "attitude_request_mode": str(attitude_request_mode).lower(),
         "base_seed": int(base_seed),
         "camera_observation_line_n_bins": int(camera_observation_line_n_bins),
         "episode_count": int(episode_count),
@@ -164,10 +167,20 @@ def preload_warmup_buffer_from_episodes(agent: Any, episodes: list[EpisodeResult
         if len(ep.states) != n + 1:
             raise ValueError(f"len(states) {len(ep.states)} != steps+1 {n + 1}.")
         interval = max(1, int(getattr(ep, "effective_controller_update_interval_steps", 1)))
+        attitude_mode = str(
+            getattr(series.metadata, "attitude_request_mode", "torque") or "torque"
+        ).lower()
         agent_cmds = np.asarray(
             series.wheel_torque_agent_cmd_nm if series.wheel_torque_agent_cmd_nm is not None else series.wheel_torque_cmd_nm,
             dtype=float,
         )
+        pointing_u = None
+        if attitude_mode == "vector":
+            if series.agent_pointing_cmd_u is None:
+                raise ValueError(
+                    "Vector-mode warmup preload requires agent_pointing_cmd_u on SimulationStateSeries."
+                )
+            pointing_u = np.asarray(series.agent_pointing_cmd_u, dtype=float)
         shutter_steps = set(int(s) for s in (series.metadata.take_picture_cmd_steps or ()))
         for i in range(n):
             if i % interval != 0:
@@ -176,13 +189,23 @@ def preload_warmup_buffer_from_episodes(agent: Any, episodes: list[EpisodeResult
             next_obs = ep.states[i + 1]
             reward = float(series.simulation_reward[i + 1])
             step_k = i + 1
-            torque_nm = float(agent_cmds[step_k])
             if action_size == 1:
+                if attitude_mode == "vector":
+                    raise ValueError("Vector-mode warmup preload requires action_size=2.")
+                torque_nm = float(agent_cmds[step_k])
                 action = np.asarray([float(np.clip(torque_nm / tau_max_nm, -1.0, 1.0))], dtype=np.float32)
             elif action_size == 2:
-                torque_norm = float(np.clip(torque_nm / tau_max_nm, -1.0, 1.0))
+                if attitude_mode == "vector":
+                    dim0 = float(pointing_u[step_k])  # type: ignore[index]
+                    if not np.isfinite(dim0):
+                        raise ValueError(
+                            f"Missing agent_pointing_cmd_u at step {step_k} for vector warmup preload."
+                        )
+                else:
+                    torque_nm = float(agent_cmds[step_k])
+                    dim0 = float(np.clip(torque_nm / tau_max_nm, -1.0, 1.0))
                 shutter_gym = 1.0 if step_k in shutter_steps else -1.0
-                action = np.asarray([torque_norm, shutter_gym], dtype=np.float32)
+                action = np.asarray([dim0, shutter_gym], dtype=np.float32)
             else:
                 raise ValueError(f"Unsupported action_size for warmup preload: {action_size}")
             done = i == n - 1

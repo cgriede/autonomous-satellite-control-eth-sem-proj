@@ -16,17 +16,20 @@ if str(EXPERIMENT_ROOT) not in sys.path:
 from _runner_common import (
     RESULTS_DIR,
     bench_video_export,
-    build_frozen_simulation_series,
+    load_frozen_series,
     write_hypothesis_result,
 )
+from fixtures._series_io import read_manifest
 
 RESULTS_PATH = RESULTS_DIR / "baseline.json"
 PREVIEW_PATH = RESULTS_DIR / "baseline_preview.mp4"
 
 
 def main() -> None:
-    setup, series = build_frozen_simulation_series()
-    export_kpi = bench_video_export(series, PREVIEW_PATH)
+    series = load_frozen_series("high_cloud")
+    manifest = read_manifest()
+    entry = (manifest.get("fixtures") or {}).get("high_cloud") or {}
+    export_kpi = bench_video_export(series, PREVIEW_PATH, fixture_id="high_cloud")
 
     write_hypothesis_result(
         RESULTS_PATH,
@@ -34,15 +37,18 @@ def main() -> None:
         hypothesis_id="shared_baseline",
         phase="baseline",
         frozen_input={
-            "description": "Production render export (full dashboard, all frames)",
+            "description": "Production render export (frozen high_cloud fixture, no sim)",
             "scenario": "high_cloud_notebook",
+            "fixture_id": "high_cloud",
             "seed": 0,
             "tunables": {
                 "export_dpi": 120,
                 "export_fps": 20,
                 "export_speed_multiplier": 30.0,
+                "export_pixel_width": 1280,
+                "export_pixel_height": 720,
             },
-            "n_items": len(setup.clouds),
+            "n_items": entry.get("n_clouds"),
         },
         control=None,
         treatment=None,
@@ -55,7 +61,7 @@ def main() -> None:
             "within_noise": True,
         },
         parity={"required": False, "passed": True, "notes": "production reference"},
-        instrumentation={"hooks_valid": True, "notes": "no patch"},
+        instrumentation={"hooks_valid": True, "notes": "frozen fixture loader"},
         debug_examples={"video_probe": export_kpi["video"]},
         files_changed=[],
         verdict="baseline",

@@ -2,66 +2,77 @@
 
 Isolated hypothesis cycle for **MP4 export wall time** (matplotlib draw dominates; encode is ~3%).
 
-Production `backend/render/*` stays read-only until promotion.
+Production `backend/render/*` includes parallel export (`video_export_parallel.py`, default 8 workers).
 
-## Profile context
+## Frozen fixtures (no sim in iteration)
 
-Prior `sim_timing --with-render` on `high_cloud` (~63 clouds):
+| Fixture ID | File | Role |
+|------------|------|------|
+| `gate` | `fixtures/gate_minimal.pkl.gz` | CI smoke (~5 sim steps) |
+| `training_sparse` | `fixtures/training_sparse_episode.pkl.gz` | ML-primary benchmark |
+| `high_cloud` | `fixtures/high_cloud_notebook.pkl.gz` | Regression / many-cloud |
 
-| Phase | Wall time |
-|-------|-----------|
-| Sim loop | ~10 s |
-| Export (`save_one_pass_video_30x`) | ~82 s |
-| Per-frame draw | ~83 ms |
-| Per-frame OpenCV write | ~2.5 ms |
+**Bake once** (only entry point that runs simulation):
 
-## Frozen fixture
+```powershell
+conda activate auto-sat
+python backend/scripts/experiments/video_export/bake_series_fixtures.py --all
+```
 
-| Fixture | Source |
-|---------|--------|
-| `high_cloud_notebook` | `sensor_ray_batch/_frozen_baseline.build_high_cloud_setup()` |
+**Bench loop** (pickle load + export only):
 
-Same coast episode as notebook `02-clouds.ipynb` export cell.
+```powershell
+conda activate auto-sat
+python backend/scripts/experiments/video_export/run_bench.py --fixture gate
+python backend/scripts/experiments/video_export/run_bench.py --fixture training_sparse
+python backend/scripts/experiments/video_export/run_bench.py --fixture high_cloud --repeat 3
+```
+
+Parallel export patch:
+
+```powershell
+python backend/scripts/experiments/video_export/run_bench.py --fixture training_sparse --workers 8 --export-patch c_parallel_frames._export_fork:patched_save
+```
 
 ## Hypotheses
 
-| ID | Branch | Change | Speed gate |
-|----|--------|--------|------------|
-| A | `a_frame_stride/` | `frame_stride=2` (half matplotlib draws) | ≥1.5× export speedup |
-| B | `b_lite_layout/` | Hide telemetry / reward / torque / secondary cam strip | ≥1.2× export speedup |
+| ID | Branch | Change |
+|----|--------|--------|
+| A | `a_frame_stride/` | `frame_stride=2` |
+| B | `b_lite_layout/` | Lite dashboard panels |
+| C | `c_parallel_frames/` | Parallel CPU draw + NVENC encode lane |
+| D | `d_export_resolution/` | Explicit 1280×720 export |
 
-Parity for export: **H.264 output** required; visual/layout differences documented per branch.
-
-## Run commands (repo root, PowerShell)
+## Baseline + hypothesis runners
 
 ```powershell
-conda activate ASC; python backend/scripts/experiments/video_export/run_baseline.py
-conda activate ASC; python backend/scripts/experiments/video_export/a_frame_stride/run_a1.py
-conda activate ASC; python backend/scripts/experiments/video_export/b_lite_layout/run_b1.py
+python backend/scripts/experiments/video_export/run_baseline.py
+python backend/scripts/experiments/video_export/a_frame_stride/run_a1.py
+python backend/scripts/experiments/video_export/b_lite_layout/run_b1.py
+python backend/scripts/experiments/video_export/c_parallel_frames/run_c1.py
+python backend/scripts/experiments/video_export/d_export_resolution/run_d1.py
+python backend/scripts/experiments/video_export/run_training_episode_video_gate.py
 ```
-
-Each export run is ~80–90 s on the reference machine (862–950 frames @ ~10 fps draw).
-
-## Layout
-
-| Path | Purpose |
-|------|---------|
-| `_frozen_baseline.py` | High-cloud setup + sim config |
-| `_runner_common.py` | Export bench, codec probe, JSON contract |
-| `_export_fork.py` | Forked save loop (stride param) |
-| `run_baseline.py` | Production export baseline |
-| `a_frame_stride/` | Hypothesis A |
-| `b_lite_layout/` | Hypothesis B |
-| `results/` | baseline.json, analysis cards, preview MP4s |
 
 ## KPIs
 
 - `export_wall_s` — full `render_from_series(EXPORT)` wall time
 - `export_frames_per_s` — frames drawn / export_wall_s
 - `n_frames_drawn` — matplotlib draw count
-- `video.codec` — must include `h264` after re-encode
+- `peak_rss_mb` — process high-water mark (when available)
+- `video.width` / `video.height` — ffprobe (target 1280×720)
+- `video.codec` — must include `h264`
 
-## Related
+## Export resolution
 
-- [`sim_timing/README.md`](../sim_timing/README.md) — episode + optional `--with-render`
-- Notebook playback: `backend/utils/notebook/video.py` (`ensure_notebook_playable_mp4`, `file://` URI)
+- `RENDER.export_pixel_width` = 1280, `RENDER.export_pixel_height` = 720
+- `RENDER.export_workers` = 8 (parallel CPU draw; env `VIDEO_EXPORT_WORKERS` override)
+- Manifest: `fixtures/manifest.json` (SHA256 per fixture)
+
+## Tests
+
+```powershell
+conda activate auto-sat
+cd backend
+python -m pytest tests/test_video_export_fixtures.py -q
+```

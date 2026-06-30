@@ -11,7 +11,7 @@ In this workflow, verification means the real output that will be produced when 
 
 ## Phase 1 — Scope from backlog
 
-1. **Preflight** the live workbook: `python backend/scripts/backlog_xlsx.py check` (see [pm-backlog-review](../pm-backlog-review/SKILL.md) if missing). Read the row by `uid` from [`backlog.xlsx`](../../../backlog.xlsx) — not from `backlog.md` or plan todos alone.
+1. **Preflight** the live workbook: `python .cursor/tools/backlog/backlog_xlsx.py check` (see [pm-backlog-review](../pm-backlog-review/SKILL.md) if missing). Read the row by `uid` from [`backlog.xlsx`](../../../backlog.xlsx) — not from `backlog.md` or plan todos alone.
 2. Copy [.cursor/plans/00-initialized/DEFAULT_DEVELOPMENT_CYCLE.plan.md](../../plans/00-initialized/DEFAULT_DEVELOPMENT_CYCLE.plan.md) to a new file in `00-initialized/`. Rename with a short suffix.
 3. Fill section 0: problem, outcome, non-goals, backward compatibility, acceptance criteria.
 4. When scope is fuzzy, ask the questions required by [.cursor/rules/planning-clarifying-questions.mdc](../../rules/planning-clarifying-questions.mdc) before writing code.

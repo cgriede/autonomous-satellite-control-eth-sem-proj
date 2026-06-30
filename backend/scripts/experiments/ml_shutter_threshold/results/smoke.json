@@ -1,0 +1,9 @@
+{
+  "run_at_utc": "2026-06-29T10:54:44.954774+00:00",
+  "phase": "smoke",
+  "experiment_id": "ml_shutter_threshold",
+  "passed": true,
+  "warmup_return": 103.83553310995688,
+  "warmup_steps": 1935,
+  "buffer_size": 968
+}

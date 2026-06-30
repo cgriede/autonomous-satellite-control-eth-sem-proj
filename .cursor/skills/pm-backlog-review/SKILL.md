@@ -22,32 +22,32 @@ Use when capturing session outcomes into the **live backlog workbook**.
 Run before reading or editing backlog rows:
 
 ```powershell
-$env:PYTHONPATH = "backend"
-conda activate ASC
-python backend/scripts/backlog_xlsx.py check
+conda activate auto-sat
+python .cursor/tools/backlog/backlog_xlsx.py check
 ```
 
 ### If check fails
 
 | Failure | Action |
 |---------|--------|
-| `FileNotFoundError` (workbook missing) | **Ask the user** where the backlog `.xlsx` should live. Default in this repo: repo root `backlog.xlsx` via `ENV.PATHS.BACKLOG_XLSX`. Offer `python backend/scripts/backlog_xlsx.py init` only after they confirm path (or accept default). |
+| `FileNotFoundError` (workbook missing) | **Ask the user** where the backlog `.xlsx` should live. Default: repo root `backlog.xlsx`. Offer `python .cursor/tools/backlog/backlog_xlsx.py init` only after they confirm path (or accept default). |
 | `ModuleNotFoundError: openpyxl` | `pip install openpyxl` (already in `requirements.txt`). |
-| `ModuleNotFoundError: ENV` | Workbook infra missing — see `backend/ENV/PATHS.py` and `backend/scripts/backlog_xlsx.py`. |
-| User gave a **custom path** | Update `backend/ENV/PATHS.py` (`BACKLOG_XLSX`) or pass `--path` on CLI; re-run check. |
+| User gave a **custom path** | Pass `--path` on CLI; re-run check. |
+
+**Tool location:** [`.cursor/tools/backlog/`](../../tools/backlog/) — see [build-tool](../build-tool/SKILL.md). Not `backend/` app code.
 
 **Do not** fall back to `backlog.md`, chat memory, or plan todos as the live board without telling the user.
 
 ## Read current board
 
 ```powershell
-python backend/scripts/backlog_xlsx.py list
+python .cursor/tools/backlog/backlog_xlsx.py list
 ```
 
-Or programmatically:
+Or programmatically (from repo root):
 
 ```powershell
-python -c "from ENV.PATHS import BACKLOG_XLSX; from scripts.backlog_xlsx import read_backlog_entries; import json; print(json.dumps(read_backlog_entries(BACKLOG_XLSX), indent=2))"
+python -c "import sys; from pathlib import Path; sys.path.insert(0, str(Path('.cursor/tools/backlog'))); from backlog_xlsx import read_backlog_entries, DEFAULT_BACKLOG_XLSX; import json; print(json.dumps(read_backlog_entries(DEFAULT_BACKLOG_XLSX), indent=2))"
 ```
 
 Columns: `uid`, `Sprint`, `prio`, `Size`, `status`, `dep on`, `name`, `notes / blockers`.
@@ -63,7 +63,7 @@ Allowed **prio**: `P0`–`P3` · **Size**: `S`, `M`, `L`, `XL`
    - Set `status` (`wip` → `done` when acceptance met).
    - Refresh `notes / blockers` with concrete next step or blocker.
    - Add new rows with new `uid`s (`BUG-`, `FEAT-`, `STR-`, `DONE-` prefixes match existing convention).
-4. **Validate**: `python backend/scripts/backlog_xlsx.py check`
+4. **Validate**: `python .cursor/tools/backlog/backlog_xlsx.py check`
 5. **Optional narrative**: append a short dated section to `backlog.md` (session summary only — not a substitute for xlsx).
 
 ### uid conventions
@@ -77,7 +77,7 @@ Keep `uid` stable; do not rename once referenced in plans or chat.
 
 ## Adding rows
 
-Edit `backlog.xlsx` directly (Excel / LibreOffice), or extend seed in `backend/scripts/backlog_xlsx.py` only for **template/bootstrap** — not for routine session updates.
+Edit `backlog.xlsx` directly (Excel / LibreOffice), or extend seed in `.cursor/tools/backlog/backlog_xlsx.py` only for **template/bootstrap** — not for routine session updates.
 
 Minimum for a new row: unique `uid`, `name`, `status`. Set `Sprint`, `prio`, `Size`, `dep on` when known.
 
@@ -93,4 +93,5 @@ When a notebook slice is promoted or accepted:
 
 - Status readout: [pm-briefing](../pm-briefing/SKILL.md)
 - Feature delivery: [minimal-feature-cycle](../minimal-feature-cycle/SKILL.md)
+- Agent tools: [build-tool](../build-tool/SKILL.md)
 - Capture process learnings: [learn-skill](../learn-skill/SKILL.md)

@@ -21,3 +21,19 @@ Use this skill whenever the task changes what a human will see.
 Do not mark the task complete based only on code inspection when the requested outcome is visual.
 
 **User approval:** Agent-side OCR/CV or regenerated MP4 is pre-check only. The **user** must confirm the artefact before commit or ship — see [minimal-feature-review](../minimal-feature-review/SKILL.md) Phase 5 and learnings.md `human-confirm-before-review-ship`.
+
+## ML experiment pipeline
+
+Always-applied rule: [experiment-visual-evidence](../../rules/experiment-visual-evidence.mdc) — KPI JSON for quick estimates; **video + frame inspect for behavioral claims**.
+
+When working a numbered pipeline experiment ([`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md)):
+
+| Phase | Use |
+|-------|-----|
+| **2** | **Required** when training exported video/plots or behavior is in scope — record paths + manifest in Phase **2.3** |
+| **3** | **Required** before qualitative claims in Phase **3.2** / verdict table |
+| **4** | **Required** for report-archive artifacts in Phase **4.3** — user sign-off before `/close-experiment-step` |
+
+**Chat / run review:** When discussing pipeline results before closeout, list full MP4 paths per arm (eval first) — see experiment-knowledge-pipeline SKILL.md § Discussing run results; learnings.md `pipeline-discuss-runs-include-video-paths`.
+
+Pair with [`video-frame-inspect`](../video-frame-inspect/SKILL.md) for `.mp4`. Full map: [`skill-chain.md`](../experiment-knowledge-pipeline/skill-chain.md).

@@ -1,0 +1,21 @@
+{
+  "ref_run_id": "9998217249101092_ml_encoder_sac_a0_16-34-58",
+  "workflow": {
+    "train_episodes": 50,
+    "experiment_name": "encoder sac a0 50ep",
+    "warmup_episodes": 5,
+    "eval_episodes": 2,
+    "seed": 7,
+    "train_episode_videos": 3,
+    "eval_episode_videos": 2,
+    "use_warmup_bundle_cache": true,
+    "rebuild_warmup_bundle_cache": true,
+    "train_every_n_steps": 1,
+    "updates_per_step": 1,
+    "warmup_targets_per_episode": 10,
+    "background_artifacts": false,
+    "collect_states": false,
+    "early_stop_on_budget_exhausted": false,
+    "export_episode_reward_plots": true
+  }
+}

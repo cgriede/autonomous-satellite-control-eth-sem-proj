@@ -226,6 +226,7 @@ class EpisodeResult:
     learning_stats: Any | None = None
     ended_early_on_budget: bool = False
     configured_episode_steps: int = 0
+    vector_hold_last_count: int | None = None
 
 
 def make_attitude_control_env(

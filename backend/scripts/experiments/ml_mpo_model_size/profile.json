@@ -1,0 +1,47 @@
+{
+  "ref_run_id": "ml_overnight_h1a_mpo_sparse_23-20-15",
+  "notes": "MPO width ablation S/M/L @ dt 1.5s; placeholder r2 protocol (50 train ep, raised LRs). Reward mode configurable — charter default dense pending Exp 3.",
+  "workflow": {
+    "train_episodes": 50,
+    "experiment_name": "mpo model size",
+    "warmup_episodes": 5,
+    "eval_episodes": 2,
+    "seed": 7,
+    "train_episode_videos": 3,
+    "eval_episode_videos": 2,
+    "use_warmup_bundle_cache": true,
+    "rebuild_warmup_bundle_cache": true,
+    "train_every_n_steps": 1,
+    "updates_per_step": 1,
+    "warmup_targets_per_episode": 10,
+    "background_artifacts": false,
+    "collect_states": false,
+    "early_stop_on_budget_exhausted": false,
+    "export_episode_reward_plots": true
+  },
+  "mpo": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "actor_dropout": 0.0
+  },
+  "size_presets": {
+    "S": {
+      "num_units_actor": 90,
+      "num_units_critic": 140,
+      "num_layers_actor": 1,
+      "num_layers_critic": 2
+    },
+    "M": {
+      "num_units_actor": 140,
+      "num_units_critic": 256,
+      "num_layers_actor": 2,
+      "num_layers_critic": 2
+    },
+    "L": {
+      "num_units_actor": 256,
+      "num_units_critic": 512,
+      "num_layers_actor": 2,
+      "num_layers_critic": 3
+    }
+  }
+}

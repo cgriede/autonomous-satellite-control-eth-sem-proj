@@ -15,13 +15,13 @@ Extract PNG snapshots from MP4 exports so the agent can **read images** (vision)
 
 ## Requirements
 
-- Conda env **ASC**
+- Conda env **auto-sat**
 - `opencv-python` (repo `requirements.txt`)
 
 ## Examples
 
 ```bash
-conda activate ASC
+conda activate auto-sat
 
 # Six evenly spaced frames (default if no selectors)
 python .cursor/tools/video_frame_inspect/extract_frames.py backend/notebooks/s01/artifacts/07-baseline-overflight.mp4

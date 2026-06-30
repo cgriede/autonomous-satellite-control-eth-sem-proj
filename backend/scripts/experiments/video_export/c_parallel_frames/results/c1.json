@@ -1,0 +1,69 @@
+{
+  "experiment_id": "c1_parallel_frames",
+  "hypothesis_id": "parallel_frames",
+  "phase": "C1",
+  "run_at_utc": "2026-06-29T17:24:55.185963+00:00",
+  "frozen_input": {
+    "description": "Parallel frame export with 8 CPU workers + NVENC lane",
+    "scenario": "training_sparse",
+    "tunables": {
+      "n_workers": 8
+    }
+  },
+  "control": {
+    "label": "serial",
+    "export_wall_s": 30.965749299997697,
+    "export_frames_per_s": 9.300598451852139,
+    "n_frames_drawn": 288
+  },
+  "treatment": {
+    "label": "parallel",
+    "export_wall_s": 17.643345099990256,
+    "export_frames_per_s": 16.323435174442007,
+    "n_frames_drawn": 288,
+    "draw_wall_s": null,
+    "encode_wall_s": null,
+    "n_workers": 8
+  },
+  "delta": {
+    "export_speedup": 1.7550951434949147,
+    "speed_gate": 1.5,
+    "speed_gate_met": true
+  },
+  "parity": {
+    "required": true,
+    "passed": true,
+    "notes": "H.264 required"
+  },
+  "instrumentation": {
+    "patch": "save_one_pass_video_parallel",
+    "n_workers": 8
+  },
+  "debug_examples": {
+    "control_video": {
+      "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\c_parallel_frames\\results\\c1_serial_preview.mp4",
+      "exists": true,
+      "bytes": 858755,
+      "codec": "h264 (Main) (avc1 / 0x31637661)",
+      "width": 1280,
+      "height": 720,
+      "duration_s": 14.4,
+      "probe_via": "imageio_ffmpeg"
+    },
+    "treatment_video": {
+      "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\c_parallel_frames\\results\\c1_parallel_preview.mp4",
+      "exists": true,
+      "bytes": 1113205,
+      "codec": "h264 (Main) (avc1 / 0x31637661)",
+      "width": 1280,
+      "height": 720,
+      "duration_s": 14.4,
+      "probe_via": "imageio_ffmpeg"
+    }
+  },
+  "files_changed": [
+    "c_parallel_frames/_export_fork.py"
+  ],
+  "verdict": "supported",
+  "closeout": "promote"
+}

@@ -2,6 +2,9 @@
 
 # Agent debug probes (see .cursor/skills/debug-workflow/SKILL.md)
 .cursor/debug_logs/
+# ML pipeline run mutex (see experiment-knowledge-pipeline skill)
+backend/scripts/experiments/.pipeline_run.lock
+docs/experiments/pipeline/.active_run.json
 # Agent video frame extracts (see .cursor/skills/video-frame-inspect/SKILL.md)
 .cursor/video_frame_inspect/data/
 /debug-*.log
@@ -223,6 +226,3 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-
-# research exclude research pdfs as they might contain sensitive information
-docs/research/*.pdf

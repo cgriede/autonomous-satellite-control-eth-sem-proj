@@ -175,7 +175,7 @@ Notes:
 ## Evaluate Controllers
 
 ```bash
-python scripts/eval_sat_agent.py --controller-mode mpo --checkpoint autonomous_control/models/<run_id>/agent.pt --eval-episodes 5
+python scripts/eval_sat_agent.py --controller-mode mpo --checkpoint autonomous_control/runs/<run_id>/agent.pt --eval-episodes 5
 python scripts/eval_sat_agent.py --controller-mode baseline --eval-episodes 5
 python scripts/eval_sat_agent.py --controller-mode random --eval-episodes 5
 ```
@@ -202,7 +202,7 @@ python render/render_main.py --render-mode export --controller-mode baseline --s
 Optional output path:
 
 ```bash
-python render/render_main.py --render-mode export --controller-mode random --save-one-pass-30x --output-path autonomous_control/models/my_run/sat_sim_export.mp4
+python render/render_main.py --render-mode export --controller-mode random --save-one-pass-30x --output-path autonomous_control/runs/my_run/sat_sim_export.mp4
 ```
 
 ## Fidelity Rule (What You See Is What Runs)

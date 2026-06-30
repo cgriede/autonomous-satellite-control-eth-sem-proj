@@ -1,0 +1,14 @@
+{
+  "episodes": [
+    {
+      "phase": "eval",
+      "episode_idx": 0,
+      "rank": 1,
+      "episode_return": 50.69824217790142,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217183948906_ml_ref_ref1_vector_10-40-50\\episodes\\eval_ep_0_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217183948906_ml_ref_ref1_vector_10-40-50\\videos\\eval_ep_0_rank1.mp4"
+    }
+  ],
+  "train_video_count": 0,
+  "eval_video_count": 1
+}

@@ -1,0 +1,17 @@
+{
+  "run_at_utc": "2026-06-29T22:50:53.753492+00:00",
+  "phase": "smoke",
+  "experiment_id": "ml_modular_encoder_r2",
+  "passed": true,
+  "encoder_mode": "compress",
+  "vector_embed_dim": 8,
+  "reward_mode": "sparse",
+  "mpo_overrides": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "actor_dropout": 0.0
+  },
+  "warmup_return": 72.70010409874544,
+  "warmup_steps": 516,
+  "buffer_size": 516
+}

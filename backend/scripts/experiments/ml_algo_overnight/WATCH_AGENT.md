@@ -2,7 +2,7 @@
 
 After `git pull`, hand this to a Cursor agent:
 
-> Follow `.cursor/skills/ml-overnight-watch/SKILL.md`. I started (or will start) `run_overnight.py` on this machine. Check every hour; post status to `.cursor/agents-discussion/message-queue.md` and chat under **Agents-Discussion Message-Queue**. Light-fix only in the experiment folder; ask me before production changes.
+> Follow `.cursor/skills/long-run-watch/SKILL.md` and profile `profiles/ml-algo-overnight.md`. I started (or will start) `run_overnight.py` on this machine. Check every hour; post status to `.cursor/agents-discussion/message-queue.md` and chat under **Agents-Discussion Message-Queue**. Light-fix only in the experiment folder; ask me before production changes.
 
 User starts the run:
 

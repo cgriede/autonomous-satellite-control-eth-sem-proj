@@ -21,7 +21,7 @@
 - **3 train episodes** per branch run (warmup from cache, not counted)
 - **Max 3 treatment runs** per branch after shared baseline
 - Do not rebuild warmup cache unless fingerprint changes
-- **One concurrent training job on a dev machine** — enforced by `results/../.experiment_run.lock` via `_run_guard.py` (second `run_*.py` exits immediately). Subagents must not launch parallel runners on the same host.
+- **One concurrent pipeline training job on a dev machine** — global lock via `backend/scripts/experiments/pipeline_run_guard.py` (`_run_guard.py` in this folder). Second slug exits immediately ([D-012](../../../../docs/research/DECISIONS.md)).
 
 ## Deliverables per branch
 

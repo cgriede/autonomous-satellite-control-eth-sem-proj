@@ -1,0 +1,145 @@
+{
+  "episode_wall_s": 8.856332600000314,
+  "n_sim_steps": 516,
+  "n_controller_stores": 516,
+  "n_train_updates": 51,
+  "steps_per_s": 58.26339448904411,
+  "per_step_wall_ms": 17.163435271318438,
+  "measured_s": 8.748622299579438,
+  "unaccounted_s": 0.10771030042087659,
+  "categories": [
+    {
+      "key": "train",
+      "label": "Learner update (train)",
+      "total_s": 3.6769870999851264,
+      "per_step_ms": 7.125943992219237,
+      "pct_of_wall": 41.518168592550325
+    },
+    {
+      "key": "sim_step",
+      "label": "Simulation step (integrate + shutter capture)",
+      "total_s": 3.275140799349174,
+      "per_step_ms": 6.347172091761965,
+      "pct_of_wall": 36.980779147217866
+    },
+    {
+      "key": "get_action",
+      "label": "Policy inference (get_action)",
+      "total_s": 1.6973551002738532,
+      "per_step_ms": 3.2894478687477773,
+      "pct_of_wall": 19.165439882799713
+    },
+    {
+      "key": "obs_build",
+      "label": "Controller observation build",
+      "total_s": 0.09244710009079427,
+      "per_step_ms": 0.17916104668758578,
+      "pct_of_wall": 1.043853074022886
+    },
+    {
+      "key": "store",
+      "label": "Replay buffer store",
+      "total_s": 0.0066921998804900795,
+      "per_step_ms": 0.012969379613352868,
+      "pct_of_wall": 0.07556400806909444
+    },
+    {
+      "key": "state_copy",
+      "label": "Per-step state copy (collect_states)",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    },
+    {
+      "key": "controller_baseline",
+      "label": "Warmup baseline controller tick",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    },
+    {
+      "key": "progress",
+      "label": "Progress display / live feed",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    }
+  ],
+  "top_7_consumers": [
+    {
+      "key": "train",
+      "label": "Learner update (train)",
+      "total_s": 3.6769870999851264,
+      "per_step_ms": 7.125943992219237,
+      "pct_of_wall": 41.518168592550325
+    },
+    {
+      "key": "sim_step",
+      "label": "Simulation step (integrate + shutter capture)",
+      "total_s": 3.275140799349174,
+      "per_step_ms": 6.347172091761965,
+      "pct_of_wall": 36.980779147217866
+    },
+    {
+      "key": "get_action",
+      "label": "Policy inference (get_action)",
+      "total_s": 1.6973551002738532,
+      "per_step_ms": 3.2894478687477773,
+      "pct_of_wall": 19.165439882799713
+    },
+    {
+      "key": "obs_build",
+      "label": "Controller observation build",
+      "total_s": 0.09244710009079427,
+      "per_step_ms": 0.17916104668758578,
+      "pct_of_wall": 1.043853074022886
+    },
+    {
+      "key": "store",
+      "label": "Replay buffer store",
+      "total_s": 0.0066921998804900795,
+      "per_step_ms": 0.012969379613352868,
+      "pct_of_wall": 0.07556400806909444
+    },
+    {
+      "key": "state_copy",
+      "label": "Per-step state copy (collect_states)",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    },
+    {
+      "key": "controller_baseline",
+      "label": "Warmup baseline controller tick",
+      "total_s": 0.0,
+      "per_step_ms": 0.0,
+      "pct_of_wall": 0.0
+    }
+  ],
+  "thread_env": {
+    "OMP_NUM_THREADS": "4",
+    "MKL_NUM_THREADS": "4",
+    "OPENBLAS_NUM_THREADS": "4",
+    "ASC_CPU_THREADS": null
+  },
+  "context": {
+    "run_slug": "train_timing_duty_10x1",
+    "mode": "train",
+    "dt_label": "dt_1.5s",
+    "sim_dt_s": 1.5,
+    "controller_interval_s": 1.5,
+    "updates_per_step": 1,
+    "train_every_n_steps": 10,
+    "batch_size": 256,
+    "buffer_size_before_train": 516,
+    "warmup_wall_s": 3.8735251000034623,
+    "episode_return": -94.45781117551917,
+    "n_train_updates_reported": 51,
+    "device": "cuda",
+    "cuda_available": true,
+    "device_name": "NVIDIA GeForce RTX 5070",
+    "num_samples_q": 80,
+    "num_samples_pi": 40
+  },
+  "run_at_utc": "2026-06-30T11:06:05.999136+00:00"
+}

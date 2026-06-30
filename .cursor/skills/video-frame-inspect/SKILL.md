@@ -15,10 +15,12 @@ Agents cannot read `.mp4` binaries directly. Use this tool to export PNGs, then 
 - Verifying render/export behavior (pointing, targets, telemetry overlays)
 - Reconciling video appearance with simulation step indices
 - Any task where `visual-output-verification` applies but the artifact is video
+- **Pipeline Phase 2–4:** eval/train MP4 under `backend/autonomous_control/runs/<run_id>/videos/` — cite manifest in pipeline doc §2.3 / §4.3 ([`skill-chain.md`](../experiment-knowledge-pipeline/skill-chain.md)). Rule: [experiment-visual-evidence](../../rules/experiment-visual-evidence.mdc).
+- **Pipeline chat review:** user watches MP4; agent lists full paths per [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md) § Discussing run results — frame inspect is agent pre-check only.
 
 ## Workflow
 
-1. **Activate ASC** (`conda activate ASC`).
+1. **Activate env** (`conda activate auto-sat`).
 2. **Run the extractor** (from repo root):
 
 ```bash
@@ -57,4 +59,4 @@ python .cursor/tools/video_frame_inspect/extract_frames.py backend/notebooks/s01
 
 - User may watch full videos locally; frame PNGs are **for the agent only**.
 - Sim-step mapping follows render `EXPORT` defaults (`animation_interval_ms=50`, `export_speed_multiplier=30`). Override flags if export used different constants.
-- If OpenCV cannot open the file, check path and that `opencv-python` is installed in ASC.
+- If OpenCV cannot open the file, check path and that `opencv-python` is installed in `auto-sat` (`conda activate auto-sat`).

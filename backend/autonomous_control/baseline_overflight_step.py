@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import replace
+from typing import Any, Literal
 
 import numpy as np
 
+from simulation.obc_pointing_request import baseline_pointing_u
 from simulation.state_types import SimulationTimestepState
 from simulation.stepper import SimulationStepper
 from simulation.take_picture import TakePictureBudget
+
+AttitudeRequestMode = Literal["torque", "vector"]
 
 
 def baseline_policy_action_to_gym_vector(
@@ -36,6 +40,7 @@ def baseline_overflight_controller_tick(
     sat_inertia: Any,
     tau_max_nm: float,
     budget: TakePictureBudget | None,
+    skip_torque_request: bool = False,
 ) -> tuple[Any, np.ndarray, bool]:
     """
     One controller update: phase machine, torque request, optional shutter.
@@ -57,11 +62,50 @@ def baseline_overflight_controller_tick(
         omega_orbit_rad_s=float(omega_orbit_rad_s),
         sat_inertia=sat_inertia,
         tau_max_nm=float(tau_max_nm),
+        skip_torque_request=bool(skip_torque_request),
     )
     gym_vector = baseline_policy_action_to_gym_vector(
         action, tau_max_nm=float(tau_max_nm)
     )
     take_picture_cmd = bool(action.take_picture)
+    return action, gym_vector, take_picture_cmd
+
+
+def baseline_overflight_controller_tick_for_mode(
+    *,
+    attitude_request_mode: AttitudeRequestMode = "torque",
+    policy: Any,
+    stepper: SimulationStepper,
+    state: SimulationTimestepState,
+    sat_pos_xy_km: np.ndarray,
+    omega_orbit_rad_s: float,
+    sat_inertia: Any,
+    tau_max_nm: float,
+    budget: TakePictureBudget | None,
+) -> tuple[Any, np.ndarray, bool]:
+    """Baseline tick with optional vector-mode dim0 = pointing command ``u``."""
+    vector_mode = str(attitude_request_mode).lower() == "vector"
+    action, gym_vector, take_picture_cmd = baseline_overflight_controller_tick(
+        policy=policy,
+        stepper=stepper,
+        state=state,
+        sat_pos_xy_km=sat_pos_xy_km,
+        omega_orbit_rad_s=omega_orbit_rad_s,
+        sat_inertia=sat_inertia,
+        tau_max_nm=tau_max_nm,
+        budget=budget,
+        skip_torque_request=vector_mode,
+    )
+    if not vector_mode:
+        return action, gym_vector, take_picture_cmd
+
+    u = baseline_pointing_u(
+        policy,
+        state,
+        sat_pos_xy_km=np.asarray(sat_pos_xy_km, dtype=float),
+    )
+    gym_vector = np.array([u, float(gym_vector[1])], dtype=np.float32)
+    action = replace(action, torque_request_nm=0.0)
     return action, gym_vector, take_picture_cmd
 
 

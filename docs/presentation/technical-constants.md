@@ -77,6 +77,20 @@ Source: `environment_definition/constants/ATTITUDE_SAFETY.py`, `simulation/attit
 
 ---
 
+# OBC vector pointing (agent-reference mode)
+
+Source: `simulation/obc_pointing_request.py`, `environment_definition/constants/ATTITUDE_SAFETY.py`, Exp 4 `ml_agent_reference_pointing`.
+
+- **Policy dim0 (vector mode):** `u ∈ [-1, 1]` (unitless normalized command).
+- **Nadir-relative offset:** `f_n = max_safe · u` where `max_safe = OFF_NADIR_HARD_LIMIT_DEG` (**45°**).
+- **Requested boresight:** `θ_req = wrap_pi(θ_nadir + f_n)`; `θ_nadir = nadir_target_angle_rad(θ_orbit)`.
+- **Safety:** if geometric off-nadir at `θ_req` ≥ `max_safe` → **hold last valid** `θ_req` (no clamp projection); log `hold_last_count`.
+- **Actuation:** `τ = body_pointing_torque_nm(θ_target=θ_used, …)`; PD clips `|τ| ≤ τ_max`; torque-path `AttitudeSafetyController` bypassed on vector steps.
+- **Episode init:** `last_valid_θ_req = θ_nadir` (equivalent to `u = 0`).
+- **Torque mode (default):** dim0 = RW torque fraction; production `AttitudeSafetyController` path unchanged.
+
+---
+
 # OBC pointing PD gains (safe mode & `AttitudePointingController`)
 
 Source: `simulation/attitude_controller.py` (`default_nadir_pointing_gains`, `body_pointing_torque_nm`).

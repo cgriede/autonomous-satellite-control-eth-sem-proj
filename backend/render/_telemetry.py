@@ -3,6 +3,18 @@ import numpy as np
 
 from environment_definition.constants import RENDER
 
+_TELEM_BODY_FONT = RENDER.telemetry_fontsize * 1.2
+_TELEM_HEADER_FONT = int(round(RENDER.plot_title_fontsize * 1.2))
+_TELEM_LINESPACING = 1.3
+_TELEM_BODY_TOP = 0.925
+_TELEM_LINE_HEIGHT = (
+    (_TELEM_BODY_FONT / 72.0)
+    * _TELEM_LINESPACING
+    / (RENDER.telemetry_axes_rect[3] * RENDER.figure_size[1])
+)
+# Line index (0-based) of the safe-mode row in the telemetry body block.
+_SAFE_MODE_LINE_INDEX = 6
+
 
 def build_telemetry_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
     ax = fig.add_axes(RENDER.telemetry_axes_rect)
@@ -25,7 +37,7 @@ def build_telemetry_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         "TELEMETRY",
         transform=ax.transAxes,
         color=RENDER.section_header_color,
-        fontsize=RENDER.plot_title_fontsize,
+        fontsize=_TELEM_HEADER_FONT,
         family=RENDER.info_panel_fontfamily,
         fontweight="bold",
         va="top",
@@ -34,16 +46,31 @@ def build_telemetry_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
 
     artists["text"] = ax.text(
         0.045,
-        0.925,
+        _TELEM_BODY_TOP,
         "",
         transform=ax.transAxes,
         color="#d8e3f5",
-        fontsize=RENDER.telemetry_fontsize,
+        fontsize=_TELEM_BODY_FONT,
         family=RENDER.info_panel_fontfamily,
         va="top",
         ha="left",
-        linespacing=1.3,
+        linespacing=_TELEM_LINESPACING,
         clip_on=True,
+    )
+
+    artists["safe_mode_text"] = ax.text(
+        0.045,
+        _TELEM_BODY_TOP - _SAFE_MODE_LINE_INDEX * _TELEM_LINE_HEIGHT,
+        "",
+        transform=ax.transAxes,
+        color="#d8e3f5",
+        fontsize=_TELEM_BODY_FONT,
+        family=RENDER.info_panel_fontfamily,
+        va="top",
+        ha="left",
+        linespacing=_TELEM_LINESPACING,
+        clip_on=True,
+        visible=False,
     )
 
     return axes, artists
@@ -71,6 +98,8 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
     intersection_pct = float(scene.get("target_intersection_pct", float("nan")))
     inview_txt = _fmt(intersection_pct, "%", "{:.0f}")
 
+    safe_mode_count = int(scene.get("safe_mode_activation_count", 0))
+
     lines = [
         "ORBIT",
         f"  alt {alt_txt}   sub {sub_txt}",
@@ -78,6 +107,11 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
         "ATTITUDE",
         f"  z off-nadir    {scene['z_angle_rel_nadir_deg']:+.1f}\u00b0",
         f"  LOS off-nadir  {scene['los_rel_nadir_deg']:+.1f}\u00b0",
+        (
+            ""
+            if safe_mode_count > 0
+            else f"  safe mode activations  {safe_mode_count}"
+        ),
         "CAMERA",
         f"  GSD {gsd_txt}   FOV {scene['camera_vfov_deg']:.2f}\u00b0",
         f"  swath {swath_txt}   smear {smear_txt}",
@@ -103,3 +137,14 @@ def update_telemetry_panel(artists: dict, scene: dict) -> None:
     lines.append(f"  {scene['sim_speed_multiplier']:.0f}x   frame {scene['sim_idx']}")
 
     artists["text"].set_text("\n".join(lines))
+
+    safe_mode_artist = artists.get("safe_mode_text")
+    if safe_mode_artist is not None:
+        if safe_mode_count > 0:
+            safe_mode_artist.set_text(f"  safe mode activations  {safe_mode_count}")
+            safe_mode_artist.set_color(RENDER.accent_pointing_limit)
+            safe_mode_artist.set_fontweight("bold")
+            safe_mode_artist.set_visible(True)
+        else:
+            safe_mode_artist.set_text("")
+            safe_mode_artist.set_visible(False)

@@ -25,8 +25,9 @@ RUN_TAG="euler-${SLURM_JOB_ID:-local}"
 export PYTHONUNBUFFERED=1
 export MPLBACKEND=Agg
 
-# Training artifacts under the repo clone (not $SCRATCH; override with AUTO_SAT_MODELS_ROOT).
+# Training artifacts under the repo clone (not $SCRATCH; override with AUTO_SAT_RUNS_ROOT or AUTO_SAT_MODELS_ROOT).
 export AUTO_SAT_MODELS_ROOT="${AUTO_SAT_MODELS_ROOT:-${REPO_ROOT}/data}"
+export AUTO_SAT_RUNS_ROOT="${AUTO_SAT_RUNS_ROOT:-${AUTO_SAT_MODELS_ROOT}}"
 mkdir -p "${AUTO_SAT_MODELS_ROOT}"
 
 # shellcheck source=/dev/null

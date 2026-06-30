@@ -1,0 +1,8 @@
+{
+  "run_at_utc": "2026-06-30T14:18:08.227700+00:00",
+  "experiment_id": "ml_sac_vector_budget_penalty",
+  "arm_id": "penalty_on",
+  "error": "'EpisodeResult' object has no attribute 'episode_idx'",
+  "traceback": "Traceback (most recent call last):\n  File \"D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_sac_vector_budget_penalty\\run_sac_vector_budget.py\", line 270, in main\n    kpis = run_penalty_on(\n        show_progress=args.show_progress,\n    ...<2 lines>...\n        enable_tensorboard=enable_tb,\n    )\n  File \"D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_sac_vector_budget_penalty\\_budget_runner.py\", line 188, in run_penalty_on\n    shutter_stats = count_post_budget_shutter_cmds(workflow_result.train_results)\n  File \"D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_sac_vector_budget_penalty\\_runner_common.py\", line 109, in count_post_budget_shutter_cmds\n    per_ep[str(ep.episode_idx)] = post\n               ^^^^^^^^^^^^^^\nAttributeError: 'EpisodeResult' object has no attribute 'episode_idx'\n",
+  "verdict": "error"
+}

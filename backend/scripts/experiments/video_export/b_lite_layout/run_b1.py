@@ -20,11 +20,12 @@ if str(BRANCH_ROOT) not in sys.path:
 from render_export_fork import patched_save
 from _runner_common import (
     bench_video_export,
-    build_frozen_simulation_series,
+    load_frozen_series,
     patch_lite_export_panels,
     write_analysis_card,
     write_hypothesis_result,
 )
+from fixtures._series_io import read_manifest
 
 BASELINE_PATH = EXPERIMENT_ROOT / "results" / "baseline.json"
 RESULT_PATH = BRANCH_ROOT / "results" / "b1.json"
@@ -47,7 +48,8 @@ def main() -> None:
         raise FileNotFoundError(f"Run run_baseline.py first: {BASELINE_PATH}")
 
     baseline = _load_baseline_export()
-    setup, series = build_frozen_simulation_series()
+    series = load_frozen_series("high_cloud")
+    entry = (read_manifest().get("fixtures") or {}).get("high_cloud") or {}
     treatment = bench_video_export(
         series,
         PREVIEW_PATH,
@@ -82,7 +84,7 @@ def main() -> None:
             "scenario": "high_cloud_notebook",
             "seed": 0,
             "tunables": {"lite_panels": True},
-            "n_items": len(setup.clouds),
+            "n_items": entry.get("n_clouds"),
         },
         control={
             "label": "baseline",

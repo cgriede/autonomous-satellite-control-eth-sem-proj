@@ -1,0 +1,8 @@
+{"event":"run_started","timestamp_utc":"2026-06-30T09:46:56.705871+00:00","run_dir":"D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217187183337_ml_ref_ref1_vector_09-46-55","workflow":"s01_notebook_08"}
+{"event":"training_log","timestamp_utc":"2026-06-30T09:46:59.643354+00:00","message":"[run_serial] end mode=warmup steps=516 total_reward=-41.929796 avg_reward=-0.081259","phase":"warmup","episode_idx":0}
+{"event":"training_log","timestamp_utc":"2026-06-30T09:47:02.176322+00:00","message":"[run_serial] end mode=warmup steps=516 total_reward=-59.921086 avg_reward=-0.116126","phase":"warmup","episode_idx":1}
+{"event":"training_log","timestamp_utc":"2026-06-30T09:47:04.697369+00:00","message":"[run_serial] end mode=warmup steps=516 total_reward=-59.934066 avg_reward=-0.116151","phase":"warmup","episode_idx":2}
+{"event":"training_log","timestamp_utc":"2026-06-30T09:47:07.181746+00:00","message":"[run_serial] end mode=warmup steps=516 total_reward=-40.295367 avg_reward=-0.078092","phase":"warmup","episode_idx":3}
+{"event":"training_log","timestamp_utc":"2026-06-30T09:47:09.676118+00:00","message":"[run_serial] end mode=warmup steps=516 total_reward=-40.544701 avg_reward=-0.078575","phase":"warmup","episode_idx":4}
+{"event":"training_log","timestamp_utc":"2026-06-30T09:47:09.926779+00:00","message":"[warmup] 5 episodes, total return=-242.6","phase":"warmup","episode_idx":4}
+{"event":"step_snapshot","timestamp_utc":"2026-06-30T09:47:28.053880+00:00","episode_idx":0,"step_idx":400,"sim_time_s":599.962809438323,"reward":-0.0021673051138682265,"worker_id":null,"episode_return":-86.93277026860012,"phase":"train","done":false,"capture_budget_remaining":0,"safe_mode_activations":0}

@@ -18,7 +18,7 @@
 
 ## Concurrency
 
-One training job per machine via `.experiment_run.lock` (`_run_guard.py`).
+One **pipeline** training job per machine — global `pipeline_run_guard` (`.pipeline_run.lock` under `backend/scripts/experiments/`).
 
 ## Deliverables
 

@@ -1,0 +1,93 @@
+{
+  "run_at_utc": "2026-06-30T11:04:50.559598+00:00",
+  "dt_label": "dt_1.5s",
+  "variants": [
+    {
+      "variant": "baseline_1x1",
+      "collect": 1,
+      "burst": 1,
+      "episode_wall_s": 40.034889100003056,
+      "steps_per_s": 12.888758070768844,
+      "n_sim_steps": 516,
+      "n_controller_stores": 516,
+      "n_train_updates": 516,
+      "categories": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 34.22542789980071,
+          "per_step_ms": 66.32834864302463,
+          "pct_of_wall": 85.48900388935533
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 3.8494797000312246,
+          "per_step_ms": 7.460231976804699,
+          "pct_of_wall": 9.615312510084937
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 1.6247853997920174,
+          "per_step_ms": 3.148808914325615,
+          "pct_of_wall": 4.058423630782316
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.11055320003652014,
+          "per_step_ms": 0.21425038766767468,
+          "pct_of_wall": 0.27614214132170956
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.009437700064154342,
+          "per_step_ms": 0.01829011640339989,
+          "pct_of_wall": 0.02357368854096219
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "progress",
+          "label": "Progress display / live feed",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "context": {
+        "run_slug": "train_timing_duty_baseline_1x1",
+        "mode": "train",
+        "dt_label": "dt_1.5s",
+        "sim_dt_s": 1.5,
+        "controller_interval_s": 1.5,
+        "updates_per_step": 1,
+        "train_every_n_steps": 1,
+        "batch_size": 256,
+        "buffer_size_before_train": 516,
+        "warmup_wall_s": 4.95747220001067,
+        "episode_return": -98.98592497814852,
+        "n_train_updates_reported": 516,
+        "device": "cuda",
+        "cuda_available": true,
+        "device_name": "NVIDIA GeForce RTX 5070",
+        "num_samples_q": 80,
+        "num_samples_pi": 40
+      }
+    }
+  ]
+}

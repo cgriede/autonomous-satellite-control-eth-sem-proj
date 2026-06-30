@@ -1,0 +1,88 @@
+{
+  "run_at_utc": "2026-06-30T15:06:47.249396+00:00",
+  "experiment_id": "ml_sac_vector_budget_penalty",
+  "dt_profile": {
+    "aborted": false,
+    "sim_dt_s": 1.5,
+    "controller_interval_s": 1.5,
+    "effective_controller_interval_s": 1.5,
+    "label": "dt_1.5s",
+    "train_episodes": 50,
+    "source": "fixed_budget"
+  },
+  "arms": {
+    "penalty_on": {
+      "verdict": "pending",
+      "learning_mode": true,
+      "eval_return_mean": 10.581257604467492,
+      "post_budget_shutter_cmds_total": null,
+      "tensorboard_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\tensorboard",
+      "wall_s": null,
+      "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17",
+      "finalized_from_crash": true
+    }
+  },
+  "baseline_ref1": {
+    "experiment_id": "ml_agent_reference_pointing",
+    "arm_id": "ref1",
+    "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217182442815_ml_ref_ref1_vector_11-05-57",
+    "summary_metrics": {
+      "action_diagnostics": {
+        "eval": {
+          "episodes": 2,
+          "mean_abs_omega_rad_s_at_shutter": 0.005019513272341755,
+          "phase": "eval",
+          "shutter_applied_epsilon": 1.0,
+          "shutter_cmd_count": 346,
+          "shutter_meaningful_fraction": 0.011560693641618497,
+          "torque_norm_mean": 0.29127832931139047,
+          "torque_norm_std": 0.4422007224380067,
+          "torque_saturated_fraction": 0.11434108527131782
+        },
+        "train": {
+          "episodes": 50,
+          "mean_abs_omega_rad_s_at_shutter": 0.012668445728624272,
+          "phase": "train",
+          "shutter_applied_epsilon": 1.0,
+          "shutter_cmd_count": 7071,
+          "shutter_meaningful_fraction": 0.01513223023617593,
+          "torque_norm_mean": 0.9414095233940643,
+          "torque_norm_std": 0.9601483438177133,
+          "torque_saturated_fraction": 0.8947674418604651
+        }
+      },
+      "best_eval_episode_idx": 0,
+      "eval": {
+        "avg_reward_mean": -0.04666855414633529,
+        "episodes": 2.0,
+        "return_best": -24.08097393950901,
+        "return_mean": -24.08097393950901,
+        "return_std": 0.0
+      },
+      "last_train_learning": {
+        "eta_mean": NaN,
+        "kl_mean": NaN,
+        "kl_mu_mean": NaN,
+        "kl_sigma_mean": NaN,
+        "n_train_updates": 516,
+        "pi_loss_mean": -1.2600649865271971,
+        "q_loss_mean": 1.8415016086064568
+      },
+      "train": {
+        "avg_reward_mean": -0.09484279897210712,
+        "episodes": 50.0,
+        "return_best": 95.76818835177954,
+        "return_mean": -48.93888426960727,
+        "return_std": 35.1126205314289
+      },
+      "warmup": {
+        "avg_reward_mean": -0.09407589956459425,
+        "episodes": 5.0,
+        "return_best": -40.30906163699676,
+        "return_mean": -48.54316417533064,
+        "return_std": 9.326138051638097
+      }
+    }
+  },
+  "note": "Recovered via --finalize-run after post-processing crash."
+}

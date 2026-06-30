@@ -20,6 +20,16 @@ from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.training_runtime import ReplayBuffer
 
 
+class _CheckpointStubOptimizer:
+    """MPO-shaped checkpoint hook for SAC (no η dual)."""
+
+    def state_dict(self) -> dict:
+        return {}
+
+    def load_state_dict(self, *_args, **_kwargs) -> None:
+        return None
+
+
 class SACAgent:
     """Soft Actor-Critic with fixed alpha (experiment fork; duck-types MPOAgent interface)."""
 
@@ -90,6 +100,9 @@ class SACAgent:
             "piloss": [],
             "return": [],
         }
+        # training_workflow._save_checkpoint expects MPOAgent η fields.
+        self.log_eta = torch.tensor(0.0, device=self.device)
+        self.eta_optimizer = _CheckpointStubOptimizer()
 
     def _soft_update(self, target: nn.Module, source: nn.Module) -> None:
         for target_param, param in zip(target.parameters(), source.parameters()):
@@ -192,7 +205,29 @@ class SACAgent:
 
 def configure_stable_eta_mpo(agent: Any) -> None:
     """H1b: freeze MPO dual temperature (no eta optimizer updates)."""
+    import types
+
+    import torch
+
     agent.log_eta.requires_grad_(False)
     agent.log_eta.data.fill_(0.0)
     for group in agent.eta_optimizer.param_groups:
         group["lr"] = 0.0
+
+    _cls_train = type(agent).train
+
+    def train_frozen_eta(self, *args, **kwargs):
+        real_backward = torch.Tensor.backward
+
+        def backward_skip_frozen(tensor, *a, **kw):
+            if not tensor.requires_grad:
+                return
+            return real_backward(tensor, *a, **kw)
+
+        torch.Tensor.backward = backward_skip_frozen  # type: ignore[method-assign]
+        try:
+            return _cls_train(self, *args, **kwargs)
+        finally:
+            torch.Tensor.backward = real_backward  # type: ignore[method-assign]
+
+    agent.train = types.MethodType(train_frozen_eta, agent)

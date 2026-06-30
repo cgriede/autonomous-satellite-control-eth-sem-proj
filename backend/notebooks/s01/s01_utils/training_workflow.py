@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import csv
+import importlib.util
+import json
 import shutil
-from dataclasses import dataclass, field, replace
+import sys
+from dataclasses import dataclass, field, fields, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -12,6 +16,7 @@ import numpy as np
 import torch
 from tqdm.auto import tqdm
 
+from autonomous_control.action_adapter import AttitudeRequestMode
 from autonomous_control.config.randomness import RandomnessConfig, apply_global_seed, derive_seed
 from autonomous_control.controller_agent import MPOAgent
 from autonomous_control.controller_observation import (
@@ -33,6 +38,7 @@ from autonomous_control.mpo_config import MPOConfig
 from autonomous_control.reward import RewardConfig
 from autonomous_control.training_metrics import learning_stats_to_row
 from autonomous_control.training_preflight import run_training_gate
+from autonomous_control.training_runtime import _in_notebook
 from autonomous_control.training_progress_display import (
     TrainingProgressConfig,
     TrainingProgressDisplay,
@@ -59,11 +65,18 @@ from s01_utils.baseline_overflight import (
     warmup_capture_targets,
 )
 from simulation.state_types import SimulationTimestepState
+from utils.ml_training.tensorboard_run_writer import (
+    TensorBoardLogProfile,
+    TensorBoardRunWriter,
+    build_hparams_from_config_snapshot,
+)
 from utils.ml_training.ml_training_utils import (
     RunTelemetryWriter,
     append_run_markdown_event,
     checkpoint_path,
     create_run_dir,
+    experiment_name_from_run_slug,
+    make_run_id,
     init_run_markdown,
 )
 from utils.ml_training.training_artifact_worker import (
@@ -74,7 +87,11 @@ from utils.ml_training.training_run_artifacts import (
     artifact_paths_map,
     ensure_run_layout,
     episode_row_from_result,
+    export_run_plots,
     finalize_episodes_csv,
+    plan_standard_training_artifacts,
+    read_episodes_csv,
+    write_artifacts_manifest,
     write_config_snapshot,
     write_summary_metrics_json,
 )
@@ -142,20 +159,31 @@ class TrainingWorkflowConfig:
     train_every_n_steps: int = 1  # open learn gate every N controller stores (not sim steps)
     collect_states: bool = False
     run_id: str | None = None
+    experiment_name: str | None = None
     feature_config: ControllerFeatureConfig = S01_TRAINING_FEATURE_CONFIG
     background_artifacts: bool = True
+    wait_for_background_artifacts: bool = True
+    # Standard run artifacts (plots always; top-N episode reward PNGs + MP4s).
+    train_episode_videos: int = 3
+    eval_episode_videos: int = 2
+    export_episode_reward_plots: bool = True
     live_feed_interval_steps: int = 400
     warmup_live_feed_interval_steps: int = 1600
     early_stop_on_budget_exhausted: bool = False
     use_warmup_bundle_cache: bool = True
     rebuild_warmup_bundle_cache: bool = False
     warmup_targets_per_episode: int = 10
+    enable_tensorboard: bool = False
+    tensorboard_profile: TensorBoardLogProfile = field(default_factory=TensorBoardLogProfile)
+    # Agent dim0 semantics: torque fraction (default) or nadir-relative pointing u.
+    attitude_request_mode: AttitudeRequestMode = "torque"
 
 
 @dataclass
 class TrainingWorkflowSetup:
     config: TrainingWorkflowConfig
     run_dir: Path
+    experiment_name: str
     mission_setup: EnvironmentSetup
     runner: EpisodeRunner
     agent: MPOAgent
@@ -187,6 +215,7 @@ class TrainingWorkflowResult:
     eval_kpis: PhaseKPIs
     artifact_paths: dict[str, Path]
     artifact_errors: list[str]
+    artifact_manifest: list[dict[str, Any]] = field(default_factory=list)
     _artifact_worker: Any | None = None
 
     def wait_for_artifacts(self, timeout: float | None = None) -> list[str]:
@@ -214,6 +243,7 @@ class TrainingWorkflowContext:
     worker: BackgroundArtifactWorker | None = None
     progress_display: TrainingProgressDisplay | None = None
     telemetry_writer: RunTelemetryWriter | None = None
+    tensorboard_writer: TensorBoardRunWriter | None = None
     paths: dict[str, Path] = field(default_factory=dict)
     checkpoint_path: Path | None = None
     _closed: bool = False
@@ -231,6 +261,9 @@ class TrainingWorkflowContext:
         if self.progress_display is not None:
             self.progress_display.close()
             self.progress_display = None
+        if self.tensorboard_writer is not None:
+            self.tensorboard_writer.close()
+            self.tensorboard_writer = None
         self._closed = True
 
 
@@ -258,6 +291,7 @@ def _mpo_config_snapshot(mpo_config: MPOConfig) -> dict[str, object]:
             "enable_distance_reward": reward.enable_distance_reward,
             "enable_image_quality_capture": reward.enable_image_quality_capture,
             "enable_shutter_waste_penalty": reward.enable_shutter_waste_penalty,
+            "enable_budget_exhausted_shutter_penalty": reward.enable_budget_exhausted_shutter_penalty,
             "enable_torque_effort": reward.enable_torque_effort,
             "k_shutter_waste": reward.k_shutter_waste,
             "k_torque_effort": reward.k_torque_effort,
@@ -329,8 +363,7 @@ def run_s01_training_preflight_gate(
 
 
 def _default_run_id() -> str:
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-    return f"nb-s01-08-{ts}"
+    return make_run_id(slug="nb-s01-08")
 
 
 def build_s01_training_mission_setup(*, seed: int) -> EnvironmentSetup:
@@ -747,14 +780,24 @@ def display_feature_snapshot_tables(setup: TrainingWorkflowSetup) -> None:
 
 def build_training_workflow_setup(
     config: TrainingWorkflowConfig | None = None,
+    *,
+    existing_run_dir: Path | None = None,
+    agent: Any | None = None,
 ) -> TrainingWorkflowSetup:
     cfg = config if config is not None else TrainingWorkflowConfig()
+    mpo_snapshot: dict[str, Any] | None = None
+    if existing_run_dir is not None:
+        snapshot = json.loads((existing_run_dir / "config.json").read_text(encoding="utf-8"))
+        if config is None:
+            cfg = workflow_config_from_snapshot(snapshot.get("workflow") or {})
+        mpo_snapshot = snapshot.get("mpo")
     apply_global_seed(RandomnessConfig(seed=cfg.seed))
     capture_reward = RewardConfig(
         enable_distance_reward=False,
         enable_image_quality_capture=True,
         enable_shutter_waste_penalty=True,
-        enable_torque_effort=True,
+        enable_budget_exhausted_shutter_penalty=True,
+        enable_torque_effort=cfg.attitude_request_mode != "vector",
     )
     mission_setup = replace(
         build_s01_training_mission_setup(seed=cfg.seed),
@@ -775,6 +818,8 @@ def build_training_workflow_setup(
         max_steps_per_episode=max_episode_steps,
         reward=capture_reward,
     )
+    if mpo_snapshot:
+        mpo_config = mpo_config_from_snapshot(mpo_snapshot, base=mpo_config)
     env = make_attitude_control_env(
         secondary_camera_observation_line_n_bins=secondary_bins,
         reward_config=mpo_config.reward,
@@ -782,83 +827,106 @@ def build_training_workflow_setup(
         n_mission_targets=n_targets,
         observation_layout=obs_layout,
     )
-    agent = MPOAgent(env, config=mpo_config)
+    if agent is None:
+        agent = MPOAgent(env, config=mpo_config)
     encoder_output_dim = int(agent.pi.encoder.output_dim)
     run_id = cfg.run_id if cfg.run_id is not None else _default_run_id()
-    run_dir = create_run_dir(run_id=run_id)
-    ensure_run_layout(run_dir)
-    paths = artifact_paths_map(run_dir)
-    init_run_markdown(
-        run_dir,
-        title="S01 notebook 08 — MPO training",
-        metadata={
-            "seed": cfg.seed,
-            "warmup_episodes": cfg.warmup_episodes,
-            "train_episodes": cfg.train_episodes,
-            "eval_episodes": cfg.eval_episodes,
-            "scalar_dim": obs_layout.scalar_dim,
-            "vision_keys": list(obs_layout.vision_keys),
-            "vision_seq_lens": list(obs_layout.vision_seq_lens),
-            "encoder_output_dim": encoder_output_dim,
-            "code_embed_dim": mpo_config.code_embed_dim,
-            "cnn_embedding_dim": mpo_config.cnn_embedding_dim,
-            "num_cnn_layers": mpo_config.num_cnn_layers,
-            "feature_attitude_keys": list(cfg.feature_config.attitude_keys),
-            "feature_orbit_keys": list(cfg.feature_config.orbit_keys),
-            "feature_vision_keys": list(cfg.feature_config.vision_keys),
-            "sampled_altitude_km": float(resolved.altitude.to(ureg.km).magnitude),
-            "created_utc": datetime.now(timezone.utc).isoformat(),
-        },
+    experiment_name = (
+        cfg.experiment_name
+        if cfg.experiment_name is not None
+        else experiment_name_from_run_slug(run_id)
     )
-    write_config_snapshot(
-        run_dir,
-        {
-            "workflow": {
+    if existing_run_dir is not None:
+        run_dir = existing_run_dir.resolve()
+        ensure_run_layout(run_dir)
+        paths = artifact_paths_map(run_dir)
+    else:
+        run_dir = create_run_dir(run_id=run_id)
+        ensure_run_layout(run_dir)
+        paths = artifact_paths_map(run_dir)
+        init_run_markdown(
+            run_dir,
+            title="S01 notebook 08 — MPO training",
+            metadata={
                 "seed": cfg.seed,
+                "experiment_name": experiment_name,
                 "warmup_episodes": cfg.warmup_episodes,
                 "train_episodes": cfg.train_episodes,
                 "eval_episodes": cfg.eval_episodes,
-                "updates_per_step": cfg.updates_per_step,
-                "train_every_n_steps": cfg.train_every_n_steps,
-                "collect_states": cfg.collect_states,
-                "background_artifacts": cfg.background_artifacts,
-                "early_stop_on_budget_exhausted": cfg.early_stop_on_budget_exhausted,
-                "use_warmup_bundle_cache": cfg.use_warmup_bundle_cache,
-                "rebuild_warmup_bundle_cache": cfg.rebuild_warmup_bundle_cache,
-                "warmup_targets_per_episode": cfg.warmup_targets_per_episode,
-            },
-            "mpo": _mpo_config_snapshot(mpo_config),
-            "features": {
-                "attitude_keys": list(cfg.feature_config.attitude_keys),
-                "orbit_keys": list(cfg.feature_config.orbit_keys),
-                "vision_keys": list(cfg.feature_config.vision_keys),
-                "include_capture_budget": cfg.feature_config.include_capture_budget,
-                "include_captured_target_mask": cfg.feature_config.include_captured_target_mask,
-                "include_target_bearing_errors": cfg.feature_config.include_target_bearing_errors,
-            },
-            "observation": {
                 "scalar_dim": obs_layout.scalar_dim,
                 "vision_keys": list(obs_layout.vision_keys),
                 "vision_seq_lens": list(obs_layout.vision_seq_lens),
                 "encoder_output_dim": encoder_output_dim,
-            },
-            "mission": {
+                "code_embed_dim": mpo_config.code_embed_dim,
+                "cnn_embedding_dim": mpo_config.cnn_embedding_dim,
+                "num_cnn_layers": mpo_config.num_cnn_layers,
+                "feature_attitude_keys": list(cfg.feature_config.attitude_keys),
+                "feature_orbit_keys": list(cfg.feature_config.orbit_keys),
+                "feature_vision_keys": list(cfg.feature_config.vision_keys),
                 "sampled_altitude_km": float(resolved.altitude.to(ureg.km).magnitude),
-                "cloud_count": len(resolved.clouds),
-                "target_count": len(resolved.target_areas),
-                "orbit_start_deg": float(resolved.start_angle_deg),
-                "orbit_end_deg": float(resolved.end_angle_deg),
-                "max_episode_steps": max_episode_steps,
-                "profile": "baseline_overflight",
+                "created_utc": datetime.now(timezone.utc).isoformat(),
             },
-            "artifact_paths": {k: str(v) for k, v in paths.items()},
-        },
-    )
+        )
+        write_config_snapshot(
+            run_dir,
+            {
+                "workflow": {
+                    "seed": cfg.seed,
+                    "experiment_name": experiment_name,
+                    "run_id": run_id,
+                    "warmup_episodes": cfg.warmup_episodes,
+                    "train_episodes": cfg.train_episodes,
+                    "eval_episodes": cfg.eval_episodes,
+                    "updates_per_step": cfg.updates_per_step,
+                    "train_every_n_steps": cfg.train_every_n_steps,
+                    "collect_states": cfg.collect_states,
+                    "background_artifacts": cfg.background_artifacts,
+                    "wait_for_background_artifacts": cfg.wait_for_background_artifacts,
+                    "train_episode_videos": cfg.train_episode_videos,
+                    "eval_episode_videos": cfg.eval_episode_videos,
+                    "export_episode_reward_plots": cfg.export_episode_reward_plots,
+                    "early_stop_on_budget_exhausted": cfg.early_stop_on_budget_exhausted,
+                    "use_warmup_bundle_cache": cfg.use_warmup_bundle_cache,
+                    "rebuild_warmup_bundle_cache": cfg.rebuild_warmup_bundle_cache,
+                    "warmup_targets_per_episode": cfg.warmup_targets_per_episode,
+                    "attitude_request_mode": cfg.attitude_request_mode,
+                },
+                "mpo": _mpo_config_snapshot(mpo_config),
+                "features": {
+                    "attitude_keys": list(cfg.feature_config.attitude_keys),
+                    "orbit_keys": list(cfg.feature_config.orbit_keys),
+                    "vision_keys": list(cfg.feature_config.vision_keys),
+                    "include_capture_budget": cfg.feature_config.include_capture_budget,
+                    "include_captured_target_mask": cfg.feature_config.include_captured_target_mask,
+                    "include_target_bearing_errors": cfg.feature_config.include_target_bearing_errors,
+                },
+                "observation": {
+                    "scalar_dim": obs_layout.scalar_dim,
+                    "vision_keys": list(obs_layout.vision_keys),
+                    "vision_seq_lens": list(obs_layout.vision_seq_lens),
+                    "encoder_output_dim": encoder_output_dim,
+                },
+                "mission": {
+                    "sampled_altitude_km": float(resolved.altitude.to(ureg.km).magnitude),
+                    "cloud_count": len(resolved.clouds),
+                    "target_count": len(resolved.target_areas),
+                    "orbit_start_deg": float(resolved.start_angle_deg),
+                    "orbit_end_deg": float(resolved.end_angle_deg),
+                    "max_episode_steps": max_episode_steps,
+                    "profile": "baseline_overflight",
+                },
+                "artifact_paths": {k: str(v) for k, v in paths.items()},
+            },
+        )
     return TrainingWorkflowSetup(
         config=cfg,
         run_dir=run_dir,
+        experiment_name=experiment_name,
         mission_setup=mission_setup,
-        runner=EpisodeRunner(mission_setup),
+        runner=EpisodeRunner(
+            mission_setup,
+            attitude_request_mode=cfg.attitude_request_mode,
+        ),
         agent=agent,
         altitude_km=float(resolved.altitude.to(ureg.km).magnitude),
         feature_config=cfg.feature_config,
@@ -889,6 +957,7 @@ def print_training_setup_summary(setup: TrainingWorkflowSetup) -> None:
     print(f"  encoder trunk:     {setup.encoder_output_dim}-D")
     print(f"  secondary bins:    {setup.secondary_camera_bins}")
     print(f"  feature keys:      {list(setup.feature_config.selected_keys)}")
+    print(f"  attitude request:  {cfg.attitude_request_mode} (baseline warmup + train dim0)")
     print(f"  warmup episodes:   {cfg.warmup_episodes}")
     print(f"  train episodes:    {cfg.train_episodes}")
     print(f"  eval episodes:     {cfg.eval_episodes}")
@@ -1044,6 +1113,7 @@ def s01_training_warmup_fingerprint(
         secondary_camera_observation_line_n_bins=setup.secondary_camera_bins,
         mission_profile=S01_WARMUP_MISSION_PROFILE,
         warmup_targets_per_episode=int(setup.config.warmup_targets_per_episode),
+        attitude_request_mode=str(setup.config.attitude_request_mode),
     )
 
 
@@ -1107,6 +1177,7 @@ def load_or_build_s01_training_warmup_episodes(
             observation_layout=setup.observation_layout,
             mode="warmup",
             episode_idx=warmup_idx,
+            experiment_name=setup.experiment_name,
             show_config_panel=warmup_idx == 0,
             early_stop_on_budget_exhausted=cfg.early_stop_on_budget_exhausted,
             collect_states=True,
@@ -1152,6 +1223,278 @@ def _save_checkpoint(agent: MPOAgent, path: Path) -> Path:
     return path
 
 
+def workflow_config_from_snapshot(workflow: dict[str, Any]) -> TrainingWorkflowConfig:
+    valid_keys = {f.name for f in fields(TrainingWorkflowConfig)}
+    overrides = {k: v for k, v in workflow.items() if k in valid_keys}
+    return replace(TrainingWorkflowConfig(), **overrides)
+
+
+def mpo_config_from_snapshot(mpo: dict[str, Any], *, base: MPOConfig) -> MPOConfig:
+    reward_raw = dict(mpo.get("reward") or {})
+    reward_keys = {f.name for f in fields(RewardConfig)}
+    reward = replace(base.reward, **{k: v for k, v in reward_raw.items() if k in reward_keys})
+    mpo_keys = {f.name for f in fields(MPOConfig) if f.name != "reward"}
+    overrides = {k: v for k, v in mpo.items() if k in mpo_keys and k != "reward"}
+    return replace(base, reward=reward, **overrides)
+
+
+def load_agent_checkpoint(agent: Any, ckpt_path: Path) -> None:
+    payload = torch.load(str(ckpt_path), map_location=agent.device, weights_only=False)
+    agent.pi.load_state_dict(payload["pi"])
+    agent.pi_target.load_state_dict(payload["pi_target"])
+    agent.q1.load_state_dict(payload["q1"])
+    agent.q2.load_state_dict(payload["q2"])
+    agent.q1_target.load_state_dict(payload["q1_target"])
+    agent.q2_target.load_state_dict(payload["q2_target"])
+    agent.q_optimizer.load_state_dict(payload["q_optimizer"])
+    agent.pi_optimizer.load_state_dict(payload["pi_optimizer"])
+    agent.eta_optimizer.load_state_dict(payload["eta_optimizer"])
+    agent.log_eta = torch.tensor(float(payload["log_eta"]), device=agent.device, requires_grad=True)
+    agent.step_counter = int(payload.get("step_counter", 0))
+    agent.episode_returns = list(payload.get("episode_returns", []))
+
+
+def _is_sac_run_snapshot(snapshot: dict[str, Any]) -> bool:
+    workflow = snapshot.get("workflow") or {}
+    blob = f"{workflow.get('experiment_name', '')} {workflow.get('run_id', '')}".lower()
+    return "sac" in blob
+
+
+def _make_sac_agent(env: Any, mpo_config: MPOConfig) -> Any:
+    backend_dir = Path(__file__).resolve().parents[3]
+    fork_path = (
+        backend_dir
+        / "scripts"
+        / "experiments"
+        / "ml_algo_overnight"
+        / "agents"
+        / "sac_agent_fork.py"
+    )
+    spec = importlib.util.spec_from_file_location("sac_agent_fork_export", fork_path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod.SACAgent(env, config=mpo_config)
+
+
+def _apply_dt_profile_for_run(snapshot: dict[str, Any]) -> None:
+    mission = snapshot.get("mission") or {}
+    sim_dt_s = mission.get("sim_dt_s")
+    controller_interval_s = mission.get("controller_interval_s")
+    if sim_dt_s is not None and controller_interval_s is not None:
+        backend_dir = Path(__file__).resolve().parents[3]
+        fork_path = backend_dir / "scripts" / "experiments" / "ml_algo_overnight" / "_sim_constants_fork.py"
+        spec = importlib.util.spec_from_file_location("run_dt_fork", fork_path)
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+        mod.apply_dt_profile_from_dict(
+            {
+                "sim_dt_s": float(sim_dt_s),
+                "controller_interval_s": float(controller_interval_s),
+                "effective_controller_interval_s": float(controller_interval_s),
+            }
+        )
+        return
+    # Encoder / overnight dt 1.5s slice (517 integration steps).
+    if int(mission.get("max_episode_steps", 0)) == 517:
+        backend_dir = Path(__file__).resolve().parents[3]
+        fork_path = backend_dir / "scripts" / "experiments" / "ml_algo_overnight" / "_sim_constants_fork.py"
+        spec = importlib.util.spec_from_file_location("run_dt_fork_heuristic", fork_path)
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod
+        spec.loader.exec_module(mod)
+        dt_15 = next(p for p in mod.DT_CANDIDATES if p.label == "dt_1.5s")
+        mod.apply_dt_profile(dt_15)
+
+
+def export_artifacts_from_checkpoint(
+    run_dir: Path,
+    *,
+    train_episode_videos: int = 2,
+    eval_episode_videos: int = 1,
+    export_episode_reward_plots: bool = True,
+    show_progress: bool = True,
+) -> dict[str, Any]:
+    """Replay top train/eval episodes with saved weights; write plots and MP4s."""
+    run_dir = run_dir.resolve()
+    ckpt = checkpoint_path(run_dir)
+    if not ckpt.is_file():
+        raise FileNotFoundError(f"Missing checkpoint: {ckpt}")
+
+    snapshot = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+    _apply_dt_profile_for_run(snapshot)
+    episode_rows = read_episodes_csv(run_dir)
+    use_sac = _is_sac_run_snapshot(snapshot)
+
+    setup = build_training_workflow_setup(existing_run_dir=run_dir)
+    if use_sac:
+        mpo_snapshot = snapshot.get("mpo") or {}
+        mpo_config = setup.mpo_config
+        if "actor_dropout" not in mpo_snapshot:
+            mpo_config = replace(mpo_config, actor_dropout=0.0)
+        env = make_attitude_control_env(
+            secondary_camera_observation_line_n_bins=setup.secondary_camera_bins,
+            reward_config=setup.mpo_config.reward,
+            feature_config=setup.feature_config,
+            n_mission_targets=len(
+                setup.mission_setup.resolve(require_camera=True).target_areas or ()
+            ),
+            observation_layout=setup.observation_layout,
+        )
+        agent = _make_sac_agent(env, mpo_config)
+        setup = replace(setup, agent=agent, mpo_config=mpo_config)
+
+    load_agent_checkpoint(setup.agent, ckpt)
+    cfg = setup.config
+    runner = setup.runner
+
+    train_rows = [r for r in episode_rows if r.get("phase") == "train"]
+    eval_rows = [r for r in episode_rows if r.get("phase") == "eval"]
+    train_ranked = sorted(
+        train_rows,
+        key=lambda r: float(r["episode_return"]),
+        reverse=True,
+    )[: max(0, int(train_episode_videos))]
+    eval_ranked = sorted(
+        eval_rows,
+        key=lambda r: float(r["episode_return"]),
+        reverse=True,
+    )[: max(0, int(eval_episode_videos))]
+
+    train_replayed: list[EpisodeResult] = []
+    eval_replayed: list[EpisodeResult] = []
+    errors: list[str] = []
+
+    for rank, row in enumerate(train_ranked, start=1):
+        ep_idx = int(row["episode_idx"])
+        if show_progress:
+            tqdm.write(f"Replay train ep {ep_idx + 1} (rank {rank}) for artifacts...")
+        result = runner.run_serial(
+            setup.agent,
+            mode="eval",
+            feature_config=setup.feature_config,
+            observation_layout=setup.observation_layout,
+            episode_idx=ep_idx,
+            collect_states=True,
+            train_updates_per_step=0,
+            early_stop_on_budget_exhausted=False,
+            show_simulation_info=False,
+            np_rng=np.random.default_rng(derive_seed(cfg.seed, "train_episode", ep_idx)),
+        )
+        train_replayed.append(result)
+
+    for rank, row in enumerate(eval_ranked, start=1):
+        ep_idx = int(row["episode_idx"])
+        if show_progress:
+            tqdm.write(f"Replay eval ep {ep_idx + 1} (rank {rank}) for artifacts...")
+        result = runner.run_serial(
+            setup.agent,
+            mode="eval",
+            feature_config=setup.feature_config,
+            observation_layout=setup.observation_layout,
+            episode_idx=ep_idx,
+            collect_states=True,
+            train_updates_per_step=0,
+            early_stop_on_budget_exhausted=False,
+            show_simulation_info=False,
+            np_rng=np.random.default_rng(derive_seed(cfg.seed, "eval_episode", ep_idx)),
+        )
+        eval_replayed.append(result)
+
+    try:
+        export_run_plots(run_dir, episode_rows)
+    except Exception as exc:
+        errors.append(f"run_plots: {exc}")
+
+    layout = ensure_run_layout(run_dir)
+    reward_jobs: list[tuple[Any, str, Path]] = []
+    video_jobs: list[tuple[Any, Path]] = []
+    artifact_manifest: list[dict[str, Any]] = []
+
+    def _append_replay_artifact(
+        *,
+        phase: str,
+        ep_idx: int,
+        rank: int,
+        episode_return: float,
+        result: EpisodeResult,
+    ) -> None:
+        label = f"{phase} ep {ep_idx + 1} (rank {rank}, return={episode_return:.1f})"
+        reward_path = layout["episodes"] / f"{phase}_ep_{ep_idx}_rank{rank}_reward.png"
+        video_path = layout["videos"] / f"{phase}_ep_{ep_idx}_rank{rank}.mp4"
+        series = result.simulation_series
+        if export_episode_reward_plots:
+            reward_jobs.append((series, label, reward_path))
+        video_jobs.append((series, video_path))
+        artifact_manifest.append(
+            {
+                "phase": phase,
+                "episode_idx": ep_idx,
+                "rank": rank,
+                "episode_return": float(episode_return),
+                "reward_plot": str(reward_path) if export_episode_reward_plots else None,
+                "video": str(video_path),
+            }
+        )
+        if rank == 1 and phase == "train" and export_episode_reward_plots:
+            reward_jobs.append(
+                (
+                    series,
+                    f"train best (ep {ep_idx + 1})",
+                    layout["episodes"] / "train_last_reward.png",
+                )
+            )
+        if rank == 1 and phase == "eval":
+            if export_episode_reward_plots:
+                reward_jobs.append(
+                    (
+                        series,
+                        f"eval best (ep {ep_idx + 1})",
+                        layout["episodes"] / "eval_best_reward.png",
+                    )
+                )
+            video_jobs.append((series, layout["videos"] / "eval_best.mp4"))
+
+    for rank, (row, result) in enumerate(zip(train_ranked, train_replayed), start=1):
+        _append_replay_artifact(
+            phase="train",
+            ep_idx=int(row["episode_idx"]),
+            rank=rank,
+            episode_return=float(row["episode_return"]),
+            result=result,
+        )
+    for rank, (row, result) in enumerate(zip(eval_ranked, eval_replayed), start=1):
+        _append_replay_artifact(
+            phase="eval",
+            ep_idx=int(row["episode_idx"]),
+            rank=rank,
+            episode_return=float(row["episode_return"]),
+            result=result,
+        )
+
+    write_artifacts_manifest(run_dir, artifact_manifest)
+    errors.extend(
+        run_artifacts_sync(
+            reward_jobs=reward_jobs,
+            video_jobs=video_jobs,
+            skip_run_plots=True,
+        )
+    )
+
+    return {
+        "run_dir": str(run_dir),
+        "checkpoint": str(ckpt),
+        "train_episodes_replayed": [int(r["episode_idx"]) for r in train_ranked],
+        "eval_episodes_replayed": [int(r["episode_idx"]) for r in eval_ranked],
+        "artifact_manifest": artifact_manifest,
+        "errors": errors,
+    }
+
+
 def open_training_workflow(
     setup: TrainingWorkflowSetup,
     *,
@@ -1160,10 +1503,20 @@ def open_training_workflow(
     """Start a training run session (telemetry, progress display, artifact worker)."""
     ctx = TrainingWorkflowContext(setup=setup, show_progress=show_progress)
     ctx.paths = artifact_paths_map(setup.run_dir)
-    if setup.config.background_artifacts:
+    use_background = bool(setup.config.background_artifacts)
+    if use_background:
         ctx.worker = BackgroundArtifactWorker(setup.run_dir)
     ctx.telemetry_writer = RunTelemetryWriter(setup.run_dir)
     ctx.telemetry_writer.on_run_started(metadata={"workflow": "s01_notebook_08"})
+    if setup.config.enable_tensorboard:
+        ctx.tensorboard_writer = TensorBoardRunWriter(
+            setup.run_dir,
+            setup.config.tensorboard_profile,
+        )
+        config_path = setup.run_dir / "config.json"
+        if config_path.is_file():
+            snapshot = json.loads(config_path.read_text(encoding="utf-8"))
+            ctx.tensorboard_writer.log_hparams(build_hparams_from_config_snapshot(snapshot))
     if show_progress:
         ctx.progress_display = TrainingProgressDisplay(
             config=TrainingProgressConfig(
@@ -1191,6 +1544,7 @@ def _ctx_run_episode(ctx: TrainingWorkflowContext, **kwargs: Any) -> EpisodeResu
         progress_display=ctx.progress_display,
         train_every_n_steps=cfg.train_every_n_steps,
         collect_states=cfg.collect_states,
+        experiment_name=setup.experiment_name,
         **kwargs,
     )
 
@@ -1219,6 +1573,12 @@ def _ctx_record_episode(
         heading=heading,
         payload=_episode_markdown_payload(result),
     )
+    if ctx.tensorboard_writer is not None and phase == "train":
+        ctx.tensorboard_writer.log_train_episode(
+            episode_idx,
+            result.episode_return,
+            learning_row,
+        )
     ctx.global_idx += 1
 
 
@@ -1377,38 +1737,38 @@ def run_eval(ctx: TrainingWorkflowContext) -> TrainingWorkflowResult:
         ctx.episode_rows,
         action_diagnostics=action_diagnostics,
     )
+    reward_jobs, video_jobs, artifact_manifest = plan_standard_training_artifacts(
+        ctx.setup.run_dir,
+        train_results=ctx.train_results,
+        eval_results=ctx.eval_results,
+        train_episode_videos=cfg.train_episode_videos,
+        eval_episode_videos=cfg.eval_episode_videos,
+        export_episode_reward_plots=cfg.export_episode_reward_plots,
+    )
+    write_artifacts_manifest(ctx.setup.run_dir, artifact_manifest)
 
-    last_train_result = ctx.train_results[-1] if ctx.train_results else None
-    reward_jobs: list[tuple[Any, str, Path]] = []
-    video_jobs: list[tuple[Any, Path]] = []
-    if last_train_result is not None:
-        reward_jobs.append(
-            (
-                last_train_result.simulation_series,
-                "train last",
-                ctx.paths["train_last_reward_plot"],
-            )
+    try:
+        export_run_plots(
+            ctx.setup.run_dir,
+            ctx.episode_rows,
+            warmup_results=ctx.warmup_results,
+            train_results=ctx.train_results,
+            eval_results=ctx.eval_results,
         )
-    if ctx.eval_results:
-        best_eval_idx = int(
-            max(range(len(ctx.eval_results)), key=lambda i: _episode_return(ctx.eval_results[i]))
-        )
-        best_eval = ctx.eval_results[best_eval_idx]
-        reward_jobs.append(
-            (
-                best_eval.simulation_series,
-                f"eval best (ep {best_eval_idx + 1})",
-                ctx.paths["eval_best_reward_plot"],
-            )
-        )
-        video_jobs.append((best_eval.simulation_series, ctx.paths["eval_best_video"]))
+    except Exception as exc:
+        ctx.artifact_errors.append(f"run_plots: {exc}")
 
     if cfg.background_artifacts and ctx.worker is not None:
         for series, label, out_path in reward_jobs:
             ctx.worker.submit_reward_plot(series, label=label, out_path=out_path)
         for series, out_path in video_jobs:
             ctx.worker.submit_video_export(series, out_path)
-        ctx.worker.submit_run_plots(ctx.episode_rows)
+        ctx.worker.submit_run_plots(
+            ctx.episode_rows,
+            warmup_results=ctx.warmup_results,
+            train_results=ctx.train_results,
+            eval_results=ctx.eval_results,
+        )
     else:
         ctx.artifact_errors.extend(
             run_artifacts_sync(
@@ -1416,13 +1776,21 @@ def run_eval(ctx: TrainingWorkflowContext) -> TrainingWorkflowResult:
                 video_jobs=video_jobs,
                 run_dir=ctx.setup.run_dir,
                 episode_rows=ctx.episode_rows,
+                warmup_results=ctx.warmup_results,
+                train_results=ctx.train_results,
+                eval_results=ctx.eval_results,
+                skip_run_plots=True,
             )
         )
-
     worker = ctx.worker
+    deferred_worker = None
     if worker is not None:
-        ctx.artifact_errors.extend(worker.shutdown(wait=True))
-        ctx.worker = None
+        if cfg.wait_for_background_artifacts:
+            ctx.artifact_errors.extend(worker.shutdown(wait=True))
+            ctx.worker = None
+        else:
+            deferred_worker = worker
+            ctx.worker = None
 
     result = TrainingWorkflowResult(
         warmup_results=ctx.warmup_results,
@@ -1433,7 +1801,8 @@ def run_eval(ctx: TrainingWorkflowContext) -> TrainingWorkflowResult:
         eval_kpis=_summarize_phase("eval", ctx.eval_results),
         artifact_paths=ctx.paths,
         artifact_errors=list(ctx.artifact_errors),
-        _artifact_worker=None,
+        artifact_manifest=list(artifact_manifest),
+        _artifact_worker=deferred_worker,
     )
     ctx.close()
     return result

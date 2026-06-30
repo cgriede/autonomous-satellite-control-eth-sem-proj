@@ -1,0 +1,127 @@
+{
+  "run_at_utc": "2026-06-28T22:15:24.655740+00:00",
+  "phase": "H0",
+  "hypothesis_id": "dt_profile",
+  "aborted": false,
+  "sim_dt_s": 1.5,
+  "controller_interval_s": 1.5,
+  "effective_controller_interval_s": 1.5,
+  "label": "dt_1.5s",
+  "train_episodes": 7,
+  "speed_ratio_vs_ref": 1.0365677019271329,
+  "reference": {
+    "profile": "ref_0.4s",
+    "episode_return": 103.83553310995688,
+    "steps": 1935,
+    "n_shutter_cmds": 50,
+    "speed": {
+      "wall_s": 82.1732336,
+      "steps": 1935,
+      "n_train_updates": 968,
+      "steps_per_s": 23.547813749415358,
+      "episode_return": -239.1891205023337
+    }
+  },
+  "candidates": [
+    {
+      "label": "ref_0.4s",
+      "sim_dt_s": 0.4,
+      "controller_interval_s": 1.0,
+      "effective_controller_interval_s": 0.8,
+      "parity": {
+        "episode_return": 103.83553310995688,
+        "steps": 1935,
+        "n_shutter_cmds": 50
+      },
+      "speed": {
+        "wall_s": 73.695966,
+        "steps": 1935,
+        "n_train_updates": 968,
+        "steps_per_s": 26.256525357168126,
+        "episode_return": -239.18880355316568
+      },
+      "parity_passed": true,
+      "speed_ratio_vs_ref": 1.1150302799477518
+    },
+    {
+      "label": "dt_0.8s",
+      "sim_dt_s": 0.8,
+      "controller_interval_s": 0.8,
+      "effective_controller_interval_s": 0.8,
+      "parity": {
+        "episode_return": 103.83553310995688,
+        "steps": 1935,
+        "n_shutter_cmds": 50
+      },
+      "speed": {
+        "wall_s": 74.79125010000007,
+        "steps": 1935,
+        "n_train_updates": 968,
+        "steps_per_s": 25.87201039443514,
+        "episode_return": -239.18921573459525
+      },
+      "parity_passed": true,
+      "speed_ratio_vs_ref": 1.0987011647770268
+    },
+    {
+      "label": "dt_1.0s",
+      "sim_dt_s": 1.0,
+      "controller_interval_s": 1.0,
+      "effective_controller_interval_s": 1.0,
+      "parity": {
+        "episode_return": 103.83553310995688,
+        "steps": 1935,
+        "n_shutter_cmds": 50
+      },
+      "speed": {
+        "wall_s": 75.40874179999992,
+        "steps": 1935,
+        "n_train_updates": 968,
+        "steps_per_s": 25.660154960973003,
+        "episode_return": -239.19002525623333
+      },
+      "parity_passed": true,
+      "speed_ratio_vs_ref": 1.0897043451267356
+    },
+    {
+      "label": "dt_1.5s",
+      "sim_dt_s": 1.5,
+      "controller_interval_s": 1.5,
+      "effective_controller_interval_s": 1.5,
+      "parity": {
+        "episode_return": 103.83553310995688,
+        "steps": 1935,
+        "n_shutter_cmds": 50
+      },
+      "speed": {
+        "wall_s": 79.27435270000001,
+        "steps": 1935,
+        "n_train_updates": 968,
+        "steps_per_s": 24.408903183639616,
+        "episode_return": -239.2237699466678
+      },
+      "parity_passed": true,
+      "speed_ratio_vs_ref": 1.0365677019271329
+    }
+  ],
+  "chosen": {
+    "label": "dt_1.5s",
+    "sim_dt_s": 1.5,
+    "controller_interval_s": 1.5,
+    "effective_controller_interval_s": 1.5,
+    "parity": {
+      "episode_return": 103.83553310995688,
+      "steps": 1935,
+      "n_shutter_cmds": 50
+    },
+    "speed": {
+      "wall_s": 79.27435270000001,
+      "steps": 1935,
+      "n_train_updates": 968,
+      "steps_per_s": 24.408903183639616,
+      "episode_return": -239.2237699466678
+    },
+    "parity_passed": true,
+    "speed_ratio_vs_ref": 1.0365677019271329
+  }
+}

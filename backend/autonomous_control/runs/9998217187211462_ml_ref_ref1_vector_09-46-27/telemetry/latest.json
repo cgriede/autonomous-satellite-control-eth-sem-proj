@@ -1,0 +1,6 @@
+{
+  "event":"run_started",
+  "timestamp_utc":"2026-06-30T09:46:28.582161+00:00",
+  "run_dir":"D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217187211462_ml_ref_ref1_vector_09-46-27",
+  "workflow":"s01_notebook_08"
+}

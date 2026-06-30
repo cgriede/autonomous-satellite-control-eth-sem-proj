@@ -1,0 +1,48 @@
+%% Simulation kernel — high-level build & step loop
+%% Source: simulation/stepper_factory.py, simulation/stepper.py, run_simulation.py
+
+flowchart TB
+    subgraph build["Build (once per episode)"]
+        EU[EnvironmentSetup<br/>mission · clouds · cameras · targets]
+        RS[resolve → ResolvedSimulationSetup]
+        SF[build_stepper → SimulationStepper]
+        PRE[Precompute orbit grid t, θ_orbit, radius]
+        EU --> RS --> SF --> PRE
+    end
+
+    subgraph step["SimulationStepper.step (dt_sim)"]
+        IN[wheel_torque_cmd_nm in]
+        ARB{Control path}
+        SAF[AttitudeSafetyController.arbitrate]
+        OBC[OBC nadir / target-track PD]
+        VEC[ObcPointingResolver u → θ_req → PD]
+        IN --> ARB
+        ARB -->|torque mode| SAF
+        ARB -->|baseline OBC| OBC
+        ARB -->|vector mode| VEC
+        SAF --> TAU[τ applied]
+        OBC --> TAU
+        VEC --> TAU
+        TAU --> DYN[DynamicsKernel<br/>2D attitude + reaction wheel]
+        DYN --> POS[Update sat pose · body_z · ω]
+        POS --> SK[SensorKernel.evaluate<br/>fused camera ray batch]
+        SK --> CAM[Primary + secondary obs lines<br/>GSD · quality · cloud_frac]
+        CAM --> RK[RewardKernel.evaluate<br/>distance · capture · effort]
+    end
+
+    subgraph ctrl["Controller tick (slower interval)"]
+        OBS[Build agent observation]
+        SH[Shutter / take_picture budget]
+        RK --> OBS
+        SH --> RK
+    end
+
+    subgraph out["Episode artifact"]
+        FIN[finalize_series]
+        SSS[SimulationStateSeries<br/>train = eval = render]
+        FIN --> SSS
+    end
+
+    PRE --> step
+    RK --> FIN
+    OBS --> IN

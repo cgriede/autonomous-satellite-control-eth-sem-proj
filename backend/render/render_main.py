@@ -1,6 +1,7 @@
 import json
 import time
 from pathlib import Path
+from typing import Self
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -41,6 +42,11 @@ if __package__:
     from ._capture_plot import build_capture_panel, update_capture_panel
     from ._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
     from ._telemetry import build_telemetry_panel, update_telemetry_panel
+    from .episode_series_plotting import (
+        agent_pointing_offnadir_deg_for_plot,
+        series_uses_obc_pointing,
+        torque_agent_series_for_plot,
+    )
 else:
     from render._closeup_view import build_closeup_panel, update_closeup_panel
     from render._controls import RenderControls, build_controls_panel
@@ -51,6 +57,11 @@ else:
     from render._capture_plot import build_capture_panel, update_capture_panel
     from render._satellite_cam_view import build_1d_sat_view, update_1d_sat_view
     from render._telemetry import build_telemetry_panel, update_telemetry_panel
+    from render.episode_series_plotting import (
+        agent_pointing_offnadir_deg_for_plot,
+        series_uses_obc_pointing,
+        torque_agent_series_for_plot,
+    )
 
 
 SHOW_MAIN_PLOT = True
@@ -84,6 +95,13 @@ SIM_TIME_S = 0.0
 PANELS: dict[str, dict] = {}
 CONTROLS = RenderControls(sim_speed_multiplier=SIM_SPEED_MULTIPLIER)
 CONTROL_ARTISTS: dict | None = None
+
+
+def export_canvas_geometry() -> tuple[float, float, int, int]:
+    """Export pixel size: ``figure_size`` at ``export_dpi`` (matches legacy FFMpegWriter)."""
+    w_in, h_in = float(RENDER.figure_size[0]), float(RENDER.figure_size[1])
+    dpi = int(RENDER.export_dpi)
+    return w_in, h_in, int(round(w_in * dpi)), int(round(h_in * dpi))
 
 
 def _require_runtime() -> SimulationStateSeries:
@@ -418,6 +436,11 @@ def sample_scene(sim_idx: int) -> dict:
             f"{float(STATIC_SCENE['end_angle_deg']):+.1f} deg"
         ),
         "controller_mode": sim_series.metadata.controller_mode,
+        "safe_mode_activation_count": (
+            int(sim_series.safe_mode_activation_count[sim_idx])
+            if getattr(sim_series, "safe_mode_activation_count", None) is not None
+            else 0
+        ),
     }
     shutter_steps = _take_picture_cmd_steps(sim_series)
     if shutter_steps:
@@ -486,6 +509,8 @@ def init() -> list:
 
     if "telemetry" in PANELS:
         PANELS["telemetry"]["artists"]["text"].set_text("")
+        if "safe_mode_text" in PANELS["telemetry"]["artists"]:
+            PANELS["telemetry"]["artists"]["safe_mode_text"].set_text("")
     if "reward" in PANELS:
         a = PANELS["reward"]["artists"]
         a["latent_line"].set_data([], [])
@@ -570,6 +595,120 @@ def _resolve_ffmpeg_executable() -> tuple[str | None, str]:
     return None, "none"
 
 
+_FFMPEG_ENCODER_CACHE: dict[str, frozenset[str]] = {}
+
+
+def _ffmpeg_encoder_names(ffmpeg_exe: str) -> frozenset[str]:
+    """Return encoder short names reported by ``ffmpeg -encoders`` (cached per binary)."""
+    import subprocess
+
+    cached = _FFMPEG_ENCODER_CACHE.get(ffmpeg_exe)
+    if cached is not None:
+        return cached
+    proc = subprocess.run(
+        [ffmpeg_exe, "-hide_banner", "-encoders"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    names: set[str] = set()
+    for line in proc.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0].startswith("V"):
+            names.add(parts[1])
+    result = frozenset(names)
+    _FFMPEG_ENCODER_CACHE[ffmpeg_exe] = result
+    return result
+
+
+def _resolve_h264_export_codec(ffmpeg_exe: str) -> tuple[str, list[str], str]:
+    """Pick H.264 encoder: GPU ``h264_nvenc`` when available, else CPU ``libx264``."""
+    encoders = _ffmpeg_encoder_names(ffmpeg_exe)
+    if "h264_nvenc" in encoders:
+        return (
+            "h264_nvenc",
+            ["-pix_fmt", "yuv420p", "-preset", "p4", "-rc", "vbr", "-cq", "23"],
+            "h264_nvenc",
+        )
+    return "libx264", ["-pix_fmt", "yuv420p", "-preset", "veryfast"], "libx264"
+
+
+class _FfmpegRawVideoPipeWriter:
+    """Pipe RGBA frames to ffmpeg stdin (NVENC when available)."""
+
+    def __init__(
+        self,
+        export_path: Path,
+        *,
+        width: int,
+        height: int,
+        fps: int,
+        ffmpeg_exe: str,
+        codec: str,
+        extra_args: list[str],
+    ) -> None:
+        import subprocess
+
+        self._export_path = export_path
+        self._width = width
+        self._height = height
+        self._subprocess = subprocess
+        cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-loglevel",
+            "error",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-s",
+            f"{width}x{height}",
+            "-pix_fmt",
+            "rgba",
+            "-r",
+            str(fps),
+            "-i",
+            "pipe:0",
+            "-an",
+            "-c:v",
+            codec,
+            *extra_args,
+            "-movflags",
+            "+faststart",
+            str(export_path),
+        ]
+        self._cmd = cmd
+        self._proc: subprocess.Popen[bytes] | None = None
+
+    def __enter__(self) -> Self:
+        self._proc = self._subprocess.Popen(
+            self._cmd,
+            stdin=self._subprocess.PIPE,
+            stdout=self._subprocess.DEVNULL,
+            stderr=self._subprocess.PIPE,
+        )
+        return self
+
+    def write_rgba_frame(self, rgba: np.ndarray) -> None:
+        if self._proc is None or self._proc.stdin is None:
+            raise RuntimeError("ffmpeg pipe writer is not open")
+        self._proc.stdin.write(np.ascontiguousarray(rgba).tobytes())
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if self._proc is None:
+            return
+        if self._proc.stdin is not None:
+            self._proc.stdin.close()
+        stderr = self._proc.stderr.read().decode("utf-8", errors="replace") if self._proc.stderr else ""
+        rc = self._proc.wait()
+        self._proc = None
+        if exc_type is None and rc != 0:
+            raise RuntimeError(
+                f"ffmpeg export failed (exit {rc}) for {self._export_path}: {stderr.strip()}"
+            )
+
+
 def _try_reencode_mp4_h264_for_web(path: Path) -> tuple[bool, str]:
     """Re-encode MP4 to H.264 yuv420p for HTML5 playback in notebook/desktop browsers.
 
@@ -582,6 +721,7 @@ def _try_reencode_mp4_h264_for_web(path: Path) -> tuple[bool, str]:
     ffmpeg_exe, via = _resolve_ffmpeg_executable()
     if ffmpeg_exe is None:
         return False, "no_ffmpeg_exe"
+    codec, extra_args, codec_label = _resolve_h264_export_codec(ffmpeg_exe)
     tmp = path.with_name(path.stem + "._h264_tmp" + path.suffix)
     try:
         subprocess.run(
@@ -593,9 +733,8 @@ def _try_reencode_mp4_h264_for_web(path: Path) -> tuple[bool, str]:
                 "-i",
                 str(path),
                 "-c:v",
-                "libx264",
-                "-pix_fmt",
-                "yuv420p",
+                codec,
+                *extra_args,
                 "-movflags",
                 "+faststart",
                 "-an",
@@ -624,25 +763,45 @@ def _try_reencode_mp4_h264_for_web(path: Path) -> tuple[bool, str]:
         tmp.rename(path)
     except OSError:
         return False, f"rename_failed:{via}"
-    return True, via
+    return True, f"{via}:{codec_label}"
 
 
 def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
     """
     Export video by rendering frames in a single pass at 30x real-time speed,
-    writing directly to an MP4 file with ffmpeg via matplotlib's FFMpegWriter.
+    piping RGBA frames to ffmpeg (``h264_nvenc`` when available, else ``libx264``).
+
+    Uses parallel CPU draw when ``RENDER.export_workers`` > 1 (default 8).
+    Override worker count with env ``VIDEO_EXPORT_WORKERS``.
     """
-    if not bool(mpl_animation.writers.is_available("ffmpeg")):
-        raise SystemError("FFMPEG writer is not available in matplotlib; cannot export video. Install ffmpeg and the Python package 'imageio-ffmpeg' for best results.")
-    
+    from render.video_export_parallel import (
+        compute_export_frame_indices,
+        resolve_export_worker_count,
+        save_one_pass_video_parallel,
+    )
+
     sim_series = _require_runtime()
     if FIG is None:
         raise RuntimeError("Figure has not been initialized.")
+    n_workers = resolve_export_worker_count()
+    frame_indices = compute_export_frame_indices(float(sim_series.metadata.sim_total_s))
+    if n_workers > 1 and len(frame_indices) >= n_workers:
+        return save_one_pass_video_parallel(export_path, n_workers=n_workers)
+
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    ffmpeg_exe, ffmpeg_via = _resolve_ffmpeg_executable()
+    if ffmpeg_exe is None:
+        raise SystemError(
+            "ffmpeg is not available; cannot export video. "
+            "Install ffmpeg or the Python package 'imageio-ffmpeg'."
+        )
+
     export_speed_multiplier = float(SIMULATION.export_speed_multiplier)
     export_fps = int(RENDER.export_fps)
     sim_total_s = float(sim_series.metadata.sim_total_s)
     dt_sim_s = (ANIMATION_INTERVAL_MS / 1000.0) * export_speed_multiplier
-    export_num_frames = max(2, int(np.ceil(sim_total_s / dt_sim_s)) + 1)
+    frame_indices = compute_export_frame_indices(sim_total_s)
     if export_path is None:
         export_path = Path(__file__).resolve().parents[2] / RENDER.export_filename
     export_path = Path(export_path).resolve()
@@ -650,6 +809,9 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
     archived = archive_existing_video(export_path)
     if archived is not None:
         print(f"[video] archived previous export -> {archived}")
+
+    codec, extra_args, codec_label = _resolve_h264_export_codec(ffmpeg_exe)
+    print(f"[video] ffmpeg encoder={codec_label} via={ffmpeg_via} fps={export_fps}")
 
     def export_update(frame: int) -> list:
         sim_t = min(float(frame) * dt_sim_s, sim_total_s)
@@ -660,21 +822,43 @@ def save_one_pass_video_30x(export_path: Path | None = None) -> Path:
 
     init()
 
-    frame_iter = tqdm(
-        range(export_num_frames),
-        desc="Writing video",
-        unit="frame",
-    )
+    fig_w_in, fig_h_in, width, height = export_canvas_geometry()
+    FIG.set_size_inches(fig_w_in, fig_h_in)
+    FIG.set_dpi(RENDER.export_dpi)
+    canvas = FigureCanvasAgg(FIG)
+    canvas.draw()
 
-    writer = mpl_animation.FFMpegWriter(
-        fps=export_fps,                                        
-        codec="libx264",
-        extra_args=["-pix_fmt", "yuv420p"],
-    )
-    with writer.saving(FIG, str(export_path), dpi=RENDER.export_dpi):
-        for frame in frame_iter:
-            export_update(frame)
-            writer.grab_frame()
+    def _frame_iter() -> tqdm:
+        return tqdm(
+            frame_indices,
+            desc="Writing video",
+            unit="frame",
+        )
+
+    def _export_with_codec(active_codec: str, active_extra: list[str]) -> None:
+        with _FfmpegRawVideoPipeWriter(
+            export_path,
+            width=width,
+            height=height,
+            fps=export_fps,
+            ffmpeg_exe=ffmpeg_exe,
+            codec=active_codec,
+            extra_args=active_extra,
+        ) as pipe_writer:
+            for frame in _frame_iter():
+                export_update(frame)
+                canvas.draw()
+                rgba = np.asarray(canvas.buffer_rgba())
+                pipe_writer.write_rgba_frame(rgba)
+
+    try:
+        _export_with_codec(codec, extra_args)
+    except RuntimeError as exc:
+        if codec != "h264_nvenc":
+            raise
+        print(f"[video] h264_nvenc failed ({exc}); falling back to libx264")
+        _export_with_codec("libx264", ["-pix_fmt", "yuv420p", "-preset", "veryfast"])
+
     return export_path
 
 
@@ -825,8 +1009,8 @@ def _build_panels() -> None:
         )
         PANELS["reward"] = {"axes": axes, "artists": artists}
     if SHOW_TORQUE_PLOT:
-        use_obc = "obc" in str(sim_series.metadata.controller_mode).lower()
-        torque_agent = None if use_obc else sim_series.wheel_torque_agent_cmd_nm
+        use_obc = series_uses_obc_pointing(sim_series)
+        torque_agent = torque_agent_series_for_plot(sim_series)
         applied_label = "OBC pointing (RW)" if use_obc else "applied (RW)"
         axes, artists = build_torque_panel(
             FIG,
@@ -843,19 +1027,13 @@ def _build_panels() -> None:
             np.cos(sim_series.body_z_angle_rad - nadir_angle),
         )
         offnadir_deg = np.rad2deg(z_offnadir_rad)
-        los_offnadir_deg = None
-        if sim_series.baseline_view_anchor_xy_km is not None:
-            anchors = np.asarray(sim_series.baseline_view_anchor_xy_km, dtype=float)
-            sat_x = sim_series.radius_km * np.cos(sim_series.theta_orbit_rad)
-            sat_y = sim_series.radius_km * np.sin(sim_series.theta_orbit_rad)
-            los_angle = np.arctan2(anchors[:, 1] - sat_y, anchors[:, 0] - sat_x)
-            los_rel = np.arctan2(np.sin(los_angle - nadir_angle), np.cos(los_angle - nadir_angle))
-            los_offnadir_deg = np.rad2deg(los_rel)
+        agent_offnadir_deg = agent_pointing_offnadir_deg_for_plot(sim_series)
         axes, artists = build_pointing_panel(
             FIG,
             sim_series.t_s,
             offnadir_deg,
-            los_offnadir_deg=los_offnadir_deg,
+            los_offnadir_deg=None,
+            agent_offnadir_deg=agent_offnadir_deg,
         )
         PANELS["pointing"] = {"axes": axes, "artists": artists}
     if SHOW_CAPTURE_PLOT:

@@ -1,0 +1,181 @@
+{
+  "artifact_paths": {
+    "artifacts_manifest": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\artifacts_manifest.json",
+    "config": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\config.json",
+    "episodes_csv": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\episodes.csv",
+    "eval_best_reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\episodes\\eval_best_reward.png",
+    "eval_best_video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\videos\\eval_best.mp4",
+    "learning_curves_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\plots\\learning_curves.png",
+    "returns_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\plots\\returns_by_episode.png",
+    "summary_json": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\summary_metrics.json",
+    "train_last_reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217172220712_ml_sac_vector_budget_13-56-17\\episodes\\train_last_reward.png"
+  },
+  "experiment": {
+    "agent_kind": "sac",
+    "arm_id": "penalty_on",
+    "attitude_request_mode": "vector",
+    "baseline_comparison": {
+      "arm_id": "ref1",
+      "experiment_id": "ml_agent_reference_pointing",
+      "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217182442815_ml_ref_ref1_vector_11-05-57",
+      "summary_metrics": {
+        "action_diagnostics": {
+          "eval": {
+            "episodes": 2,
+            "mean_abs_omega_rad_s_at_shutter": 0.005019513272341755,
+            "phase": "eval",
+            "shutter_applied_epsilon": 1.0,
+            "shutter_cmd_count": 346,
+            "shutter_meaningful_fraction": 0.011560693641618497,
+            "torque_norm_mean": 0.29127832931139047,
+            "torque_norm_std": 0.4422007224380067,
+            "torque_saturated_fraction": 0.11434108527131782
+          },
+          "train": {
+            "episodes": 50,
+            "mean_abs_omega_rad_s_at_shutter": 0.012668445728624272,
+            "phase": "train",
+            "shutter_applied_epsilon": 1.0,
+            "shutter_cmd_count": 7071,
+            "shutter_meaningful_fraction": 0.01513223023617593,
+            "torque_norm_mean": 0.9414095233940643,
+            "torque_norm_std": 0.9601483438177133,
+            "torque_saturated_fraction": 0.8947674418604651
+          }
+        },
+        "best_eval_episode_idx": 0,
+        "eval": {
+          "avg_reward_mean": -0.04666855414633529,
+          "episodes": 2.0,
+          "return_best": -24.08097393950901,
+          "return_mean": -24.08097393950901,
+          "return_std": 0.0
+        },
+        "last_train_learning": {
+          "eta_mean": NaN,
+          "kl_mean": NaN,
+          "kl_mu_mean": NaN,
+          "kl_sigma_mean": NaN,
+          "n_train_updates": 516,
+          "pi_loss_mean": -1.2600649865271971,
+          "q_loss_mean": 1.8415016086064568
+        },
+        "train": {
+          "avg_reward_mean": -0.09484279897210712,
+          "episodes": 50.0,
+          "return_best": 95.76818835177954,
+          "return_mean": -48.93888426960727,
+          "return_std": 35.1126205314289
+        },
+        "warmup": {
+          "avg_reward_mean": -0.09407589956459425,
+          "episodes": 5.0,
+          "return_best": -40.30906163699676,
+          "return_mean": -48.54316417533064,
+          "return_std": 9.326138051638097
+        }
+      }
+    },
+    "budget_exhausted_shutter_penalty": true,
+    "dt_profile": {
+      "controller_interval_s": 1.5,
+      "effective_controller_interval_s": 1.5,
+      "label": "dt_1.5s",
+      "sim_dt_s": 1.5
+    },
+    "enable_tensorboard": true,
+    "experiment_id": "ml_sac_vector_budget_penalty",
+    "hypothesis_id": "sac_vector_budget_penalty",
+    "reward_mode": "sparse"
+  },
+  "features": {
+    "attitude_keys": [
+      "body_z_angle_rad",
+      "omega_sat_rad_s"
+    ],
+    "include_capture_budget": true,
+    "include_captured_target_mask": true,
+    "include_target_bearing_errors": true,
+    "orbit_keys": [
+      "theta_orbit_rad",
+      "primary_camera_image_quality"
+    ],
+    "vision_keys": [
+      "camera_observation_line_codes",
+      "secondary_camera_observation_line_codes"
+    ]
+  },
+  "mission": {
+    "cloud_count": 25,
+    "max_episode_steps": 517,
+    "orbit_end_deg": 37.091184820606344,
+    "orbit_start_deg": -32.69281732973161,
+    "profile": "baseline_overflight",
+    "sampled_altitude_km": 528.7583065070219,
+    "target_count": 50
+  },
+  "mpo": {
+    "batch_size": 256,
+    "buffer_size": 50000,
+    "cnn_embedding_dim": 32,
+    "code_embed_dim": 8,
+    "gamma": 0.99,
+    "learning_rate_eta": 0.001,
+    "learning_rate_pi": 0.00015,
+    "learning_rate_q": 0.00045,
+    "num_cnn_layers": 2,
+    "num_samples_pi": 40,
+    "num_samples_q": 80,
+    "num_units_actor": 90,
+    "num_units_critic": 140,
+    "reward": {
+      "enable_cloud_penalty": false,
+      "enable_distance_reward": false,
+      "enable_energy": false,
+      "enable_image_quality_capture": true,
+      "enable_outer_gate": true,
+      "enable_shutter_waste_penalty": true,
+      "enable_torque_effort": false,
+      "k_shutter_waste": 5.0,
+      "k_torque_effort": 0.1,
+      "shutter_waste_reward_epsilon": 0.001
+    },
+    "target_kl_mu": 0.1,
+    "target_kl_sigma": 0.0001,
+    "tau": 0.005,
+    "warmup_episodes": 5
+  },
+  "observation": {
+    "encoder_output_dim": 180,
+    "scalar_dim": 105,
+    "vision_keys": [
+      "camera_observation_line_codes",
+      "secondary_camera_observation_line_codes"
+    ],
+    "vision_seq_lens": [
+      101,
+      200
+    ]
+  },
+  "workflow": {
+    "attitude_request_mode": "vector",
+    "background_artifacts": true,
+    "collect_states": false,
+    "early_stop_on_budget_exhausted": false,
+    "eval_episode_videos": 2,
+    "eval_episodes": 2,
+    "experiment_name": "sac vector budget penalty",
+    "export_episode_reward_plots": true,
+    "rebuild_warmup_bundle_cache": true,
+    "run_id": "ml_sac_vector_budget_13-56-17",
+    "seed": 7,
+    "train_episode_videos": 3,
+    "train_episodes": 50,
+    "train_every_n_steps": 1,
+    "updates_per_step": 1,
+    "use_warmup_bundle_cache": true,
+    "wait_for_background_artifacts": true,
+    "warmup_episodes": 5,
+    "warmup_targets_per_episode": 10
+  }
+}

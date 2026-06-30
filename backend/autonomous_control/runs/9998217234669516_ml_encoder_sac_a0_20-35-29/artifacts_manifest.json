@@ -1,0 +1,30 @@
+{
+  "episodes": [
+    {
+      "phase": "train",
+      "episode_idx": 48,
+      "rank": 1,
+      "episode_return": 27.12024888586618,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217234669516_ml_encoder_sac_a0_20-35-29\\episodes\\train_ep_48_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217234669516_ml_encoder_sac_a0_20-35-29\\videos\\train_ep_48_rank1.mp4"
+    },
+    {
+      "phase": "train",
+      "episode_idx": 44,
+      "rank": 2,
+      "episode_return": 25.194971711007955,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217234669516_ml_encoder_sac_a0_20-35-29\\episodes\\train_ep_44_rank2_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217234669516_ml_encoder_sac_a0_20-35-29\\videos\\train_ep_44_rank2.mp4"
+    },
+    {
+      "phase": "eval",
+      "episode_idx": 1,
+      "rank": 1,
+      "episode_return": 27.751698281486444,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217234669516_ml_encoder_sac_a0_20-35-29\\episodes\\eval_ep_1_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217234669516_ml_encoder_sac_a0_20-35-29\\videos\\eval_ep_1_rank1.mp4"
+    }
+  ],
+  "train_video_count": 2,
+  "eval_video_count": 1
+}

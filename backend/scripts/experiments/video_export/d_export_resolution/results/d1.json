@@ -1,0 +1,63 @@
+{
+  "experiment_id": "d1_export_resolution",
+  "hypothesis_id": "export_resolution_720p",
+  "phase": "D1",
+  "run_at_utc": "2026-06-29T17:23:56.431970+00:00",
+  "frozen_input": {
+    "description": "Explicit 1280x720 export via RENDER.export_pixel_width/height",
+    "scenario": "gate",
+    "tunables": {
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "control": null,
+  "treatment": {
+    "export_wall_s": 0.9998722000018461,
+    "baseline_frame_count": 6,
+    "n_frames_drawn": 4,
+    "export_frames_per_s": 4.0005112653323245,
+    "video": {
+      "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\d_export_resolution\\results\\d1_preview.mp4",
+      "exists": true,
+      "bytes": 56088,
+      "codec": "h264 (Main) (avc1 / 0x31637661)",
+      "width": 1280,
+      "height": 720,
+      "duration_s": 0.2,
+      "probe_via": "imageio_ffmpeg"
+    },
+    "encoder": "patch",
+    "peak_rss_mb": null,
+    "fixture_id": "gate"
+  },
+  "delta": {
+    "parity_resolution": "1280x720"
+  },
+  "parity": {
+    "required": true,
+    "passed": true,
+    "notes": "ffprobe width=1280 height=720 h264"
+  },
+  "instrumentation": {
+    "patch": "save_one_pass_video_30x"
+  },
+  "debug_examples": {
+    "video_probe": {
+      "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\d_export_resolution\\results\\d1_preview.mp4",
+      "exists": true,
+      "bytes": 56088,
+      "codec": "h264 (Main) (avc1 / 0x31637661)",
+      "width": 1280,
+      "height": 720,
+      "duration_s": 0.2,
+      "probe_via": "imageio_ffmpeg"
+    }
+  },
+  "files_changed": [
+    "environment_definition/constants/RENDER.py",
+    "render/render_main.py"
+  ],
+  "verdict": "supported",
+  "closeout": "promote"
+}

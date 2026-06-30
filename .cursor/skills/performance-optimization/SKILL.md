@@ -53,12 +53,12 @@ flowchart TD
 | Hooks | `_hooks.py` (install / uninstall monkey-patches) |
 | Report | `results/{scenario}_timing.json`, `.md` |
 
-**Run** (repo root, PowerShell; env **ASC** per `python-runtime-environment`):
+**Run** (repo root, PowerShell; env **auto-sat** per `python-runtime-environment`):
 
 ```powershell
-conda activate ASC; python backend/scripts/experiments/sim_timing/run_profile.py
-conda activate ASC; python backend/scripts/experiments/sim_timing/run_profile.py --scenario high_cloud
-conda activate ASC; python backend/scripts/experiments/sim_timing/run_profile.py --scenario high_cloud --with-render
+conda activate auto-sat; python backend/scripts/experiments/sim_timing/run_profile.py
+conda activate auto-sat; python backend/scripts/experiments/sim_timing/run_profile.py --scenario high_cloud
+conda activate auto-sat; python backend/scripts/experiments/sim_timing/run_profile.py --scenario high_cloud --with-render
 ```
 
 Scenarios: `low_cloud` (5–6 clouds), `high_cloud` (notebook-scale 50–200 bounds, frozen pickle). Fixtures reuse `sensor_ray_batch/_frozen_baseline.py`.
@@ -120,7 +120,7 @@ Add categories only when they map to a real subsystem; keep top-N at 7 unless th
 ## Related skills
 
 - [`hypothesis-experiment-cycle`](../hypothesis-experiment-cycle/SKILL.md) — fork, parity, promote performance hypotheses.
-- [`python-runtime-environment`](../python-runtime-environment/SKILL.md) — conda env **ASC** (always before Python)
+- [`python-runtime-environment`](../python-runtime-environment/SKILL.md) — conda env **auto-sat** (always before Python)
 - [`implementation-discipline`](../implementation-discipline/SKILL.md) — small verified slices when promoting.
 
 ## Reference results (high_cloud, 63 clouds)

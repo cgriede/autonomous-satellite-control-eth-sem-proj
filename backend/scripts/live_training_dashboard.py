@@ -11,7 +11,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from paths import MODELS_ROOT
+from utils.ml_training.ml_training_utils import resolve_run_dir
 
 
 def _dashboard_html() -> str:
@@ -91,7 +91,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    run_dir = MODELS_ROOT / args.run_id
+    run_dir = resolve_run_dir(args.run_id)
     if not run_dir.exists():
         raise FileNotFoundError(f"Run directory not found: {run_dir}")
     dashboard_path = run_dir / "live_dashboard.html"

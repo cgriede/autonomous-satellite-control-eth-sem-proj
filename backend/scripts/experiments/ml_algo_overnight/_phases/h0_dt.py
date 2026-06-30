@@ -20,8 +20,8 @@ for path in (BACKEND_DIR, S01_DIR, EXPERIMENT_ROOT):
         sys.path.insert(0, str(path))
 
 from autonomous_control.config.randomness import derive_seed
-from autonomous_control.notebook_warmup_bundle_cache import preload_warmup_buffer_from_episodes
 from s01_utils import training_workflow as tw
+from utils.ml_training.ml_training_utils import remove_run_dirs_for_slug
 
 import _frozen_baseline as fb
 from _frozen_baseline import EXPERIMENT_SEED, TRAIN_EPISODES_DEFAULT, TRAIN_EPISODES_FAST, frozen_training_config
@@ -48,26 +48,32 @@ def _run_warmup_episode(setup: tw.TrainingWorkflowSetup) -> Any:
         mode="warmup",
         episode_idx=0,
         collect_states=False,
+        show_training_context=False,
         train_updates_per_step=0,
         feature_config=setup.feature_config,
         observation_layout=setup.observation_layout,
-        np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, "h0", "warmup", 0)),
+        np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, "h0/warmup", 0)),
     )
 
 
 def _run_train_speed_episode(setup: tw.TrainingWorkflowSetup, warmup: Any) -> dict[str, float | int]:
-    preload_warmup_buffer_from_episodes(setup.agent, [warmup])
+    buffer_size = len(setup.agent.buffer) if hasattr(setup.agent, "buffer") else 0
+    if buffer_size == 0:
+        raise RuntimeError(
+            "Warmup produced an empty replay buffer; cannot benchmark train episode."
+        )
     t0 = time.perf_counter()
     result = setup.runner.run_serial(
         setup.agent,
         mode="train",
         episode_idx=0,
         collect_states=False,
+        show_training_context=False,
         train_updates_per_step=1,
         train_every_n_steps=1,
         feature_config=setup.feature_config,
         observation_layout=setup.observation_layout,
-        np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, "h0", "train", 0)),
+        np_rng=np.random.default_rng(derive_seed(EXPERIMENT_SEED, "h0/train", 0)),
     )
     wall_s = time.perf_counter() - t0
     stats = result.learning_stats or {}
@@ -102,6 +108,7 @@ def _build_h0_setup(profile: DtProfile) -> tw.TrainingWorkflowSetup:
         rebuild_warmup_bundle_cache=True,
     )
     cfg = replace(cfg, warmup_episodes=1, use_warmup_bundle_cache=False, eval_episodes=0, background_artifacts=False)
+    remove_run_dirs_for_slug(f"ml_overnight_h0_{profile.label}")
     return tw.build_training_workflow_setup(cfg)
 
 

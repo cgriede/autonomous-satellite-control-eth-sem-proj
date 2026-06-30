@@ -10,13 +10,9 @@ from __future__ import annotations
 
 
 
-import json
-import os
 import sys
 import time
 import warnings
-from pathlib import Path
-
 from typing import Any
 
 
@@ -28,11 +24,12 @@ from tqdm.auto import tqdm
 
 
 from autonomous_control.action_adapter import (
+    AttitudeRequestMode,
     POLICY_RAW_DIM,
     policy_output_to_gym_action,
 )
 
-from autonomous_control.baseline_overflight_step import baseline_overflight_controller_tick
+from autonomous_control.baseline_overflight_step import baseline_overflight_controller_tick_for_mode
 
 from autonomous_control.reward import RewardConfig
 
@@ -56,6 +53,7 @@ from .controller_observation import (
     resolve_target_anchor_xy_km,
 )
 
+from .episode_timing import EpisodeTimingCollector
 from .training_metrics import collect_episode_learning_stats, snapshot_metrics_start
 
 
@@ -85,11 +83,20 @@ class EpisodeRunner:
 
 
 
-    def __init__(self, setup: EnvironmentSetup) -> None:
+    def __init__(
+        self,
+        setup: EnvironmentSetup,
+        *,
+        attitude_request_mode: AttitudeRequestMode = "torque",
+    ) -> None:
 
         self._setup = setup
 
         self._resolved = setup.resolve(require_camera=False)
+
+        if attitude_request_mode not in ("torque", "vector"):
+            raise ValueError(f"Unsupported attitude_request_mode: {attitude_request_mode!r}")
+        self._attitude_request_mode = attitude_request_mode
 
         earth_radius_km = float(self._resolved.earth_radius.to(self._resolved.ureg.km).magnitude)
 
@@ -137,15 +144,21 @@ class EpisodeRunner:
 
         show_config_panel: bool = False,
 
+        experiment_name: str | None = None,
+
         episode_idx: int = 0,
 
         progress_display: TrainingProgressDisplay | None = None,
+
+        phase_episode_total: int | None = None,
 
         early_stop_on_budget_exhausted: bool | None = None,
 
         observation_layout: ControllerObservationLayout | None = None,
 
         warmup_capture_targets: tuple[int, ...] | None = None,
+
+        timing: EpisodeTimingCollector | None = None,
 
     ) -> EpisodeResult:
 
@@ -173,9 +186,17 @@ class EpisodeRunner:
 
             torque_policy_label=torque_policy_label,
 
+            attitude_request_mode=self._attitude_request_mode,
+
         )
 
         stepper = build_stepper(self._resolved, simulation_config=sim_config)
+
+        if self._attitude_request_mode == "vector":
+            ctrl0 = stepper.current_timestep_state()
+            stepper.reset_vector_pointing_episode(
+                theta_orbit_rad=float(ctrl0.theta_orbit_rad),
+            )
 
 
 
@@ -374,21 +395,14 @@ class EpisodeRunner:
 
             )
 
-        # #region agent log
-        _dbg_prof = (
-            mode == "warmup"
-            and int(episode_idx) == 0
-            and {
-                "sim_s": 0.0,
-                "obs_s": 0.0,
-                "copy_s": 0.0,
-                "progress_s": 0.0,
-                "t0": time.perf_counter(),
-            }
-        ) or None
-        # #endregion
+        if timing is not None:
+            timing.begin_episode()
 
         if verbose_print == 0:
+
+            resolved_phase_episode_total = phase_episode_total
+            if resolved_phase_episode_total is None and progress_display is not None:
+                resolved_phase_episode_total = progress_display.phase_episode_total
 
             if show_simulation_info:
 
@@ -407,6 +421,10 @@ class EpisodeRunner:
                     agent=agent,
 
                     episode_mode=mode,
+
+                    experiment_name=experiment_name,
+
+                    phase_episode_total=resolved_phase_episode_total,
 
                 )
 
@@ -427,6 +445,10 @@ class EpisodeRunner:
                     agent=agent,
 
                     episode_mode=mode,
+
+                    experiment_name=experiment_name,
+
+                    phase_episode_total=resolved_phase_episode_total,
 
                 )
 
@@ -454,7 +476,12 @@ class EpisodeRunner:
 
                         sat_xy = np.asarray(ctrl_state.sat_pos_xy_km, dtype=float)
 
-                        _action, stored_action, take_picture_cmd = baseline_overflight_controller_tick(
+                        if timing is not None:
+                            _t_ctrl = time.perf_counter()
+
+                        _action, stored_action, take_picture_cmd = baseline_overflight_controller_tick_for_mode(
+
+                            attitude_request_mode=self._attitude_request_mode,
 
                             policy=overflight_policy,
 
@@ -474,17 +501,26 @@ class EpisodeRunner:
 
                         )
 
+                        if timing is not None:
+                            timing.add("controller_baseline", time.perf_counter() - _t_ctrl)
+
                         current_action_nm = float(_action.torque_request_nm)
 
                         current_take_picture_signal = float(stored_action[1])
 
                     else:
 
+                        if timing is not None:
+                            _t_act = time.perf_counter()
+
                         action_vec = np.asarray(
 
                             agent.get_action(obs, train=train_mode), dtype=np.float64
 
                         ).reshape(-1)
+
+                        if timing is not None:
+                            timing.add("get_action", time.perf_counter() - _t_act)
 
                         if action_vec.shape[0] == 1:
 
@@ -514,13 +550,18 @@ class EpisodeRunner:
 
                             tau_limit=tau_limit,
 
-                        )
-
-                        current_action_nm = float(
-
-                            parsed.wheel_torque_cmd.to(self._resolved.ureg.N * self._resolved.ureg.m).magnitude
+                            attitude_request_mode=self._attitude_request_mode,
 
                         )
+
+                        if self._attitude_request_mode == "vector":
+                            current_action_nm = 0.0
+                        else:
+                            current_action_nm = float(
+
+                                parsed.wheel_torque_cmd.to(self._resolved.ureg.N * self._resolved.ureg.m).magnitude
+
+                            )
 
                         current_take_picture_signal = shutter_raw
 
@@ -528,10 +569,27 @@ class EpisodeRunner:
 
 
 
-                if _dbg_prof is not None:
+                if timing is not None:
                     _t_sim = time.perf_counter()
 
-                next_ts = stepper.step(wheel_torque_cmd_nm=current_action_nm)
+                if self._attitude_request_mode == "vector":
+                    ctrl_state = stepper.current_timestep_state()
+                    pointing_u = float(stored_action[0])
+                    wheel_nm = stepper.resolve_vector_u_to_torque_nm(
+                        u=pointing_u,
+                        theta_orbit_rad=float(ctrl_state.theta_orbit_rad),
+                        sat_pos_xy_km=np.asarray(ctrl_state.sat_pos_xy_km, dtype=float),
+                        body_z_rad=float(ctrl_state.body_z_angle_rad),
+                        omega_sat_rad_s=float(ctrl_state.omega_sat_rad_s),
+                    )
+                else:
+                    wheel_nm = float(current_action_nm)
+                    pointing_u = None
+
+                next_ts = stepper.step(
+                    wheel_torque_cmd_nm=wheel_nm,
+                    agent_pointing_cmd_u=pointing_u,
+                )
 
                 cmd_step = stepper.current_index
 
@@ -549,8 +607,9 @@ class EpisodeRunner:
 
                 done = bool(stepper.done)
 
-                if _dbg_prof is not None:
-                    _dbg_prof["sim_s"] += time.perf_counter() - _t_sim
+                if timing is not None:
+                    timing.add("sim_step", time.perf_counter() - _t_sim)
+                    timing.note_sim_step()
 
 
 
@@ -573,7 +632,7 @@ class EpisodeRunner:
 
                 episode_return += reward
 
-                if _dbg_prof is not None:
+                if timing is not None:
                     _t_obs = time.perf_counter()
 
                 if collect_states:
@@ -590,14 +649,14 @@ class EpisodeRunner:
 
                     )
 
-                    if _dbg_prof is not None:
-                        _dbg_prof["obs_s"] += time.perf_counter() - _t_obs
+                    if timing is not None:
+                        timing.add("obs_build", time.perf_counter() - _t_obs)
                         _t_copy = time.perf_counter()
 
                     states.append(next_obs.copy())
 
-                    if _dbg_prof is not None:
-                        _dbg_prof["copy_s"] += time.perf_counter() - _t_copy
+                    if timing is not None:
+                        timing.add("state_copy", time.perf_counter() - _t_copy)
 
                 else:
 
@@ -613,8 +672,8 @@ class EpisodeRunner:
 
                     )
 
-                    if _dbg_prof is not None:
-                        _dbg_prof["obs_s"] += time.perf_counter() - _t_obs
+                    if timing is not None:
+                        timing.add("obs_build", time.perf_counter() - _t_obs)
 
 
 
@@ -626,7 +685,7 @@ class EpisodeRunner:
 
                 if progress_display is not None:
 
-                    if _dbg_prof is not None:
+                    if timing is not None:
                         _t_prog = time.perf_counter()
 
                     progress_display.on_step(
@@ -647,8 +706,8 @@ class EpisodeRunner:
                         safe_mode_activations=int(stepper.safe_mode_takeover_count),
                     )
 
-                    if _dbg_prof is not None:
-                        _dbg_prof["progress_s"] += time.perf_counter() - _t_prog
+                    if timing is not None:
+                        timing.add("progress", time.perf_counter() - _t_prog)
 
 
 
@@ -658,7 +717,14 @@ class EpisodeRunner:
                     and hasattr(agent, "store")
                 ):
 
+                    if timing is not None:
+                        _t_store = time.perf_counter()
+
                     agent.store((obs, stored_action.copy(), reward, next_obs, done))
+
+                    if timing is not None:
+                        timing.add("store", time.perf_counter() - _t_store)
+                        timing.note_controller_store()
 
                     if mode == "train":
 
@@ -670,7 +736,14 @@ class EpisodeRunner:
 
                                 if hasattr(agent, "train"):
 
+                                    if timing is not None:
+                                        _t_train = time.perf_counter()
+
                                     agent.train()
+
+                                    if timing is not None:
+                                        timing.add("train", time.perf_counter() - _t_train)
+                                        timing.note_train_update()
 
 
 
@@ -703,46 +776,6 @@ class EpisodeRunner:
             if progress_display is not None:
 
                 progress_display.end_episode()
-
-            # #region agent log
-            if _dbg_prof is not None:
-                wall_s = time.perf_counter() - float(_dbg_prof["t0"])
-                payload = {
-                    "sessionId": "0b9e59",
-                    "hypothesisId": "A-E",
-                    "location": "episode_runner.py:run_serial",
-                    "message": "warmup ep0 timing breakdown",
-                    "timestamp": int(time.time() * 1000),
-                    "data": {
-                        "steps": steps,
-                        "wall_s": round(wall_s, 4),
-                        "steps_per_s": round(steps / max(wall_s, 1e-9), 2),
-                        "sim_s": round(_dbg_prof["sim_s"], 4),
-                        "obs_s": round(_dbg_prof["obs_s"], 4),
-                        "copy_s": round(_dbg_prof["copy_s"], 4),
-                        "progress_s": round(_dbg_prof["progress_s"], 4),
-                        "other_s": round(
-                            max(0.0, wall_s - sum(_dbg_prof[k] for k in ("sim_s", "obs_s", "copy_s", "progress_s"))),
-                            4,
-                        ),
-                        "in_notebook": _in_notebook(),
-                        "debugpy_active": sys.gettrace() is not None,
-                        "collect_states": collect_states,
-                        "has_progress_display": progress_display is not None,
-                        "has_phase_bar": progress_display is not None and progress_display._phase_bar is not None,
-                        "threads": {
-                            k: os.environ.get(k)
-                            for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS")
-                        },
-                    },
-                }
-                try:
-                    log_path = Path(__file__).resolve().parents[2] / "debug-0b9e59.log"
-                    with log_path.open("a", encoding="utf-8") as fh:
-                        fh.write(json.dumps(payload) + "\n")
-                except OSError:
-                    pass
-            # #endregion
 
         if ended_early_on_budget:
             early_msg = (
@@ -803,6 +836,10 @@ class EpisodeRunner:
 
         )
 
+        vector_hold_last: int | None = None
+        if self._attitude_request_mode == "vector" and stepper._vector_pointing_resolver is not None:
+            vector_hold_last = int(stepper._vector_pointing_resolver.diagnostics.hold_last_count)
+
         return EpisodeResult(
 
             episode_return=episode_return,
@@ -824,6 +861,8 @@ class EpisodeRunner:
             ended_early_on_budget=ended_early_on_budget,
 
             configured_episode_steps=int(episode_total_steps),
+
+            vector_hold_last_count=vector_hold_last,
 
         )
 

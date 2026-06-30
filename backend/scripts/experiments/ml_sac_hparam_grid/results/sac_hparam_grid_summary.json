@@ -1,0 +1,61 @@
+{
+  "run_at_utc": "2026-06-29T23:01:43.583800+00:00",
+  "experiment_id": "ml_sac_hparam_grid",
+  "ref_run_id": "9998217234669516_ml_encoder_sac_a0_20-35-29",
+  "train_episodes": 50,
+  "shared_mpo": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "actor_dropout": 0.0
+  },
+  "arms": {
+    "sac_s_sparse": {
+      "size": "S",
+      "reward_mode": "sparse",
+      "learning_mode": true,
+      "train_return_best": 88.78794977836476,
+      "eval_return_mean": 69.83841669360002,
+      "wall_s": 1336.969986600001
+    },
+    "sac_s_dense": {
+      "size": "S",
+      "reward_mode": "dense",
+      "learning_mode": true,
+      "train_return_best": 8.993455327504305,
+      "eval_return_mean": -21.575338783159296,
+      "wall_s": 1333.6063092999975
+    },
+    "sac_m_sparse": {
+      "size": "M",
+      "reward_mode": "sparse",
+      "learning_mode": true,
+      "train_return_best": 129.75056453477848,
+      "eval_return_mean": 50.571500656687164,
+      "wall_s": 1127.8528147000034
+    },
+    "sac_m_dense": {
+      "size": "M",
+      "reward_mode": "dense",
+      "learning_mode": true,
+      "train_return_best": 181.97187712326394,
+      "eval_return_mean": -41.11071262380102,
+      "wall_s": 1001.7197710000037
+    },
+    "sac_l_sparse": {
+      "size": "L",
+      "reward_mode": "sparse",
+      "learning_mode": true,
+      "train_return_best": 128.92412440622354,
+      "eval_return_mean": -15.852660910889192,
+      "wall_s": 1275.0046927999938
+    },
+    "sac_l_dense": {
+      "size": "L",
+      "reward_mode": "dense",
+      "learning_mode": true,
+      "train_return_best": 10.29287017565626,
+      "eval_return_mean": 24.269154100911663,
+      "wall_s": 1380.0332140999963
+    }
+  }
+}

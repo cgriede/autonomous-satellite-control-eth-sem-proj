@@ -1,67 +1,18 @@
-"""Single active ml_learning_signal training job on this host."""
+"""Single active ML pipeline job on this host (global mutex)."""
 
 from __future__ import annotations
 
-import atexit
-import os
 import sys
 from pathlib import Path
 
-_LOCK_PATH = Path(__file__).resolve().parent / ".experiment_run.lock"
+_EXPERIMENTS = Path(__file__).resolve().parents[1]
+if str(_EXPERIMENTS) not in sys.path:
+    sys.path.insert(0, str(_EXPERIMENTS))
 
+from pipeline_run_guard import acquire_pipeline_run_lock  # noqa: E402
 
-def _pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    if sys.platform == "win32":
-        try:
-            import ctypes
-
-            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-            handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-            if not handle:
-                return False
-            ctypes.windll.kernel32.CloseHandle(handle)
-            return True
-        except Exception:
-            return False
-    try:
-        os.kill(pid, 0)
-        return True
-    except OSError:
-        return False
+_SLUG = Path(__file__).resolve().parent.name
 
 
 def acquire_experiment_run_lock(*, script: str) -> None:
-    """Exit if another ml_learning_signal runner is already active on this machine."""
-    if _LOCK_PATH.is_file():
-        try:
-            text = _LOCK_PATH.read_text(encoding="utf-8").strip().splitlines()
-            old_pid = int(text[0]) if text else -1
-            old_script = text[1] if len(text) > 1 else "?"
-        except (OSError, ValueError):
-            old_pid, old_script = -1, "?"
-        if old_pid == os.getpid():
-            return
-        if _pid_alive(old_pid):
-            print(
-                f"[ml_learning_signal] Another experiment is already running "
-                f"(pid={old_pid}, script={old_script}). Stop it first or delete "
-                f"{_LOCK_PATH.name} if stale.",
-                file=sys.stderr,
-            )
-            raise SystemExit(2)
-        _LOCK_PATH.unlink(missing_ok=True)
-
-    _LOCK_PATH.write_text(f"{os.getpid()}\n{script}\n", encoding="utf-8")
-
-    def _release() -> None:
-        try:
-            if _LOCK_PATH.is_file():
-                owner = int(_LOCK_PATH.read_text(encoding="utf-8").splitlines()[0])
-                if owner == os.getpid():
-                    _LOCK_PATH.unlink(missing_ok=True)
-        except (OSError, ValueError, IndexError):
-            pass
-
-    atexit.register(_release)
+    acquire_pipeline_run_lock(slug=_SLUG, script=script)

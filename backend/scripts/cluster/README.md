@@ -24,7 +24,7 @@ Set `AUTO_SAT_REPO` if your clone lives elsewhere.
 | What | Where |
 |------|--------|
 | Conda / `auto-sat` env | `$HOME` (you already have `~/miniconda3`) |
-| Training runs, videos, checkpoints | `$REPO_ROOT/data` via `AUTO_SAT_MODELS_ROOT` (default: `~/auto-sat-train/data`) |
+| Training runs, videos, checkpoints | `$REPO_ROOT/data` via `AUTO_SAT_RUNS_ROOT` / `AUTO_SAT_MODELS_ROOT` (default: `~/auto-sat-train/data`) |
 | Slurm stdout/stderr | `backend/scripts/cluster/cluster_logs/` |
 | Optional fast temp I/O | Node `$TMPDIR` — request with `#SBATCH --tmp=10g` |
 

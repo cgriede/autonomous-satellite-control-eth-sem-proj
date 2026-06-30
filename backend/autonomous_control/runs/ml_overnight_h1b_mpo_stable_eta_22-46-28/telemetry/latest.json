@@ -1,0 +1,6 @@
+{
+  "event":"run_started",
+  "timestamp_utc":"2026-06-28T22:46:28.094269+00:00",
+  "run_dir":"D:\\code\\sem-proj-asc\\backend\\autonomous_control\\models\\ml_overnight_h1b_mpo_stable_eta_22-46-28",
+  "workflow":"s01_notebook_08"
+}

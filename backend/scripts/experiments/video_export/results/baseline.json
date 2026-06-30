@@ -2,15 +2,18 @@
   "experiment_id": "baseline",
   "hypothesis_id": "shared_baseline",
   "phase": "baseline",
-  "run_at_utc": "2026-06-02T19:57:31.967250+00:00",
+  "run_at_utc": "2026-06-29T17:24:46.108593+00:00",
   "frozen_input": {
-    "description": "Production render export (full dashboard, all frames)",
+    "description": "Production render export (frozen high_cloud fixture, no sim)",
     "scenario": "high_cloud_notebook",
+    "fixture_id": "high_cloud",
     "seed": 0,
     "tunables": {
       "export_dpi": 120,
       "export_fps": 20,
-      "export_speed_multiplier": 30.0
+      "export_speed_multiplier": 30.0,
+      "export_pixel_width": 1280,
+      "export_pixel_height": 720
     },
     "n_items": 63
   },
@@ -18,7 +21,7 @@
   "treatment": null,
   "delta": {
     "primary_kpi": "export_wall_s",
-    "baseline_value": 78.2032395999413,
+    "baseline_value": 40.067470900001354,
     "treatment_value": null,
     "direction": "flat",
     "relative_change_pct": null,
@@ -31,17 +34,17 @@
   },
   "instrumentation": {
     "hooks_valid": true,
-    "notes": "no patch"
+    "notes": "frozen fixture loader"
   },
   "debug_examples": {
     "video_probe": {
       "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\results\\baseline_preview.mp4",
       "exists": true,
-      "bytes": 1319253,
-      "codec": "h264 (High) (avc1 / 0x31637661)",
-      "width": 1200,
-      "height": 700,
-      "duration_s": 43.1,
+      "bytes": 1341976,
+      "codec": "h264 (Main) (avc1 / 0x31637661)",
+      "width": 1280,
+      "height": 720,
+      "duration_s": 14.4,
       "probe_via": "imageio_ffmpeg"
     }
   },
@@ -50,21 +53,24 @@
   "closeout": "keep_as_idea",
   "kpis": {
     "high_cloud_export": {
-      "export_wall_s": 78.2032395999413,
-      "baseline_frame_count": 862,
-      "n_frames_drawn": 862,
-      "export_frames_per_s": 11.022561269963642,
+      "export_wall_s": 40.067470900001354,
+      "baseline_frame_count": 575,
+      "n_frames_drawn": 288,
+      "export_frames_per_s": 7.18787568895421,
       "video": {
         "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\video_export\\results\\baseline_preview.mp4",
         "exists": true,
-        "bytes": 1319253,
-        "codec": "h264 (High) (avc1 / 0x31637661)",
-        "width": 1200,
-        "height": 700,
-        "duration_s": 43.1,
+        "bytes": 1341976,
+        "codec": "h264 (Main) (avc1 / 0x31637661)",
+        "width": 1280,
+        "height": 720,
+        "duration_s": 14.4,
         "probe_via": "imageio_ffmpeg"
-      }
+      },
+      "encoder": "ffmpeg",
+      "peak_rss_mb": null,
+      "fixture_id": "high_cloud"
     }
   },
-  "sim_n_steps": 1938
+  "sim_n_steps": 1293
 }

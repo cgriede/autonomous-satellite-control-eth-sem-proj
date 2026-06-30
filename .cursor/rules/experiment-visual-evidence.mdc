@@ -1,0 +1,46 @@
+---
+description: Videos and frame inspection are hard evidence for behavioral claims; KPI JSON alone is not enough.
+alwaysApply: true
+---
+
+# Experiment visual evidence
+
+## Why
+
+Physical control behavior (pointing, shutters, capture timing, attitude) is visible across time in **videos and plots**, not in aggregate CSV/JSON alone. Reward curves are fine for quick estimates; **deeper behavioral claims require visual artifacts**.
+
+## Hard evidence (required)
+
+For ML experiments, hypothesis cycles, and pipeline Phases **2–4**:
+
+1. **Export videos** from training runs when behavior is in scope (`TrainingWorkflowConfig` defaults: `train_episode_videos=3`, `eval_episode_videos=2`). Do **not** silently trim video export in runners unless the user explicitly opts in (e.g. `--trim-artifacts`).
+2. **[`video-frame-inspect`](../skills/video-frame-inspect/SKILL.md)** — extract PNGs from `.mp4`; read frames with vision; cite `manifest.json` path in Phase **2.3** / **4.3**.
+3. **[`visual-output-verification`](../skills/visual-output-verification/SKILL.md)** — agent pre-check on concrete artifacts before behavioral verdict language.
+4. **User sign-off** — agent frame review is pre-check only; user confirms before Phase 4 close ([`minimal-feature-review`](../skills/minimal-feature-review/SKILL.md)).
+
+Pair with [`isolated-notebook-hypotheses`](../skills/isolated-notebook-hypotheses/SKILL.md) **evidence-first**: persist real examples (frame findings, plot paths, manifest paths) — not only aggregate KPIs or run logs.
+
+## Evidence tiers
+
+| Tier | Use for |
+|------|---------|
+| **KPI JSON / CSV** | Quick reward trends, wall time, smoke pass/fail |
+| **Plots** (`returns_by_episode`, episode reward/torque grids) | Episode-level diagnostics; cite paths |
+| **Video + frame manifest** | Pointing, shutters, capture quality, learning behavior over time |
+| **User-watched MP4** | Final behavioral judgment before closeout |
+
+## Forbidden
+
+- Closing Phase 2–4 on KPI JSON or `run_log.md` alone when videos or plots were exported or are needed for the claim.
+- Verdict language about shutters, pointing, or “learned behavior” without `video-frame-inspect` findings (or explicit user frame review).
+- Saying “videos exist” without **full paths** and manifest path.
+- Discussing pipeline run results in chat (review, recap, arm comparison) with **KPI-only** tables and no MP4 paths when videos were exported.
+- Marking a visual/render task done from code inspection only.
+
+## Platform note
+
+Slow MP4 export ([D-013](../../docs/research/DECISIONS.md)) is **performance debt**, not permission to skip behavioral evidence. Document export mode in Phase 2.3; improve encode path separately — do not treat missing video as an acceptable experiment outcome when behavior was the question.
+
+## Skill chain
+
+Full phase map: [`experiment-knowledge-pipeline/skill-chain.md`](../skills/experiment-knowledge-pipeline/skill-chain.md).

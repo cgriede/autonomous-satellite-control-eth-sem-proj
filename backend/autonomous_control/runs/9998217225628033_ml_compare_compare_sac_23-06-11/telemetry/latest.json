@@ -1,0 +1,14 @@
+{
+  "event":"step_snapshot",
+  "timestamp_utc":"2026-06-29T23:18:27.467408+00:00",
+  "episode_idx":1,
+  "step_idx":516,
+  "sim_time_s":773.9520241754366,
+  "reward":-0.01960921501652138,
+  "worker_id":null,
+  "episode_return":-33.53376780867106,
+  "phase":"eval",
+  "done":true,
+  "capture_budget_remaining":6,
+  "safe_mode_activations":3
+}

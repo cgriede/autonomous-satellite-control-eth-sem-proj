@@ -81,6 +81,10 @@ class TrainingProgressDisplay:
     def set_phase_episode_total(self, episode_total: int | None) -> None:
         self._episode_total = episode_total
 
+    @property
+    def phase_episode_total(self) -> int | None:
+        return self._episode_total
+
     def begin_episode(
         self,
         *,

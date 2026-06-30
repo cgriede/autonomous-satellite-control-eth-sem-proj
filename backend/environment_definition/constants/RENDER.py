@@ -143,6 +143,10 @@ class RenderConstants:
     closeup_ground_line_linewidth: float
     export_fps                   : int
     export_dpi                   : int
+    export_frame_stride          : int
+    export_pixel_width           : int
+    export_pixel_height          : int
+    export_workers               : int
     export_filename              : str
     animation_interval           : object
     default_speed_multiplier     : float
@@ -350,6 +354,10 @@ RENDER = RenderConstants(
     export_filename = "satellite_orbit_one_pass_30x.mp4",
     export_fps      = 20,
     export_dpi      = 120,
+    export_frame_stride = 2,
+    export_pixel_width = 1920,
+    export_pixel_height = 1080,
+    export_workers = 8,
     animation_interval = 30.0 * ureg.ms,
     default_speed_multiplier = 30.0,
     default_num_frames = 2000,
