@@ -99,6 +99,15 @@ class MPOAgent:
         self.pi_optimizer = optim.Adam(self.pi.parameters(), lr=self.config.learning_rate_pi)
         self.log_eta = torch.tensor(1.0, device=self.device, requires_grad=True)
         self.eta_optimizer = optim.Adam([self.log_eta], lr=self.config.learning_rate_eta)
+        # Decoupled M-step dual variables (Abdolmaleki et al. 2018, arXiv:1812.02256).
+        # alpha_mu / alpha_sigma are Lagrange multipliers for the mean/variance trust regions.
+        # Kept in log-space so they stay strictly positive under gradient updates.
+        self.log_alpha_mu = torch.tensor(0.0, device=self.device, requires_grad=True)
+        self.log_alpha_sigma = torch.tensor(0.0, device=self.device, requires_grad=True)
+        self.alpha_optimizer = optim.Adam(
+            [self.log_alpha_mu, self.log_alpha_sigma],
+            lr=self.config.learning_rate_alpha,
+        )
 
         self.buffer = ReplayBuffer(
             self.config.buffer_size,
@@ -119,6 +128,8 @@ class MPOAgent:
             "kl": [],
             "kl_mu": [],
             "kl_sigma": [],
+            "alpha_mu": [],
+            "alpha_sigma": [],
             "return": [],
         }
 
@@ -193,6 +204,7 @@ class MPOAgent:
         q_loss.backward()
         self.q_optimizer.step()
 
+        # --- E-step: sample actions and compute Q-values ---
         dist_online = self.pi(obs_scalars, obs_vision)
         actions_gaussian = dist_online.rsample((self.config.num_samples_pi,))
         actions_tanh = torch.tanh(actions_gaussian)
@@ -205,61 +217,104 @@ class MPOAgent:
             obs_scalars_expanded, obs_vision_expanded, actions_flat
         ).detach().reshape(self.config.num_samples_pi, self.config.batch_size, 1)
 
+        # E-step temperature: use detached eta for weighting (non-differentiable here).
         eta = torch.exp(self.log_eta).detach()
         self.metrics["eta"].append(float(eta.item()))
         weights = torch.softmax(q1_values_samples / eta, dim=0).squeeze(-1)
 
+        # --- M-step: compute KL against pi_target BEFORE updating pi ---
+        # KL is used in pi_loss (trust-region penalty) and alpha updates.
+        # Reference is pi_target (Polyak-averaged past policy), not the pre-step online policy.
+        with torch.no_grad():
+            dist_ref = self.pi_target(obs_scalars, obs_vision)
+
+        if self.config.decoupled_kl:
+            # KL(ref || online): penalises online moving away from the reference.
+            kl_mu = 0.5 * torch.mean(
+                ((dist_ref.loc - dist_online.loc) ** 2) / (dist_online.scale ** 2 + 1e-8)
+            )
+            kl_sigma = torch.mean(
+                torch.log(dist_online.scale / (dist_ref.scale + 1e-8) + 1e-8)
+                - 1
+                + (dist_ref.scale ** 2 + 1e-8) / (dist_online.scale ** 2 + 1e-8)
+                + ((dist_ref.loc - dist_online.loc) ** 2) / (2 * (dist_online.scale ** 2 + 1e-8))
+            )
+            kl = kl_mu + kl_sigma
+        else:
+            kl_mu = torch.tensor(float("nan"), device=self.device)
+            kl_sigma = torch.tensor(float("nan"), device=self.device)
+            with torch.no_grad():
+                kl = torch.distributions.kl_divergence(dist_ref, dist_online).mean()
+
+        alpha_mu = torch.exp(self.log_alpha_mu).detach()
+        alpha_sigma = torch.exp(self.log_alpha_sigma).detach()
+        self.metrics["alpha_mu"].append(float(alpha_mu.item()))
+        self.metrics["alpha_sigma"].append(float(alpha_sigma.item()))
+
+        # M-step loss: weighted MLE + enforced KL trust-region penalties.
+        # The alpha terms penalise the policy for moving too far from pi_target,
+        # implementing the M-step constraint from Abdolmaleki et al. 2018 (1812.02256).
         log_prob_gaussian = dist_online.log_prob(actions_gaussian).sum(-1)
         jacobian = torch.log(1 - actions_tanh.pow(2) + 1e-6).sum(-1)
         log_prob_samples = log_prob_gaussian - jacobian
-        # #region agent log
-        import json, time
-        from pathlib import Path
-        _dbg = Path(__file__).resolve().parents[2] / "debug-5a7091.log"
-        _dbg.open("a", encoding="utf-8").write(json.dumps({"sessionId":"5a7091","runId":"post-refactor","hypothesisId":"A","location":"controller_agent.py:train","message":"policy_loss_jacobian","data":{"jacobian_finite":bool(torch.isfinite(jacobian).all().item()),"actions_tanh_mean":float(actions_tanh.mean().item())},"timestamp":int(time.time()*1000)})+"\n")
-        # #endregion
-        pi_loss = -(weights * log_prob_samples).mean()
+
+        if self.config.decoupled_kl:
+            pi_loss = (
+                -(weights * log_prob_samples).mean()
+                + alpha_mu * kl_mu
+                + alpha_sigma * kl_sigma
+            )
+        else:
+            pi_loss = -(weights * log_prob_samples).mean() + (alpha_mu + alpha_sigma) * kl
+
         self.metrics["piloss"].append(float(pi_loss.item()))
 
         self.pi_optimizer.zero_grad()
         pi_loss.backward()
         self.pi_optimizer.step()
 
-        dist_new = self.pi(obs_scalars, obs_vision)
-        if self.config.decoupled_kl:
-            kl_mu = 0.5 * torch.mean(
-                ((dist_online.loc - dist_new.loc) ** 2) / (dist_new.scale**2 + 1e-8)
+        # --- E-step dual: update eta from the Q-value distribution (1812.02256 §E-step) ---
+        # Minimise g(eta) = eta*eps_eta + eta*E_s[log E_a exp(Q(s,a)/eta)]
+        # using the already-computed q1_values_samples (frozen Q).
+        eta_var = torch.exp(self.log_eta)
+        max_q = q1_values_samples.max(dim=0, keepdim=True).values
+        log_mean_exp_q = (
+            torch.log(
+                torch.exp((q1_values_samples - max_q) / eta_var).mean(dim=0) + 1e-8
             )
-            kl_sigma = torch.mean(
-                torch.log(dist_new.scale / (dist_online.scale + 1e-8) + 1e-8)
-                - 1
-                + (dist_online.scale**2 + 1e-8) / (dist_new.scale**2 + 1e-8)
-                + ((dist_online.loc - dist_new.loc) ** 2) / (2 * (dist_new.scale**2 + 1e-8))
-            )
-            kl = kl_mu + kl_sigma
-            eta_loss = torch.exp(self.log_eta) * (self.config.target_kl_mu - kl_mu).detach()
-            eta_loss = eta_loss + torch.exp(self.log_eta) * (
-                self.config.target_kl_sigma - kl_sigma
-            ).detach()
-        else:
-            kl_mu = torch.tensor(float("nan"), device=self.device)
-            kl_sigma = torch.tensor(float("nan"), device=self.device)
-            with torch.no_grad():
-                if self.config.reverse_kl:
-                    kl = torch.distributions.kl_divergence(dist_new, dist_online).mean()
-                else:
-                    kl = torch.distributions.kl_divergence(dist_online, dist_new).mean()
-            target_kl = self.config.target_kl_mu + self.config.target_kl_sigma
-            eta_loss = torch.exp(self.log_eta) * (target_kl - kl).detach()
+            + max_q / eta_var
+        )
+        eta_loss = eta_var * self.config.eps_eta + eta_var * log_mean_exp_q.mean()
 
-        self.metrics["kl"].append(float(kl.item()))
-        self.metrics["kl_mu"].append(float(kl_mu.item()))
-        self.metrics["kl_sigma"].append(float(kl_sigma.item()))
         self.metrics["etaloss"].append(float(eta_loss.item()))
 
         self.eta_optimizer.zero_grad()
         eta_loss.backward()
         self.eta_optimizer.step()
+
+        # --- Alpha dual updates: projected gradient ascent on constraint violations ---
+        # alpha increases when KL exceeds its target (constraint violated),
+        # decreases otherwise. exp(log_alpha) >= 0 by construction.
+        if self.config.decoupled_kl:
+            alpha_mu_loss = -torch.exp(self.log_alpha_mu) * (
+                kl_mu.detach() - self.config.target_kl_mu
+            )
+            alpha_sigma_loss = -torch.exp(self.log_alpha_sigma) * (
+                kl_sigma.detach() - self.config.target_kl_sigma
+            )
+            alpha_loss = alpha_mu_loss + alpha_sigma_loss
+        else:
+            alpha_loss = -torch.exp(self.log_alpha_mu) * (
+                kl.detach() - (self.config.target_kl_mu + self.config.target_kl_sigma)
+            )
+
+        self.alpha_optimizer.zero_grad()
+        alpha_loss.backward()
+        self.alpha_optimizer.step()
+
+        self.metrics["kl"].append(float(kl.item()))
+        self.metrics["kl_mu"].append(float(kl_mu.item()))
+        self.metrics["kl_sigma"].append(float(kl_sigma.item()))
 
         self._soft_update(self.q1_target, self.q1)
         self._soft_update(self.q2_target, self.q2)
@@ -271,6 +326,8 @@ class MPOAgent:
             "eta_loss": float(eta_loss.item()),
             "eta": float(torch.exp(self.log_eta).item()),
             "kl": float(kl.item()),
+            "alpha_mu": float(alpha_mu.item()),
+            "alpha_sigma": float(alpha_sigma.item()),
         }
         if self.config.decoupled_kl:
             out["kl_mu"] = float(kl_mu.item())

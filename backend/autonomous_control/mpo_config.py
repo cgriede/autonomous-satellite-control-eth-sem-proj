@@ -22,7 +22,9 @@ class MPOConfig:
     learning_rate_pi: float = 1.5e-4
     learning_rate_eta: float = 1.0e-3
     target_kl_mu: float = 0.1
-    target_kl_sigma: float = 0.0001
+    target_kl_sigma: float = 0.01
+    eps_eta: float = 0.1
+    learning_rate_alpha: float = 1e-3
     num_samples_q: int = 80
     num_samples_pi: int = 40
     num_layers_actor: int = 1
