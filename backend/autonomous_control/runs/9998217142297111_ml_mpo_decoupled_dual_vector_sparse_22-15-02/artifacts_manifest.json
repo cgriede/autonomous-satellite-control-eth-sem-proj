@@ -1,0 +1,46 @@
+{
+  "episodes": [
+    {
+      "phase": "train",
+      "episode_idx": 42,
+      "rank": 1,
+      "episode_return": 82.32770972265655,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\episodes\\train_ep_42_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\videos\\train_ep_42_rank1.mp4"
+    },
+    {
+      "phase": "train",
+      "episode_idx": 46,
+      "rank": 2,
+      "episode_return": 72.59585371390214,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\episodes\\train_ep_46_rank2_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\videos\\train_ep_46_rank2.mp4"
+    },
+    {
+      "phase": "train",
+      "episode_idx": 39,
+      "rank": 3,
+      "episode_return": 72.31581091737353,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\episodes\\train_ep_39_rank3_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\videos\\train_ep_39_rank3.mp4"
+    },
+    {
+      "phase": "eval",
+      "episode_idx": 0,
+      "rank": 1,
+      "episode_return": 45.540227787707934,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\episodes\\eval_ep_0_rank1_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\videos\\eval_ep_0_rank1.mp4"
+    },
+    {
+      "phase": "eval",
+      "episode_idx": 1,
+      "rank": 2,
+      "episode_return": 45.540227787707934,
+      "reward_plot": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\episodes\\eval_ep_1_rank2_reward.png",
+      "video": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02\\videos\\eval_ep_1_rank2.mp4"
+    }
+  ],
+  "train_video_count": 3,
+  "eval_video_count": 2
+}
