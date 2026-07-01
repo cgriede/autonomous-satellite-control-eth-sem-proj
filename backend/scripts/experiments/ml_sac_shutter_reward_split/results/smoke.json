@@ -1,0 +1,13 @@
+{
+  "run_at_utc": "2026-06-30T15:36:55.158836+00:00",
+  "experiment_id": "ml_sac_shutter_reward_split",
+  "arm_id": "waste_off_budget_on",
+  "reward_flags": {
+    "enable_shutter_waste_penalty": false,
+    "enable_budget_exhausted_shutter_penalty": true
+  },
+  "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217166197254_ml_sac_shutter_split_smoke_15-36-41",
+  "allow_cpu": true,
+  "tensorboard": false,
+  "passed": true
+}

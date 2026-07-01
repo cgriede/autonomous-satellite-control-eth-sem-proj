@@ -1,0 +1,29 @@
+{
+  "ref_run_id": "9998217218692971_ml_mpo_model_size_mpo_s_01-01-46",
+  "notes": "Exp 8: fixed decoupled-KL MPO, sparse reward, torque mode @ dt 1.5s. Pre-fix comparator: Exp 5 mpo_s (-51.6 floor).",
+  "workflow": {
+    "train_episodes": 50,
+    "experiment_name": "mpo decoupled dual torque",
+    "warmup_episodes": 5,
+    "eval_episodes": 2,
+    "seed": 7,
+    "train_episode_videos": 3,
+    "eval_episode_videos": 2,
+    "use_warmup_bundle_cache": true,
+    "rebuild_warmup_bundle_cache": true,
+    "train_every_n_steps": 1,
+    "updates_per_step": 1,
+    "warmup_targets_per_episode": 10,
+    "background_artifacts": false,
+    "collect_states": false,
+    "early_stop_on_budget_exhausted": false,
+    "export_episode_reward_plots": true,
+    "attitude_request_mode": "torque"
+  },
+  "mpo": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "actor_dropout": 0.0,
+    "warmup_episodes": 5
+  }
+}

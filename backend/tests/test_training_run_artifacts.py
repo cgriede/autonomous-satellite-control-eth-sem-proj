@@ -13,9 +13,13 @@ from simulation.state_types import SimulationMetadata, SimulationStateSeries
 from utils.ml_training.training_run_artifacts import (
     artifact_paths_map,
     episode_row_from_result,
+    export_episode_diagnostics_plots,
     export_run_plots,
     finalize_episodes_csv,
+    plan_standard_training_artifacts,
     plot_episode_reward_timeline,
+    plot_returns_by_episode,
+    write_artifacts_manifest,
     write_config_snapshot,
     write_summary_metrics_json,
 )
@@ -110,6 +114,127 @@ class TrainingRunArtifactsTest(unittest.TestCase):
             self.assertTrue(paths["returns_plot"].exists())
             self.assertTrue(paths["learning_curves_plot"].exists())
             self.assertTrue(paths["train_last_reward_plot"].exists())
+
+    def test_episode_diagnostics_plots(self):
+        with tempfile.TemporaryDirectory() as td:
+            run_dir = Path(td)
+
+            class _Ep:
+                def __init__(self, ret: float) -> None:
+                    self.episode_return = ret
+                    self.simulation_series = _minimal_series()
+
+            warmup = [_Ep(100.0), _Ep(200.0)]
+            train = [_Ep(-10.0 - i) for i in range(3)]
+            eval_eps = [_Ep(-5.0), _Ep(-6.0)]
+            written = export_episode_diagnostics_plots(
+                run_dir,
+                warmup_results=warmup,
+                train_results=train,
+                eval_results=eval_eps,
+            )
+            self.assertEqual(len(written["warmup"]), 1)
+            self.assertTrue(written["warmup"][0].name == "warmup_episode_diagnostics.png")
+            self.assertEqual(len(written["train"]), 1)
+            self.assertTrue(written["train"][0].name == "train_episode_diagnostics.png")
+            self.assertEqual(len(written["eval"]), 1)
+
+            rows = [
+                episode_row_from_result(
+                    global_idx=i,
+                    phase="train",
+                    episode_idx=i,
+                    episode_return=-10.0,
+                    steps=5,
+                )
+                for i in range(3)
+            ]
+            export_run_plots(
+                run_dir,
+                rows,
+                warmup_results=warmup,
+                train_results=train,
+                eval_results=eval_eps,
+            )
+            self.assertTrue((run_dir / "plots" / "train_episode_diagnostics.png").exists())
+
+    def test_returns_plot_eval_shares_train_ylim(self):
+        from utils.ml_training.training_run_artifacts import _returns_ylim_from_values
+
+        with tempfile.TemporaryDirectory() as td:
+            out_path = Path(td) / "returns_by_episode.png"
+            rows = [
+                episode_row_from_result(
+                    global_idx=i,
+                    phase="warmup",
+                    episode_idx=i,
+                    episode_return=-30.0 + i,
+                    steps=5,
+                )
+                for i in range(3)
+            ]
+            rows += [
+                episode_row_from_result(
+                    global_idx=10 + i,
+                    phase="train",
+                    episode_idx=i,
+                    episode_return=(-100.0, 50.0, 120.0)[i],
+                    steps=5,
+                )
+                for i in range(3)
+            ]
+            rows += [
+                episode_row_from_result(
+                    global_idx=20 + i,
+                    phase="eval",
+                    episode_idx=i,
+                    episode_return=10.5,
+                    steps=5,
+                )
+                for i in range(2)
+            ]
+            plot_returns_by_episode(rows, out_path)
+            self.assertTrue(out_path.is_file())
+
+            train_ys = [float(r["episode_return"]) for r in rows if r["phase"] == "train"]
+            eval_ys = [float(r["episode_return"]) for r in rows if r["phase"] == "eval"]
+            warmup_ys = [float(r["episode_return"]) for r in rows if r["phase"] == "warmup"]
+            train_ylim = _returns_ylim_from_values(train_ys)
+            eval_local_ylim = _returns_ylim_from_values(eval_ys)
+            warmup_ylim = _returns_ylim_from_values(warmup_ys)
+            self.assertIsNotNone(train_ylim)
+            self.assertIsNotNone(eval_local_ylim)
+            self.assertIsNotNone(warmup_ylim)
+            self.assertNotEqual(train_ylim, eval_local_ylim)
+            self.assertNotEqual(warmup_ylim, train_ylim)
+
+    def test_plan_standard_training_artifacts(self):
+        with tempfile.TemporaryDirectory() as td:
+            run_dir = Path(td)
+
+            class _Ep:
+                def __init__(self, ret: float) -> None:
+                    self.episode_return = ret
+                    self.simulation_series = _minimal_series()
+
+            train = [_Ep(-30.0), _Ep(-10.0), _Ep(-20.0), _Ep(-5.0)]
+            eval_eps = [_Ep(-8.0), _Ep(-2.0)]
+
+            reward_jobs, video_jobs, manifest = plan_standard_training_artifacts(
+                run_dir,
+                train_results=train,
+                eval_results=eval_eps,
+                train_episode_videos=3,
+                eval_episode_videos=2,
+            )
+            self.assertEqual(len(manifest), 5)
+            self.assertEqual(manifest[0]["phase"], "train")
+            self.assertEqual(manifest[0]["episode_idx"], 3)
+            self.assertEqual(manifest[0]["rank"], 1)
+            self.assertEqual(len(reward_jobs), 7)
+            self.assertEqual(len(video_jobs), 6)
+            manifest_path = write_artifacts_manifest(run_dir, manifest)
+            self.assertTrue(manifest_path.is_file())
 
 
 if __name__ == "__main__":

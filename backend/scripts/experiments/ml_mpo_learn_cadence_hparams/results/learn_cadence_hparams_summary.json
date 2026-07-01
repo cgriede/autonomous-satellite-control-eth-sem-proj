@@ -1,0 +1,1624 @@
+{
+  "run_at_utc": "2026-06-30T23:36:41.925630+00:00",
+  "experiment_id": "ml_mpo_learn_cadence_hparams",
+  "phase": "overnight",
+  "track_a0": {
+    "experiment_id": "ml_mpo_learn_cadence_hparams",
+    "phase": "A0",
+    "run_at_utc": "2026-06-30T23:17:06.987554+00:00",
+    "variants": [
+      {
+        "episode_wall_s": 31.277540899987798,
+        "n_sim_steps": 516,
+        "n_controller_stores": 516,
+        "n_train_updates": 516,
+        "steps_per_s": 16.49746064276432,
+        "per_step_wall_ms": 60.61538934106162,
+        "measured_s": 31.122577699599788,
+        "unaccounted_s": 0.1549632003880106,
+        "categories": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 27.707523999764817,
+            "per_step_ms": 53.69675193752872,
+            "pct_of_wall": 88.58600517336588
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.3865225001063664,
+            "per_step_ms": 4.625043604857299,
+            "pct_of_wall": 7.630147484220211
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.9552780000958592,
+            "per_step_ms": 1.8513139536741456,
+            "pct_of_wall": 3.0541979088139626
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06794369971612468,
+            "per_step_ms": 0.13167383665915636,
+            "pct_of_wall": 0.21722839379662098
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.0053094999166205525,
+            "per_step_ms": 0.010289728520582466,
+            "pct_of_wall": 0.016975439129303875
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "progress",
+            "label": "Progress display / live feed",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "top_7_consumers": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 27.707523999764817,
+            "per_step_ms": 53.69675193752872,
+            "pct_of_wall": 88.58600517336588
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.3865225001063664,
+            "per_step_ms": 4.625043604857299,
+            "pct_of_wall": 7.630147484220211
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.9552780000958592,
+            "per_step_ms": 1.8513139536741456,
+            "pct_of_wall": 3.0541979088139626
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06794369971612468,
+            "per_step_ms": 0.13167383665915636,
+            "pct_of_wall": 0.21722839379662098
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.0053094999166205525,
+            "per_step_ms": 0.010289728520582466,
+            "pct_of_wall": 0.016975439129303875
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "thread_env": {
+          "OMP_NUM_THREADS": "4",
+          "MKL_NUM_THREADS": "4",
+          "OPENBLAS_NUM_THREADS": "4",
+          "ASC_CPU_THREADS": null
+        },
+        "context": {
+          "arm_id": "baseline_1_1_1",
+          "ratio_label": "1:1:1",
+          "warmup_wall_s": 3.0305730999971274,
+          "episode_wall_s": 31.293817300000228,
+          "n_train_updates": 516,
+          "n_sim_steps": 516,
+          "episode_return": -709.1612280429151,
+          "train_every_n_steps": 1,
+          "updates_per_step": 1,
+          "controller_interval_s": 1.5,
+          "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138724228_ml_mpo_learn_cadence_timing_baseline_1_1_1_23-14-34"
+        },
+        "expected_train_updates": 516
+      },
+      {
+        "episode_wall_s": 30.385695599979954,
+        "n_sim_steps": 516,
+        "n_controller_stores": 516,
+        "n_train_updates": 510,
+        "steps_per_s": 16.981674758840814,
+        "per_step_wall_ms": 58.88700697670534,
+        "measured_s": 30.298466400417965,
+        "unaccounted_s": 0.08722919956198893,
+        "categories": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 27.17677259989432,
+            "per_step_ms": 52.66816395328357,
+            "pct_of_wall": 89.43936303999652
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.2972262002003845,
+            "per_step_ms": 4.451988760078264,
+            "pct_of_wall": 7.560222515366408
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.7575413003796712,
+            "per_step_ms": 1.4681032953094402,
+            "pct_of_wall": 2.4930852673327344
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06288299965672195,
+            "per_step_ms": 0.1218662784044999,
+            "pct_of_wall": 0.20694935039355636
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.0040433002868667245,
+            "per_step_ms": 0.007835853269121559,
+            "pct_of_wall": 0.013306591167422187
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "progress",
+            "label": "Progress display / live feed",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "top_7_consumers": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 27.17677259989432,
+            "per_step_ms": 52.66816395328357,
+            "pct_of_wall": 89.43936303999652
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.2972262002003845,
+            "per_step_ms": 4.451988760078264,
+            "pct_of_wall": 7.560222515366408
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.7575413003796712,
+            "per_step_ms": 1.4681032953094402,
+            "pct_of_wall": 2.4930852673327344
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06288299965672195,
+            "per_step_ms": 0.1218662784044999,
+            "pct_of_wall": 0.20694935039355636
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.0040433002868667245,
+            "per_step_ms": 0.007835853269121559,
+            "pct_of_wall": 0.013306591167422187
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "thread_env": {
+          "OMP_NUM_THREADS": "4",
+          "MKL_NUM_THREADS": "4",
+          "OPENBLAS_NUM_THREADS": "4",
+          "ASC_CPU_THREADS": null
+        },
+        "context": {
+          "arm_id": "cadence_1_1_10",
+          "ratio_label": "1:1:10",
+          "warmup_wall_s": 2.5620040000067092,
+          "episode_wall_s": 30.400880599976517,
+          "n_train_updates": 510,
+          "n_sim_steps": 516,
+          "episode_return": -710.1380125122041,
+          "train_every_n_steps": 10,
+          "updates_per_step": 10,
+          "controller_interval_s": 1.5,
+          "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138689824_ml_mpo_learn_cadence_timing_cadence_1_1_10_23-15-10"
+        },
+        "expected_train_updates": 510
+      },
+      {
+        "episode_wall_s": 29.74545489999582,
+        "n_sim_steps": 516,
+        "n_controller_stores": 516,
+        "n_train_updates": 500,
+        "steps_per_s": 17.34718805729451,
+        "per_step_wall_ms": 57.64623042634849,
+        "measured_s": 29.66926979937125,
+        "unaccounted_s": 0.07618510062457062,
+        "categories": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 26.621568999806186,
+            "per_step_ms": 51.592187984120514,
+            "pct_of_wall": 89.49793872478288
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.236498100013705,
+            "per_step_ms": 4.334298643437413,
+            "pct_of_wall": 7.518789366418528
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.7461767999920994,
+            "per_step_ms": 1.4460790697521306,
+            "pct_of_wall": 2.5085405568707717
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06121889958740212,
+            "per_step_ms": 0.11864127827015915,
+            "pct_of_wall": 0.20580925655102597
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.0038069999718572944,
+            "per_step_ms": 0.007377906922204059,
+            "pct_of_wall": 0.012798593884868877
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "progress",
+            "label": "Progress display / live feed",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "top_7_consumers": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 26.621568999806186,
+            "per_step_ms": 51.592187984120514,
+            "pct_of_wall": 89.49793872478288
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.236498100013705,
+            "per_step_ms": 4.334298643437413,
+            "pct_of_wall": 7.518789366418528
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.7461767999920994,
+            "per_step_ms": 1.4460790697521306,
+            "pct_of_wall": 2.5085405568707717
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06121889958740212,
+            "per_step_ms": 0.11864127827015915,
+            "pct_of_wall": 0.20580925655102597
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.0038069999718572944,
+            "per_step_ms": 0.007377906922204059,
+            "pct_of_wall": 0.012798593884868877
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "thread_env": {
+          "OMP_NUM_THREADS": "4",
+          "MKL_NUM_THREADS": "4",
+          "OPENBLAS_NUM_THREADS": "4",
+          "ASC_CPU_THREADS": null
+        },
+        "context": {
+          "arm_id": "cadence_1_1_50",
+          "ratio_label": "1:1:50",
+          "warmup_wall_s": 2.586039999994682,
+          "episode_wall_s": 29.760718500008807,
+          "n_train_updates": 500,
+          "n_sim_steps": 516,
+          "episode_return": -833.3056796985569,
+          "train_every_n_steps": 50,
+          "updates_per_step": 50,
+          "controller_interval_s": 1.5,
+          "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138656786_ml_mpo_learn_cadence_timing_cadence_1_1_50_23-15-43"
+        },
+        "expected_train_updates": 500
+      },
+      {
+        "episode_wall_s": 16.380826499982504,
+        "n_sim_steps": 516,
+        "n_controller_stores": 258,
+        "n_train_updates": 256,
+        "steps_per_s": 31.50024206657406,
+        "per_step_wall_ms": 31.74578779066377,
+        "measured_s": 16.327125199779402,
+        "unaccounted_s": 0.05370130020310171,
+        "categories": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 13.567876300017815,
+            "per_step_ms": 26.294333914763207,
+            "pct_of_wall": 82.8277883294369
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.305083099985495,
+            "per_step_ms": 4.46721531004941,
+            "pct_of_wall": 14.07183636300621
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.3884368001599796,
+            "per_step_ms": 0.752784496434069,
+            "pct_of_wall": 2.371289386163723
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06350149965146556,
+            "per_step_ms": 0.12306492180516582,
+            "pct_of_wall": 0.38765748267667316
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.002227499964646995,
+            "per_step_ms": 0.004316860396602703,
+            "pct_of_wall": 0.013598214746059207
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "progress",
+            "label": "Progress display / live feed",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "top_7_consumers": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 13.567876300017815,
+            "per_step_ms": 26.294333914763207,
+            "pct_of_wall": 82.8277883294369
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.305083099985495,
+            "per_step_ms": 4.46721531004941,
+            "pct_of_wall": 14.07183636300621
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.3884368001599796,
+            "per_step_ms": 0.752784496434069,
+            "pct_of_wall": 2.371289386163723
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06350149965146556,
+            "per_step_ms": 0.12306492180516582,
+            "pct_of_wall": 0.38765748267667316
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.002227499964646995,
+            "per_step_ms": 0.004316860396602703,
+            "pct_of_wall": 0.013598214746059207
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "thread_env": {
+          "OMP_NUM_THREADS": "4",
+          "MKL_NUM_THREADS": "4",
+          "OPENBLAS_NUM_THREADS": "4",
+          "ASC_CPU_THREADS": null
+        },
+        "context": {
+          "arm_id": "cadence_1_2_4",
+          "ratio_label": "1:2:4",
+          "warmup_wall_s": 2.4613933000073303,
+          "episode_wall_s": 16.40200209998875,
+          "n_train_updates": 256,
+          "n_sim_steps": 516,
+          "episode_return": -355.3369946167908,
+          "train_every_n_steps": 4,
+          "updates_per_step": 4,
+          "controller_interval_s": 3.0,
+          "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138624360_ml_mpo_learn_cadence_timing_cadence_1_2_4_23-16-15"
+        },
+        "expected_train_updates": 256
+      },
+      {
+        "episode_wall_s": 29.76283069999772,
+        "n_sim_steps": 516,
+        "n_controller_stores": 516,
+        "n_train_updates": 500,
+        "steps_per_s": 17.33706061769318,
+        "per_step_wall_ms": 57.679904457359925,
+        "measured_s": 29.6867604990548,
+        "unaccounted_s": 0.07607020094292238,
+        "categories": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 26.578557300032116,
+            "per_step_ms": 51.50883197680643,
+            "pct_of_wall": 89.30117423284658
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.281249699619366,
+            "per_step_ms": 4.421026549649934,
+            "pct_of_wall": 7.664760528371183
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.7612512999039609,
+            "per_step_ms": 1.4752932168681412,
+            "pct_of_wall": 2.5577247929714533
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06189859961159527,
+            "per_step_ms": 0.11995852637906061,
+            "pct_of_wall": 0.20797282434429198
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.003803599887760356,
+            "per_step_ms": 0.007371317611938675,
+            "pct_of_wall": 0.012779698027045013
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "progress",
+            "label": "Progress display / live feed",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "top_7_consumers": [
+          {
+            "key": "train",
+            "label": "Learner update (train)",
+            "total_s": 26.578557300032116,
+            "per_step_ms": 51.50883197680643,
+            "pct_of_wall": 89.30117423284658
+          },
+          {
+            "key": "sim_step",
+            "label": "Simulation step (integrate + shutter capture)",
+            "total_s": 2.281249699619366,
+            "per_step_ms": 4.421026549649934,
+            "pct_of_wall": 7.664760528371183
+          },
+          {
+            "key": "get_action",
+            "label": "Policy inference (get_action)",
+            "total_s": 0.7612512999039609,
+            "per_step_ms": 1.4752932168681412,
+            "pct_of_wall": 2.5577247929714533
+          },
+          {
+            "key": "obs_build",
+            "label": "Controller observation build",
+            "total_s": 0.06189859961159527,
+            "per_step_ms": 0.11995852637906061,
+            "pct_of_wall": 0.20797282434429198
+          },
+          {
+            "key": "store",
+            "label": "Replay buffer store",
+            "total_s": 0.003803599887760356,
+            "per_step_ms": 0.007371317611938675,
+            "pct_of_wall": 0.012779698027045013
+          },
+          {
+            "key": "state_copy",
+            "label": "Per-step state copy (collect_states)",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          },
+          {
+            "key": "controller_baseline",
+            "label": "Warmup baseline controller tick",
+            "total_s": 0.0,
+            "per_step_ms": 0.0,
+            "pct_of_wall": 0.0
+          }
+        ],
+        "thread_env": {
+          "OMP_NUM_THREADS": "4",
+          "MKL_NUM_THREADS": "4",
+          "OPENBLAS_NUM_THREADS": "4",
+          "ASC_CPU_THREADS": null
+        },
+        "context": {
+          "arm_id": "duty_100x100",
+          "ratio_label": "1:1:100",
+          "warmup_wall_s": 2.592294400004903,
+          "episode_wall_s": 29.778052800014848,
+          "n_train_updates": 500,
+          "n_sim_steps": 516,
+          "episode_return": -887.146079924967,
+          "train_every_n_steps": 100,
+          "updates_per_step": 100,
+          "controller_interval_s": 1.5,
+          "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138605419_ml_mpo_learn_cadence_timing_duty_100x100_23-16-34"
+        },
+        "expected_train_updates": 500
+      }
+    ]
+  },
+  "track_a1_parity": [
+    {
+      "arm_id": "baseline_1_1_1",
+      "cadence_arm": "baseline_1_1_1",
+      "ratio_label": "1:1:1",
+      "hypothesis_id": "learn_cadence_hparams",
+      "reward_mode": "sparse",
+      "attitude_request_mode": "torque",
+      "cadence": {
+        "train_every_n_steps": 1,
+        "updates_per_step": 1,
+        "controller_interval_s": 1.5
+      },
+      "hparam_arm": null,
+      "mpo_overrides": {
+        "learning_rate_pi": 0.00045,
+        "learning_rate_q": 0.001,
+        "actor_dropout": 0.0,
+        "warmup_episodes": 5
+      },
+      "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138572967_ml_mpo_learn_cadence_baseline_1_1_1_23-17-06",
+      "wall_s": 396.7934706999804,
+      "dt_profile": {
+        "sim_dt_s": 1.5,
+        "controller_interval_s": 1.5,
+        "effective_controller_interval_s": 1.5,
+        "label": "dt_1.5s"
+      },
+      "agent_kind": "mpo",
+      "train_returns": [
+        -743.3183135845828,
+        -784.8838568469457,
+        -521.5763305610038,
+        -240.79045716398764,
+        -107.58207572507776,
+        -63.441660609110485,
+        -54.19074421537139,
+        -64.81549423067568,
+        -26.087352037994474,
+        -22.918132344506947
+      ],
+      "eval_returns": [
+        -38.567453080557364,
+        -38.567453080557364
+      ],
+      "eval_return_mean": -38.567453080557364,
+      "learning_signal": {
+        "learning_mode": true,
+        "strong_lead": false,
+        "beats_baseline": false,
+        "train_returns": [
+          -743.3183135845828,
+          -784.8838568469457,
+          -521.5763305610038,
+          -240.79045716398764,
+          -107.58207572507776,
+          -63.441660609110485,
+          -54.19074421537139,
+          -64.81549423067568,
+          -26.087352037994474,
+          -22.918132344506947
+        ],
+        "eval_return_mean": -38.567453080557364,
+        "kl_mean_last": 0.014550259336829185
+      },
+      "learning_stats": {
+        "kl_mean_last": 0.014550259336829185,
+        "kl_mean_over_train": 0.010689399226656477,
+        "eta_mean_last": 3.5924251079559326,
+        "n_train_updates_last_ep": 516
+      },
+      "n_train_updates_last_ep": 516,
+      "debug_episodes": [
+        {
+          "episode_idx": 0,
+          "episode_return": -743.3183135845828,
+          "steps": 516,
+          "n_shutter_cmds": 152,
+          "positive_reward_steps": 0,
+          "max_step_reward": -2.607879511794969e-06,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 0,
+            "episode_return": -743.3183135845828,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 34.95027420479198,
+            "pi_loss_mean": -0.17368762743074534,
+            "kl_mean": -0.11692065755699495,
+            "kl_mu_mean": 0.002277984506768254,
+            "kl_sigma_mean": -0.11919864203578742,
+            "eta_mean": 3.1338832826577416,
+            "buffer_size": 3096,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 1,
+          "episode_return": -784.8838568469457,
+          "steps": 516,
+          "n_shutter_cmds": 158,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.0003155204677839585,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 1,
+            "episode_return": -784.8838568469457,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 67.76722202005313,
+            "pi_loss_mean": -0.24249577813947848,
+            "kl_mean": -0.06426470127866366,
+            "kl_mu_mean": 0.009526518091393361,
+            "kl_sigma_mean": -0.07379121928251992,
+            "eta_mean": 4.710213757762613,
+            "buffer_size": 3612,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 2,
+          "episode_return": -521.5763305610038,
+          "steps": 516,
+          "n_shutter_cmds": 105,
+          "positive_reward_steps": 0,
+          "max_step_reward": -1.3648115748667814e-05,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 2,
+            "episode_return": -521.5763305610038,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 149.56227710635164,
+            "pi_loss_mean": -0.30537291604650113,
+            "kl_mean": 0.0016629419058503568,
+            "kl_mu_mean": 0.01937711714990726,
+            "kl_sigma_mean": -0.017714175264700316,
+            "eta_mean": 6.2040265881738,
+            "buffer_size": 4128,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 3,
+          "episode_return": -240.79045716398764,
+          "steps": 516,
+          "n_shutter_cmds": 49,
+          "positive_reward_steps": 0,
+          "max_step_reward": -1.1012081667816431e-05,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 3,
+            "episode_return": -240.79045716398764,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 289.68776906922807,
+            "pi_loss_mean": -0.3444076055704161,
+            "kl_mean": 0.03480680359440834,
+            "kl_mu_mean": 0.01900136610854042,
+            "kl_sigma_mean": 0.015805437453379926,
+            "eta_mean": 5.167990028396133,
+            "buffer_size": 4644,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 4,
+          "episode_return": -107.58207572507776,
+          "steps": 516,
+          "n_shutter_cmds": 22,
+          "positive_reward_steps": 0,
+          "max_step_reward": -4.544676738467966e-06,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 4,
+            "episode_return": -107.58207572507776,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 453.3549959345381,
+            "pi_loss_mean": -0.38063554217418033,
+            "kl_mean": 0.02824474557468942,
+            "kl_mu_mean": 0.014238340873993182,
+            "kl_sigma_mean": 0.014006404722354902,
+            "eta_mean": 3.8636478855628376,
+            "buffer_size": 5160,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 5,
+          "episode_return": -63.441660609110485,
+          "steps": 516,
+          "n_shutter_cmds": 13,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.00011074076543240442,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 5,
+            "episode_return": -63.441660609110485,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 654.0529131334881,
+            "pi_loss_mean": -0.4084206857075987,
+            "kl_mean": 0.02935237530257928,
+            "kl_mu_mean": 0.014676112243039318,
+            "kl_sigma_mean": 0.014676263059539965,
+            "eta_mean": 3.6343066174854606,
+            "buffer_size": 5676,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 6,
+          "episode_return": -54.19074421537139,
+          "steps": 516,
+          "n_shutter_cmds": 11,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.0005635224305226893,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 6,
+            "episode_return": -54.19074421537139,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 776.5942253881647,
+            "pi_loss_mean": -0.4368726140422414,
+            "kl_mean": 0.022675502960490743,
+            "kl_mu_mean": 0.011337751480245371,
+            "kl_sigma_mean": 0.011337751480245371,
+            "eta_mean": 3.695399135582207,
+            "buffer_size": 6192,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 7,
+          "episode_return": -64.81549423067568,
+          "steps": 516,
+          "n_shutter_cmds": 13,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.001439495545705527,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 7,
+            "episode_return": -64.81549423067568,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 898.7456662081933,
+            "pi_loss_mean": -0.45405383783486464,
+            "kl_mean": 0.016000890135115315,
+            "kl_mu_mean": 0.00800043456671514,
+            "kl_sigma_mean": 0.008000455570205064,
+            "eta_mean": 3.5036478726438776,
+            "buffer_size": 6708,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 8,
+          "episode_return": -26.087352037994474,
+          "steps": 516,
+          "n_shutter_cmds": 11,
+          "positive_reward_steps": 1,
+          "max_step_reward": 29.47150259031292,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 8,
+            "episode_return": -26.087352037994474,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 1110.1545598821122,
+            "pi_loss_mean": -0.4662910701577054,
+            "kl_mean": 0.016919209887165318,
+            "kl_mu_mean": 0.008459604943582659,
+            "kl_sigma_mean": 0.008459604943582659,
+            "eta_mean": 3.766365739726281,
+            "buffer_size": 7224,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 9,
+          "episode_return": -22.918132344506947,
+          "steps": 516,
+          "n_shutter_cmds": 10,
+          "positive_reward_steps": 1,
+          "max_step_reward": 27.455782093245297,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 9,
+            "episode_return": -22.918132344506947,
+            "steps": 516,
+            "n_train_updates": 516,
+            "q_loss_mean": 1206.708464984746,
+            "pi_loss_mean": -0.4767180569758711,
+            "kl_mean": 0.01537222809035533,
+            "kl_mu_mean": 0.007685857258246158,
+            "kl_sigma_mean": 0.007686370832109174,
+            "eta_mean": 3.7641084198803867,
+            "buffer_size": 7740,
+            "in_exploration": true
+          }
+        }
+      ],
+      "pre_fix_comparator": "9998217164480175_ml_mpo_decoupled_dual_torque_sparse_16-05-19"
+    },
+    {
+      "arm_id": "cadence_1_1_10",
+      "cadence_arm": "cadence_1_1_10",
+      "ratio_label": "1:1:10",
+      "hypothesis_id": "learn_cadence_hparams",
+      "reward_mode": "sparse",
+      "attitude_request_mode": "torque",
+      "cadence": {
+        "train_every_n_steps": 10,
+        "updates_per_step": 10,
+        "controller_interval_s": 1.5
+      },
+      "hparam_arm": null,
+      "mpo_overrides": {
+        "learning_rate_pi": 0.00045,
+        "learning_rate_q": 0.001,
+        "actor_dropout": 0.0,
+        "warmup_episodes": 5
+      },
+      "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138176094_ml_mpo_learn_cadence_cadence_1_1_10_23-23-43",
+      "wall_s": 392.175228099979,
+      "dt_profile": {
+        "sim_dt_s": 1.5,
+        "controller_interval_s": 1.5,
+        "effective_controller_interval_s": 1.5,
+        "label": "dt_1.5s"
+      },
+      "agent_kind": "mpo",
+      "train_returns": [
+        -784.4903790232877,
+        -809.5638574842034,
+        -561.0644179930865,
+        -250.57794143514988,
+        -92.86244828512635,
+        -73.25745540660184,
+        -38.914294628207934,
+        -65.30695618014903,
+        -49.88907199869711,
+        -50.71353878265646
+      ],
+      "eval_returns": [
+        -46.352961889904314,
+        -46.352961889904314
+      ],
+      "eval_return_mean": -46.352961889904314,
+      "learning_signal": {
+        "learning_mode": true,
+        "strong_lead": false,
+        "beats_baseline": false,
+        "train_returns": [
+          -784.4903790232877,
+          -809.5638574842034,
+          -561.0644179930865,
+          -250.57794143514988,
+          -92.86244828512635,
+          -73.25745540660184,
+          -38.914294628207934,
+          -65.30695618014903,
+          -49.88907199869711,
+          -50.71353878265646
+        ],
+        "eval_return_mean": -46.352961889904314,
+        "kl_mean_last": 0.016984334215521812
+      },
+      "learning_stats": {
+        "kl_mean_last": 0.016984334215521812,
+        "kl_mean_over_train": 0.009901010839365959,
+        "eta_mean_last": 2.9127748012542725,
+        "n_train_updates_last_ep": 510
+      },
+      "n_train_updates_last_ep": 510,
+      "debug_episodes": [
+        {
+          "episode_idx": 0,
+          "episode_return": -784.4903790232877,
+          "steps": 516,
+          "n_shutter_cmds": 160,
+          "positive_reward_steps": 0,
+          "max_step_reward": -7.218792619002879e-06,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 0,
+            "episode_return": -784.4903790232877,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 35.145462464117536,
+            "pi_loss_mean": -0.17266374839214133,
+            "kl_mean": -0.11708098980141621,
+            "kl_mu_mean": 0.00209298043842222,
+            "kl_sigma_mean": -0.11917397023416033,
+            "eta_mean": 3.1210725531858556,
+            "buffer_size": 3096,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 1,
+          "episode_return": -809.5638574842034,
+          "steps": 516,
+          "n_shutter_cmds": 163,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.0005933660399597197,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 1,
+            "episode_return": -809.5638574842034,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 64.6546851831324,
+            "pi_loss_mean": -0.24115552154241823,
+            "kl_mean": -0.06470348134490789,
+            "kl_mu_mean": 0.009788946960322266,
+            "kl_sigma_mean": -0.07449242821072831,
+            "eta_mean": 4.956879425516315,
+            "buffer_size": 3612,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 2,
+          "episode_return": -561.0644179930865,
+          "steps": 516,
+          "n_shutter_cmds": 113,
+          "positive_reward_steps": 0,
+          "max_step_reward": -8.143516083691793e-10,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 2,
+            "episode_return": -561.0644179930865,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 156.28351853314567,
+            "pi_loss_mean": -0.3038710246483485,
+            "kl_mean": 0.000553111204256614,
+            "kl_mu_mean": 0.019337243110160617,
+            "kl_sigma_mean": -0.01878413189283581,
+            "eta_mean": 6.4377279534059415,
+            "buffer_size": 4128,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 3,
+          "episode_return": -250.57794143514988,
+          "steps": 516,
+          "n_shutter_cmds": 51,
+          "positive_reward_steps": 0,
+          "max_step_reward": -7.313440893685908e-06,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 3,
+            "episode_return": -250.57794143514988,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 279.3132119122673,
+            "pi_loss_mean": -0.34231402903210884,
+            "kl_mean": 0.03608208687282076,
+            "kl_mu_mean": 0.020340133794382508,
+            "kl_sigma_mean": 0.01574195306200315,
+            "eta_mean": 5.28025177600337,
+            "buffer_size": 4644,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 4,
+          "episode_return": -92.86244828512635,
+          "steps": 516,
+          "n_shutter_cmds": 19,
+          "positive_reward_steps": 0,
+          "max_step_reward": -6.484322853786417e-05,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 4,
+            "episode_return": -92.86244828512635,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 384.97803634942744,
+            "pi_loss_mean": -0.38191499575680377,
+            "kl_mean": 0.029516265636273457,
+            "kl_mu_mean": 0.014875133100020536,
+            "kl_sigma_mean": 0.014641132525296188,
+            "eta_mean": 3.8815956503737206,
+            "buffer_size": 5160,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 5,
+          "episode_return": -73.25745540660184,
+          "steps": 516,
+          "n_shutter_cmds": 15,
+          "positive_reward_steps": 0,
+          "max_step_reward": -1.0965260935393886e-06,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 5,
+            "episode_return": -73.25745540660184,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 505.9782746258904,
+            "pi_loss_mean": -0.40891048598523233,
+            "kl_mean": 0.02806553423185559,
+            "kl_mu_mean": 0.01403254534793543,
+            "kl_sigma_mean": 0.014032988885746283,
+            "eta_mean": 3.098202339340659,
+            "buffer_size": 5676,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 6,
+          "episode_return": -38.914294628207934,
+          "steps": 516,
+          "n_shutter_cmds": 12,
+          "positive_reward_steps": 1,
+          "max_step_reward": 20.38791177791223,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 6,
+            "episode_return": -38.914294628207934,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 669.0022206624349,
+            "pi_loss_mean": -0.4342667666720409,
+            "kl_mean": 0.02831082839664875,
+            "kl_mu_mean": 0.014155240921194063,
+            "kl_sigma_mean": 0.01415558747545469,
+            "eta_mean": 3.245636706726224,
+            "buffer_size": 6192,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 7,
+          "episode_return": -65.30695618014903,
+          "steps": 516,
+          "n_shutter_cmds": 13,
+          "positive_reward_steps": 0,
+          "max_step_reward": -1.7146933725632757e-05,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 7,
+            "episode_return": -65.30695618014903,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 861.8366759057138,
+            "pi_loss_mean": -0.4559049016120387,
+            "kl_mean": 0.019140074095305274,
+            "kl_mu_mean": 0.009570013264230653,
+            "kl_sigma_mean": 0.009570060832900743,
+            "eta_mean": 3.0916069128934076,
+            "buffer_size": 6708,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 8,
+          "episode_return": -49.88907199869711,
+          "steps": 516,
+          "n_shutter_cmds": 10,
+          "positive_reward_steps": 1,
+          "max_step_reward": 0.5782826267952506,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 8,
+            "episode_return": -49.88907199869711,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 1041.9267040177888,
+            "pi_loss_mean": -0.4685341683672924,
+            "kl_mean": 0.014203000214754366,
+            "kl_mu_mean": 0.007101054622006475,
+            "kl_sigma_mean": 0.007101945593660953,
+            "eta_mean": 3.0905948003133137,
+            "buffer_size": 7224,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 9,
+          "episode_return": -50.71353878265646,
+          "steps": 516,
+          "n_shutter_cmds": 8,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.0006931140773795084,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 9,
+            "episode_return": -50.71353878265646,
+            "steps": 516,
+            "n_train_updates": 510,
+            "q_loss_mean": 1576.325201775046,
+            "pi_loss_mean": -0.4781687227534313,
+            "kl_mean": 0.013051516129909194,
+            "kl_mu_mean": 0.006525758064954597,
+            "kl_sigma_mean": 0.006525758064954597,
+            "eta_mean": 2.9428191100849825,
+            "buffer_size": 7740,
+            "in_exploration": true
+          }
+        }
+      ],
+      "pre_fix_comparator": "9998217164480175_ml_mpo_decoupled_dual_torque_sparse_16-05-19"
+    },
+    {
+      "arm_id": "cadence_1_1_50",
+      "cadence_arm": "cadence_1_1_50",
+      "ratio_label": "1:1:50",
+      "hypothesis_id": "learn_cadence_hparams",
+      "reward_mode": "sparse",
+      "attitude_request_mode": "torque",
+      "cadence": {
+        "train_every_n_steps": 50,
+        "updates_per_step": 50,
+        "controller_interval_s": 1.5
+      },
+      "hparam_arm": null,
+      "mpo_overrides": {
+        "learning_rate_pi": 0.00045,
+        "learning_rate_q": 0.001,
+        "actor_dropout": 0.0,
+        "warmup_episodes": 5
+      },
+      "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217137783822_ml_mpo_learn_cadence_cadence_1_1_50_23-30-16",
+      "wall_s": 385.70866990002105,
+      "dt_profile": {
+        "sim_dt_s": 1.5,
+        "controller_interval_s": 1.5,
+        "effective_controller_interval_s": 1.5,
+        "label": "dt_1.5s"
+      },
+      "agent_kind": "mpo",
+      "train_returns": [
+        -912.5958220302398,
+        -843.9521118398059,
+        -480.75888345975335,
+        -261.8891684875037,
+        -108.25409441306932,
+        -104.60331099846792,
+        -55.75929213485062,
+        -31.38501332443966,
+        -45.20849953156564,
+        -51.375019599955735
+      ],
+      "eval_returns": [
+        -15.414814845674998,
+        -15.414814845674998
+      ],
+      "eval_return_mean": -15.414814845674998,
+      "learning_signal": {
+        "learning_mode": true,
+        "strong_lead": false,
+        "beats_baseline": false,
+        "train_returns": [
+          -912.5958220302398,
+          -843.9521118398059,
+          -480.75888345975335,
+          -261.8891684875037,
+          -108.25409441306932,
+          -104.60331099846792,
+          -55.75929213485062,
+          -31.38501332443966,
+          -45.20849953156564,
+          -51.375019599955735
+        ],
+        "eval_return_mean": -15.414814845674998,
+        "kl_mean_last": 0.009965864010155201
+      },
+      "learning_stats": {
+        "kl_mean_last": 0.009965864010155201,
+        "kl_mean_over_train": 0.007206426256181051,
+        "eta_mean_last": 0.9106134176254272,
+        "n_train_updates_last_ep": 500
+      },
+      "n_train_updates_last_ep": 500,
+      "debug_episodes": [
+        {
+          "episode_idx": 0,
+          "episode_return": -912.5958220302398,
+          "steps": 516,
+          "n_shutter_cmds": 186,
+          "positive_reward_steps": 0,
+          "max_step_reward": -3.235786000675006e-05,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 0,
+            "episode_return": -912.5958220302398,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 35.42802223062515,
+            "pi_loss_mean": -0.1732259167805314,
+            "kl_mean": -0.11708111222088337,
+            "kl_mu_mean": 0.002194841293588979,
+            "kl_sigma_mean": -0.1192759539037943,
+            "eta_mean": 3.1078774423599245,
+            "buffer_size": 3096,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 1,
+          "episode_return": -843.9521118398059,
+          "steps": 516,
+          "n_shutter_cmds": 170,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.00015830117459809807,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 1,
+            "episode_return": -843.9521118398059,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 51.43112194252014,
+            "pi_loss_mean": -0.23993127086758614,
+            "kl_mean": -0.06772952232509852,
+            "kl_mu_mean": 0.009363121556583791,
+            "kl_sigma_mean": -0.07709264390915632,
+            "eta_mean": 4.478773846626281,
+            "buffer_size": 3612,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 2,
+          "episode_return": -480.75888345975335,
+          "steps": 516,
+          "n_shutter_cmds": 97,
+          "positive_reward_steps": 0,
+          "max_step_reward": -1.6114538660031744e-06,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 2,
+            "episode_return": -480.75888345975335,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 102.29904319000244,
+            "pi_loss_mean": -0.3037857487797737,
+            "kl_mean": 0.001254764899611473,
+            "kl_mu_mean": 0.020418074779212474,
+            "kl_sigma_mean": -0.01916330989013659,
+            "eta_mean": 5.124508873939514,
+            "buffer_size": 4128,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 3,
+          "episode_return": -261.8891684875037,
+          "steps": 516,
+          "n_shutter_cmds": 53,
+          "positive_reward_steps": 0,
+          "max_step_reward": -4.8668104348929e-06,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 3,
+            "episode_return": -261.8891684875037,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 158.1869022064209,
+            "pi_loss_mean": -0.34739623659849167,
+            "kl_mean": 0.03987577925994992,
+            "kl_mu_mean": 0.022622155882418157,
+            "kl_sigma_mean": 0.017253623333526775,
+            "eta_mean": 4.147334132671356,
+            "buffer_size": 4644,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 4,
+          "episode_return": -108.25409441306932,
+          "steps": 516,
+          "n_shutter_cmds": 22,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.001741857537631142,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 4,
+            "episode_return": -108.25409441306932,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 238.35597592163086,
+            "pi_loss_mean": -0.39841121751070024,
+            "kl_mean": 0.037619342263787985,
+            "kl_mu_mean": 0.018828026907518506,
+            "kl_sigma_mean": 0.018791315352544188,
+            "eta_mean": 3.0508423457145692,
+            "buffer_size": 5160,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 5,
+          "episode_return": -104.60331099846792,
+          "steps": 516,
+          "n_shutter_cmds": 21,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.0025184054914486834,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 5,
+            "episode_return": -104.60331099846792,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 376.91290463256837,
+            "pi_loss_mean": -0.4401049149632454,
+            "kl_mean": 0.02796700470149517,
+            "kl_mu_mean": 0.013983406091108918,
+            "kl_sigma_mean": 0.013983598610386252,
+            "eta_mean": 2.312007016181946,
+            "buffer_size": 5676,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 6,
+          "episode_return": -55.75929213485062,
+          "steps": 516,
+          "n_shutter_cmds": 11,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.00023019584373793484,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 6,
+            "episode_return": -55.75929213485062,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 517.9013623046875,
+            "pi_loss_mean": -0.46734852010011674,
+            "kl_mean": 0.017887346738949417,
+            "kl_mu_mean": 0.008943673369474709,
+            "kl_sigma_mean": 0.008943673369474709,
+            "eta_mean": 1.7862760710716248,
+            "buffer_size": 6192,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 7,
+          "episode_return": -31.38501332443966,
+          "steps": 516,
+          "n_shutter_cmds": 12,
+          "positive_reward_steps": 1,
+          "max_step_reward": 29.882244423455788,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 7,
+            "episode_return": -31.38501332443966,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 688.5144847717285,
+            "pi_loss_mean": -0.48202438992261887,
+            "kl_mean": 0.010992371881380678,
+            "kl_mu_mean": 0.005496185940690339,
+            "kl_sigma_mean": 0.005496185940690339,
+            "eta_mean": 1.3718031494617462,
+            "buffer_size": 6708,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 8,
+          "episode_return": -45.20849953156564,
+          "steps": 516,
+          "n_shutter_cmds": 9,
+          "positive_reward_steps": 2,
+          "max_step_reward": 3.5978809739028343,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 8,
+            "episode_return": -45.20849953156564,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 879.5570843811036,
+            "pi_loss_mean": -0.4894612978100777,
+            "kl_mean": 0.008446223415900022,
+            "kl_mu_mean": 0.004222987396875396,
+            "kl_sigma_mean": 0.004223236019024626,
+            "eta_mean": 1.1194780402183533,
+            "buffer_size": 7224,
+            "in_exploration": true
+          }
+        },
+        {
+          "episode_idx": 9,
+          "episode_return": -51.375019599955735,
+          "steps": 516,
+          "n_shutter_cmds": 9,
+          "positive_reward_steps": 0,
+          "max_step_reward": -0.034411404188462315,
+          "learning_stats": {
+            "phase": "train",
+            "episode_idx": 9,
+            "episode_return": -51.375019599955735,
+            "steps": 516,
+            "n_train_updates": 500,
+            "q_loss_mean": 1121.418695526123,
+            "pi_loss_mean": -0.4943383901119232,
+            "kl_mean": 0.008521213698666543,
+            "kl_mu_mean": 0.004260606849333271,
+            "kl_sigma_mean": 0.004260606849333271,
+            "eta_mean": 0.9819254726171494,
+            "buffer_size": 7740,
+            "in_exploration": true
+          }
+        }
+      ],
+      "pre_fix_comparator": "9998217164480175_ml_mpo_decoupled_dual_torque_sparse_16-05-19"
+    }
+  ]
+}

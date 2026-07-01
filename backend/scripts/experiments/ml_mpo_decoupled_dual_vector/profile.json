@@ -1,0 +1,29 @@
+{
+  "ref_run_id": "9998217164480175_ml_mpo_decoupled_dual_torque_sparse_16-05-19",
+  "notes": "Exp 11: fixed decoupled-KL MPO, sparse reward, vector mode @ dt 1.5s. Torque comparator: Exp 8 canonical run.",
+  "workflow": {
+    "train_episodes": 50,
+    "experiment_name": "mpo decoupled dual vector",
+    "warmup_episodes": 5,
+    "eval_episodes": 2,
+    "seed": 7,
+    "train_episode_videos": 3,
+    "eval_episode_videos": 2,
+    "use_warmup_bundle_cache": true,
+    "rebuild_warmup_bundle_cache": true,
+    "train_every_n_steps": 1,
+    "updates_per_step": 1,
+    "warmup_targets_per_episode": 10,
+    "background_artifacts": false,
+    "collect_states": false,
+    "early_stop_on_budget_exhausted": false,
+    "export_episode_reward_plots": true,
+    "attitude_request_mode": "vector"
+  },
+  "mpo": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "actor_dropout": 0.0,
+    "warmup_episodes": 5
+  }
+}

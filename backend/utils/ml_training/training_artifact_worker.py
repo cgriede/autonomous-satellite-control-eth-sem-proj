@@ -33,6 +33,9 @@ class _VideoExportJob:
 class _RunPlotsJob:
     run_dir: Path
     episode_rows: list[dict[str, Any]]
+    warmup_results: list[Any] | None = None
+    train_results: list[Any] | None = None
+    eval_results: list[Any] | None = None
 
 
 class BackgroundArtifactWorker:
@@ -55,8 +58,23 @@ class BackgroundArtifactWorker:
     def submit_video_export(self, series: Any, out_path: Path) -> None:
         self._queue.put(_VideoExportJob(series=series, out_path=Path(out_path)))
 
-    def submit_run_plots(self, episode_rows: list[dict[str, Any]]) -> None:
-        self._queue.put(_RunPlotsJob(run_dir=self._run_dir, episode_rows=list(episode_rows)))
+    def submit_run_plots(
+        self,
+        episode_rows: list[dict[str, Any]],
+        *,
+        warmup_results: list[Any] | None = None,
+        train_results: list[Any] | None = None,
+        eval_results: list[Any] | None = None,
+    ) -> None:
+        self._queue.put(
+            _RunPlotsJob(
+                run_dir=self._run_dir,
+                episode_rows=list(episode_rows),
+                warmup_results=list(warmup_results) if warmup_results is not None else None,
+                train_results=list(train_results) if train_results is not None else None,
+                eval_results=list(eval_results) if eval_results is not None else None,
+            )
+        )
 
     def drain(self, timeout: float | None = None) -> list[str]:
         """Block until queue is empty; return error messages."""
@@ -86,14 +104,23 @@ class BackgroundArtifactWorker:
             export_training_episode_video_sync(job.series, job.out_path)
             return
         if isinstance(job, _RunPlotsJob):
-            export_run_plots(job.run_dir, job.episode_rows)
+            export_run_plots(
+                job.run_dir,
+                job.episode_rows,
+                warmup_results=job.warmup_results,
+                train_results=job.train_results,
+                eval_results=job.eval_results,
+            )
             return
         raise TypeError(f"Unknown artifact job: {type(job)!r}")
 
     def _worker_loop(self) -> None:
         import matplotlib
 
-        matplotlib.use("Agg")
+        try:
+            matplotlib.use("Agg")
+        except Exception:
+            pass
         while True:
             job = self._queue.get()
             try:
@@ -112,6 +139,10 @@ def run_artifacts_sync(
     video_jobs: list[tuple[Any, Path]] | None = None,
     run_dir: Path | None = None,
     episode_rows: list[dict[str, Any]] | None = None,
+    warmup_results: list[Any] | None = None,
+    train_results: list[Any] | None = None,
+    eval_results: list[Any] | None = None,
+    skip_run_plots: bool = False,
     on_error: Callable[[str], None] | None = None,
 ) -> list[str]:
     """Synchronous fallback when background_artifacts=False."""
@@ -132,9 +163,15 @@ def run_artifacts_sync(
             errors.append(msg)
             if on_error:
                 on_error(msg)
-    if run_dir is not None and episode_rows is not None:
+    if run_dir is not None and episode_rows is not None and not skip_run_plots:
         try:
-            export_run_plots(run_dir, episode_rows)
+            export_run_plots(
+                run_dir,
+                episode_rows,
+                warmup_results=warmup_results,
+                train_results=train_results,
+                eval_results=eval_results,
+            )
         except Exception as exc:
             msg = f"run_plots: {exc}"
             errors.append(msg)

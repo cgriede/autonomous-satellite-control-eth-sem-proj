@@ -201,6 +201,17 @@ class CaptureRewardTest(unittest.TestCase):
         self.assertAlmostEqual(components["torque_effort_penalty"], -REWARD_TORQUE_EFFORT_COEFFICIENT)
         self.assertAlmostEqual(total, -REWARD_TORQUE_EFFORT_COEFFICIENT)
 
+    def test_budget_exhausted_shutter_command_penalty(self) -> None:
+        from autonomous_control.reward import budget_exhausted_shutter_command_penalty
+
+        cfg_on = RewardConfig(enable_budget_exhausted_shutter_penalty=True)
+        cfg_off = RewardConfig(enable_budget_exhausted_shutter_penalty=False)
+        self.assertAlmostEqual(
+            budget_exhausted_shutter_command_penalty(cfg=cfg_on),
+            -REWARD_SHUTTER_WASTE_PENALTY,
+        )
+        self.assertEqual(budget_exhausted_shutter_command_penalty(cfg=cfg_off), 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

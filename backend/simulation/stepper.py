@@ -125,6 +125,12 @@ class SimulationStepper:
         self._obc_pointing_mode = str(getattr(simulation_config, "obc_pointing_mode", "none") or "none").lower()
         if self._obc_pointing_mode not in ("none", "nadir", "target"):
             raise ValueError(f"Unsupported obc_pointing_mode: {self._obc_pointing_mode!r}")
+        self._attitude_request_mode = str(
+            getattr(simulation_config, "attitude_request_mode", "torque") or "torque"
+        )
+        if self._attitude_request_mode not in ("torque", "vector"):
+            raise ValueError(f"Unsupported attitude_request_mode: {self._attitude_request_mode!r}")
+        self._vector_pointing_resolver = None
         self._control_stack_label = control_stack_display_label(
             torque_command_source=self._torque_command_source,
             builtin_torque_policy=self._builtin_torque_policy,
@@ -216,6 +222,12 @@ class SimulationStepper:
         self._simulation_reward = np.empty(n, dtype=float)
         self._simulation_reward[0] = 0.0
         self._wheel_torque_cmd_nm = np.zeros(n, dtype=float)
+        self._agent_pointing_cmd_u = (
+            np.full(n, np.nan, dtype=float) if self._attitude_request_mode == "vector" else None
+        )
+        self._agent_pointing_offnadir_deg = (
+            np.full(n, np.nan, dtype=float) if self._attitude_request_mode == "vector" else None
+        )
         self._wheel_torque_agent_cmd_nm = np.zeros(n, dtype=float)
         n_bins = int(camera_observation_line_n_bins or SIMULATION.camera_observation_line_n_bins)
         if n_bins < 1:
@@ -305,6 +317,7 @@ class SimulationStepper:
                 self._torque_policy_label if self._torque_command_source == "external" else None
             ),
             attitude_controller_enabled=self._attitude_controller_enabled,
+            attitude_request_mode=self._attitude_request_mode,
             render_mode=self._render_mode,
             target_region_bounds_deg=self._target_region_bounds_deg,
             view_anchor_xy_km=(float(view_anchor_xy[0]), float(view_anchor_xy[1])),
@@ -415,7 +428,50 @@ class SimulationStepper:
             raise ValueError("OBC pointing is not enabled on this stepper.")
         self._attitude_pointing.set_pointing_mode(mode)
 
-    def step(self, *, wheel_torque_cmd_nm: float) -> SimulationTimestepState:
+    def reset_vector_pointing_episode(self, *, theta_orbit_rad: float) -> None:
+        from simulation.obc_pointing_request import ObcPointingResolver
+
+        tau_max_nm = float(
+            self._satellite.reaction_wheel_max_torque.to(self._ureg.N * self._ureg.m).magnitude
+        )
+        self._vector_pointing_resolver = ObcPointingResolver(
+            tau_max_nm=tau_max_nm,
+            sat_inertia=self._sat_inertia,
+        )
+        self._vector_pointing_resolver.reset_episode(theta_orbit_rad=float(theta_orbit_rad))
+
+    def resolve_vector_u_to_torque_nm(
+        self,
+        *,
+        u: float,
+        theta_orbit_rad: float,
+        sat_pos_xy_km: np.ndarray,
+        body_z_rad: float,
+        omega_sat_rad_s: float,
+        omega_target_rad_s: float | None = None,
+    ) -> float:
+        if self._attitude_request_mode != "vector":
+            raise ValueError("resolve_vector_u_to_torque_nm requires attitude_request_mode='vector'.")
+        if self._vector_pointing_resolver is None:
+            self.reset_vector_pointing_episode(theta_orbit_rad=float(theta_orbit_rad))
+        return float(
+            self._vector_pointing_resolver.resolve_u_to_torque_nm(
+                u=float(u),
+                theta_orbit_rad=float(theta_orbit_rad),
+                sat_pos_xy_km=np.asarray(sat_pos_xy_km, dtype=float),
+                body_z_rad=float(body_z_rad),
+                omega_sat_rad_s=float(omega_sat_rad_s),
+                omega_orbit_rad_s=float(self._omega_orbit_rad_s),
+                omega_target_rad_s=omega_target_rad_s,
+            )
+        )
+
+    def step(
+        self,
+        *,
+        wheel_torque_cmd_nm: float,
+        agent_pointing_cmd_u: float | None = None,
+    ) -> SimulationTimestepState:
         if self._done:
             raise RuntimeError("Cannot step a completed SimulationStepper.")
         agent_nm = float(wheel_torque_cmd_nm)
@@ -432,7 +488,7 @@ class SimulationStepper:
                 theta_orbit_rad=float(self._theta_orbit_rad[self._index]),
                 omega_orbit_rad_s=float(self._omega_orbit_rad_s),
             )
-        elif self._attitude_safety is not None:
+        elif self._attitude_safety is not None and self._attitude_request_mode != "vector":
             sat_xy = self._satellite_xy_km(self._index)
             result = self._attitude_safety.arbitrate(
                 tau_cmd_nm=agent_nm,
@@ -473,6 +529,24 @@ class SimulationStepper:
         self._index = next_idx
         self._wheel_torque_agent_cmd_nm[self._index] = agent_nm
         self._wheel_torque_cmd_nm[self._index] = self._last_torque_nm
+        if agent_pointing_cmd_u is not None and self._agent_pointing_cmd_u is not None:
+            u_val = float(agent_pointing_cmd_u)
+            self._agent_pointing_cmd_u[self._index] = u_val
+            if self._agent_pointing_offnadir_deg is not None:
+                from simulation.attitude_controller import signed_boresight_off_nadir_rad
+                from simulation.obc_pointing_request import u_to_theta_req
+
+                issue_k = self._index - 1
+                theta_orbit = float(self._theta_orbit_rad[issue_k])
+                theta_req = u_to_theta_req(
+                    u=u_val,
+                    theta_orbit_rad=theta_orbit,
+                )
+                off_rad = signed_boresight_off_nadir_rad(
+                    body_z_angle_rad=float(theta_req),
+                    theta_orbit_rad=theta_orbit,
+                )
+                self._agent_pointing_offnadir_deg[self._index] = float(np.rad2deg(off_rad))
         self._body_z_angle_rad[self._index] = float(self._state.theta.to(self._ureg.rad).magnitude)
         self._populate_camera_and_reward(k=self._index, prev_omega_wheel=prev_omega_wheel)
         if self._index >= (self._t_s.shape[0] - 1):
@@ -495,6 +569,9 @@ class SimulationStepper:
         capture_latency_steps: int = 0,
     ):
         """Evaluate shutter/budget at ``cmd_step`` and recompute reward with applied capture."""
+        from autonomous_control.reward import budget_exhausted_shutter_command_penalty
+
+        budget_exhausted = int(budget.remaining) <= 0
         result = evaluate_shutter_from_arrays(
             cmd_step=int(cmd_step),
             n_steps=int(self._t_s.shape[0]),
@@ -505,6 +582,12 @@ class SimulationStepper:
             capture_latency_steps=int(capture_latency_steps),
         )
         self._recompute_reward_at(int(cmd_step), shutter_override=result.override)
+        if budget_exhausted:
+            penalty = budget_exhausted_shutter_command_penalty(cfg=self._reward_cfg)
+            if penalty != 0.0:
+                self._simulation_reward[int(cmd_step)] = (
+                    float(self._simulation_reward[int(cmd_step)]) + penalty
+                )
         self._take_picture_cmd_steps.append(int(cmd_step))
         return result
 
@@ -589,6 +672,14 @@ class SimulationStepper:
             secondary_camera_cloud_blocked_fraction=self._secondary_camera_cloud_blocked_fraction[:n],
             secondary_camera_vertical_fov_rad=self._secondary_vertical_fov_rad if self._secondary_vertical_fov_rad is not None else 0.0,
             secondary_camera_tilt_off_nadir_rad=self._secondary_tilt_rad,
+            agent_pointing_cmd_u=(
+                self._agent_pointing_cmd_u[:n] if self._agent_pointing_cmd_u is not None else None
+            ),
+            agent_pointing_offnadir_deg=(
+                self._agent_pointing_offnadir_deg[:n]
+                if self._agent_pointing_offnadir_deg is not None
+                else None
+            ),
             metadata=metadata,
         )
 

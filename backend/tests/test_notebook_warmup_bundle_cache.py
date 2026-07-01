@@ -157,6 +157,7 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
             episode_count=16,
             warmup_controller="baseline",
             feature_config=None,
+            attitude_request_mode="torque",
         )
         fp2 = dict(fp1)
         fp2["base_seed"] = 8
@@ -166,6 +167,10 @@ class NotebookWarmupBundleCacheTest(unittest.TestCase):
         fp3 = dict(fp1)
         fp3["episode_count"] = 17
         self.assertNotEqual(digest_for_warmup_fingerprint(fp1), digest_for_warmup_fingerprint(fp3))
+
+        fp4 = dict(fp1)
+        fp4["attitude_request_mode"] = "vector"
+        self.assertNotEqual(digest_for_warmup_fingerprint(fp1), digest_for_warmup_fingerprint(fp4))
 
     def test_satellite_altitude_magnitude_pint_like(self):
         try:

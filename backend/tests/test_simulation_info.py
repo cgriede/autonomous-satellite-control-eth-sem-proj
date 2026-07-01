@@ -9,6 +9,7 @@ from simulation.simulation_info import (
     _display_info_panel,
     _reward_program_rows,
     build_simulation_info_rows,
+    build_training_context_rows,
     build_training_live_stats_rows,
     build_warmup_phase_summary_rows,
 )
@@ -43,9 +44,12 @@ class RewardProgramRowsTest(unittest.TestCase):
                 )
             )
         )
+        self.assertEqual(rows["mode"], "sparse")
         self.assertIn("reward (capture)", rows)
+        self.assertEqual(rows["reward (pointing-quality)"], "off")
         self.assertNotIn("reward (distance band)", rows)
         self.assertNotIn("outer_gate", rows["reward (capture)"].lower())
+        self.assertNotIn("latent", rows["reward (capture)"].lower())
 
     def test_distance_band_reports_outer_gate(self) -> None:
         rows = dict(
@@ -54,6 +58,21 @@ class RewardProgramRowsTest(unittest.TestCase):
             )
         )
         self.assertIn("outer gate on", rows["reward (distance band)"])
+
+    def test_dense_mode_shows_pointing_quality_every_step(self) -> None:
+        from autonomous_control.reward import set_reward_credit_mode
+
+        set_reward_credit_mode("dense")
+        try:
+            rows = dict(
+                _reward_program_rows(
+                    RewardConfig(enable_image_quality_capture=True),
+                )
+            )
+            self.assertEqual(rows["mode"], "dense")
+            self.assertIn("every step", rows["reward (pointing-quality)"])
+        finally:
+            set_reward_credit_mode("sparse")
 
 
 class SimulationInfoRowsTest(unittest.TestCase):
@@ -68,8 +87,11 @@ class SimulationInfoRowsTest(unittest.TestCase):
                 simulation_config=sim_cfg,
                 tau_max_nm=0.1,
                 episode_mode="eval",
+                experiment_name="shutter mpo t05",
+                phase_episode_total=2,
             )
         )
+        self.assertEqual(rows["experiment name"], "shutter mpo t05")
         self.assertIn("simulation timestep", rows)
         self.assertIn("episode theta start (rel. center)", rows)
         self.assertNotIn("theta center offset", rows)
@@ -79,11 +101,39 @@ class SimulationInfoRowsTest(unittest.TestCase):
         self.assertNotIn("control stack (display)", rows)
         self.assertNotIn("controller seed", rows)
         self.assertNotIn("camera kernel backend", rows)
-        self.assertEqual(rows["rollout"], "evaluation")
+        self.assertEqual(rows["rollout"], "evaluation · 2 episodes")
         self.assertIn("  observation line bins", rows)
         self.assertIn("  FOV (cross x along)", rows)
         self.assertIn("attitude safe-mode limit", rows)
         self.assertIn("attitude RW rate limit", rows)
+
+    def test_rollout_row_omits_episode_count_when_unknown(self) -> None:
+        setup = build_setup(seed=0, include_cameras=True)
+        resolved = setup.resolve(require_camera=False)
+        sim_cfg = SimulationConfig(render_mode=RenderMode.HEADLESS)
+        stepper = build_stepper(resolved, simulation_config=sim_cfg)
+        rows = dict(
+            build_simulation_info_rows(
+                stepper,
+                simulation_config=sim_cfg,
+                episode_mode="train",
+            )
+        )
+        self.assertEqual(rows["rollout"], "training")
+
+    def test_rollout_row_singular_episode_label(self) -> None:
+        setup = build_setup(seed=0, include_cameras=True)
+        resolved = setup.resolve(require_camera=False)
+        sim_cfg = SimulationConfig(render_mode=RenderMode.HEADLESS)
+        stepper = build_stepper(resolved, simulation_config=sim_cfg)
+        rows = dict(
+            build_training_context_rows(
+                stepper,
+                episode_mode="warmup",
+                phase_episode_total=1,
+            )
+        )
+        self.assertEqual(rows["rollout"], "warmup · 1 episode")
 
 
 class TrainingLiveStatsRowsTest(unittest.TestCase):

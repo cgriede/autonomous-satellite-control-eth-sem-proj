@@ -1,0 +1,38 @@
+{
+  "ref_run_id": "9998217164480175_ml_mpo_decoupled_dual_torque_sparse_16-05-19",
+  "notes": "Exp 10: MPO sparse torque + safe-mode per-step penalty @ dt 1.5s. Comparator: Exp 8 canonical run (penalty off).",
+  "baseline_comparison": {
+    "experiment_id": "ml_mpo_decoupled_dual_torque",
+    "arm_id": "torque_sparse",
+    "run_id": "9998217164480175_ml_mpo_decoupled_dual_torque_sparse_16-05-19"
+  },
+  "workflow": {
+    "train_episodes": 50,
+    "experiment_name": "mpo safe mode penalty",
+    "warmup_episodes": 5,
+    "eval_episodes": 2,
+    "seed": 7,
+    "train_episode_videos": 3,
+    "eval_episode_videos": 2,
+    "use_warmup_bundle_cache": true,
+    "rebuild_warmup_bundle_cache": true,
+    "train_every_n_steps": 1,
+    "updates_per_step": 1,
+    "warmup_targets_per_episode": 10,
+    "background_artifacts": false,
+    "collect_states": false,
+    "early_stop_on_budget_exhausted": false,
+    "export_episode_reward_plots": true,
+    "attitude_request_mode": "torque"
+  },
+  "mpo": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "actor_dropout": 0.0,
+    "warmup_episodes": 5
+  },
+  "safe_mode_penalty": {
+    "enable_safe_mode_penalty": true,
+    "k_safe_mode_penalty": 2.0
+  }
+}

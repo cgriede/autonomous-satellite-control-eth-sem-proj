@@ -1,0 +1,702 @@
+{
+  "run_at_utc": "2026-06-30T23:17:06.987554+00:00",
+  "experiment_id": "ml_mpo_learn_cadence_hparams",
+  "phase": "A0",
+  "variants": [
+    {
+      "episode_wall_s": 31.277540899987798,
+      "n_sim_steps": 516,
+      "n_controller_stores": 516,
+      "n_train_updates": 516,
+      "steps_per_s": 16.49746064276432,
+      "per_step_wall_ms": 60.61538934106162,
+      "measured_s": 31.122577699599788,
+      "unaccounted_s": 0.1549632003880106,
+      "categories": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 27.707523999764817,
+          "per_step_ms": 53.69675193752872,
+          "pct_of_wall": 88.58600517336588
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.3865225001063664,
+          "per_step_ms": 4.625043604857299,
+          "pct_of_wall": 7.630147484220211
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.9552780000958592,
+          "per_step_ms": 1.8513139536741456,
+          "pct_of_wall": 3.0541979088139626
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06794369971612468,
+          "per_step_ms": 0.13167383665915636,
+          "pct_of_wall": 0.21722839379662098
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.0053094999166205525,
+          "per_step_ms": 0.010289728520582466,
+          "pct_of_wall": 0.016975439129303875
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "progress",
+          "label": "Progress display / live feed",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "top_7_consumers": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 27.707523999764817,
+          "per_step_ms": 53.69675193752872,
+          "pct_of_wall": 88.58600517336588
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.3865225001063664,
+          "per_step_ms": 4.625043604857299,
+          "pct_of_wall": 7.630147484220211
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.9552780000958592,
+          "per_step_ms": 1.8513139536741456,
+          "pct_of_wall": 3.0541979088139626
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06794369971612468,
+          "per_step_ms": 0.13167383665915636,
+          "pct_of_wall": 0.21722839379662098
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.0053094999166205525,
+          "per_step_ms": 0.010289728520582466,
+          "pct_of_wall": 0.016975439129303875
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "thread_env": {
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "OPENBLAS_NUM_THREADS": "4",
+        "ASC_CPU_THREADS": null
+      },
+      "context": {
+        "arm_id": "baseline_1_1_1",
+        "ratio_label": "1:1:1",
+        "warmup_wall_s": 3.0305730999971274,
+        "episode_wall_s": 31.293817300000228,
+        "n_train_updates": 516,
+        "n_sim_steps": 516,
+        "episode_return": -709.1612280429151,
+        "train_every_n_steps": 1,
+        "updates_per_step": 1,
+        "controller_interval_s": 1.5,
+        "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138724228_ml_mpo_learn_cadence_timing_baseline_1_1_1_23-14-34"
+      },
+      "expected_train_updates": 516
+    },
+    {
+      "episode_wall_s": 30.385695599979954,
+      "n_sim_steps": 516,
+      "n_controller_stores": 516,
+      "n_train_updates": 510,
+      "steps_per_s": 16.981674758840814,
+      "per_step_wall_ms": 58.88700697670534,
+      "measured_s": 30.298466400417965,
+      "unaccounted_s": 0.08722919956198893,
+      "categories": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 27.17677259989432,
+          "per_step_ms": 52.66816395328357,
+          "pct_of_wall": 89.43936303999652
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.2972262002003845,
+          "per_step_ms": 4.451988760078264,
+          "pct_of_wall": 7.560222515366408
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.7575413003796712,
+          "per_step_ms": 1.4681032953094402,
+          "pct_of_wall": 2.4930852673327344
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06288299965672195,
+          "per_step_ms": 0.1218662784044999,
+          "pct_of_wall": 0.20694935039355636
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.0040433002868667245,
+          "per_step_ms": 0.007835853269121559,
+          "pct_of_wall": 0.013306591167422187
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "progress",
+          "label": "Progress display / live feed",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "top_7_consumers": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 27.17677259989432,
+          "per_step_ms": 52.66816395328357,
+          "pct_of_wall": 89.43936303999652
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.2972262002003845,
+          "per_step_ms": 4.451988760078264,
+          "pct_of_wall": 7.560222515366408
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.7575413003796712,
+          "per_step_ms": 1.4681032953094402,
+          "pct_of_wall": 2.4930852673327344
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06288299965672195,
+          "per_step_ms": 0.1218662784044999,
+          "pct_of_wall": 0.20694935039355636
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.0040433002868667245,
+          "per_step_ms": 0.007835853269121559,
+          "pct_of_wall": 0.013306591167422187
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "thread_env": {
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "OPENBLAS_NUM_THREADS": "4",
+        "ASC_CPU_THREADS": null
+      },
+      "context": {
+        "arm_id": "cadence_1_1_10",
+        "ratio_label": "1:1:10",
+        "warmup_wall_s": 2.5620040000067092,
+        "episode_wall_s": 30.400880599976517,
+        "n_train_updates": 510,
+        "n_sim_steps": 516,
+        "episode_return": -710.1380125122041,
+        "train_every_n_steps": 10,
+        "updates_per_step": 10,
+        "controller_interval_s": 1.5,
+        "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138689824_ml_mpo_learn_cadence_timing_cadence_1_1_10_23-15-10"
+      },
+      "expected_train_updates": 510
+    },
+    {
+      "episode_wall_s": 29.74545489999582,
+      "n_sim_steps": 516,
+      "n_controller_stores": 516,
+      "n_train_updates": 500,
+      "steps_per_s": 17.34718805729451,
+      "per_step_wall_ms": 57.64623042634849,
+      "measured_s": 29.66926979937125,
+      "unaccounted_s": 0.07618510062457062,
+      "categories": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 26.621568999806186,
+          "per_step_ms": 51.592187984120514,
+          "pct_of_wall": 89.49793872478288
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.236498100013705,
+          "per_step_ms": 4.334298643437413,
+          "pct_of_wall": 7.518789366418528
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.7461767999920994,
+          "per_step_ms": 1.4460790697521306,
+          "pct_of_wall": 2.5085405568707717
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06121889958740212,
+          "per_step_ms": 0.11864127827015915,
+          "pct_of_wall": 0.20580925655102597
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.0038069999718572944,
+          "per_step_ms": 0.007377906922204059,
+          "pct_of_wall": 0.012798593884868877
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "progress",
+          "label": "Progress display / live feed",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "top_7_consumers": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 26.621568999806186,
+          "per_step_ms": 51.592187984120514,
+          "pct_of_wall": 89.49793872478288
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.236498100013705,
+          "per_step_ms": 4.334298643437413,
+          "pct_of_wall": 7.518789366418528
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.7461767999920994,
+          "per_step_ms": 1.4460790697521306,
+          "pct_of_wall": 2.5085405568707717
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06121889958740212,
+          "per_step_ms": 0.11864127827015915,
+          "pct_of_wall": 0.20580925655102597
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.0038069999718572944,
+          "per_step_ms": 0.007377906922204059,
+          "pct_of_wall": 0.012798593884868877
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "thread_env": {
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "OPENBLAS_NUM_THREADS": "4",
+        "ASC_CPU_THREADS": null
+      },
+      "context": {
+        "arm_id": "cadence_1_1_50",
+        "ratio_label": "1:1:50",
+        "warmup_wall_s": 2.586039999994682,
+        "episode_wall_s": 29.760718500008807,
+        "n_train_updates": 500,
+        "n_sim_steps": 516,
+        "episode_return": -833.3056796985569,
+        "train_every_n_steps": 50,
+        "updates_per_step": 50,
+        "controller_interval_s": 1.5,
+        "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138656786_ml_mpo_learn_cadence_timing_cadence_1_1_50_23-15-43"
+      },
+      "expected_train_updates": 500
+    },
+    {
+      "episode_wall_s": 16.380826499982504,
+      "n_sim_steps": 516,
+      "n_controller_stores": 258,
+      "n_train_updates": 256,
+      "steps_per_s": 31.50024206657406,
+      "per_step_wall_ms": 31.74578779066377,
+      "measured_s": 16.327125199779402,
+      "unaccounted_s": 0.05370130020310171,
+      "categories": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 13.567876300017815,
+          "per_step_ms": 26.294333914763207,
+          "pct_of_wall": 82.8277883294369
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.305083099985495,
+          "per_step_ms": 4.46721531004941,
+          "pct_of_wall": 14.07183636300621
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.3884368001599796,
+          "per_step_ms": 0.752784496434069,
+          "pct_of_wall": 2.371289386163723
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06350149965146556,
+          "per_step_ms": 0.12306492180516582,
+          "pct_of_wall": 0.38765748267667316
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.002227499964646995,
+          "per_step_ms": 0.004316860396602703,
+          "pct_of_wall": 0.013598214746059207
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "progress",
+          "label": "Progress display / live feed",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "top_7_consumers": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 13.567876300017815,
+          "per_step_ms": 26.294333914763207,
+          "pct_of_wall": 82.8277883294369
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.305083099985495,
+          "per_step_ms": 4.46721531004941,
+          "pct_of_wall": 14.07183636300621
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.3884368001599796,
+          "per_step_ms": 0.752784496434069,
+          "pct_of_wall": 2.371289386163723
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06350149965146556,
+          "per_step_ms": 0.12306492180516582,
+          "pct_of_wall": 0.38765748267667316
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.002227499964646995,
+          "per_step_ms": 0.004316860396602703,
+          "pct_of_wall": 0.013598214746059207
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "thread_env": {
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "OPENBLAS_NUM_THREADS": "4",
+        "ASC_CPU_THREADS": null
+      },
+      "context": {
+        "arm_id": "cadence_1_2_4",
+        "ratio_label": "1:2:4",
+        "warmup_wall_s": 2.4613933000073303,
+        "episode_wall_s": 16.40200209998875,
+        "n_train_updates": 256,
+        "n_sim_steps": 516,
+        "episode_return": -355.3369946167908,
+        "train_every_n_steps": 4,
+        "updates_per_step": 4,
+        "controller_interval_s": 3.0,
+        "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138624360_ml_mpo_learn_cadence_timing_cadence_1_2_4_23-16-15"
+      },
+      "expected_train_updates": 256
+    },
+    {
+      "episode_wall_s": 29.76283069999772,
+      "n_sim_steps": 516,
+      "n_controller_stores": 516,
+      "n_train_updates": 500,
+      "steps_per_s": 17.33706061769318,
+      "per_step_wall_ms": 57.679904457359925,
+      "measured_s": 29.6867604990548,
+      "unaccounted_s": 0.07607020094292238,
+      "categories": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 26.578557300032116,
+          "per_step_ms": 51.50883197680643,
+          "pct_of_wall": 89.30117423284658
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.281249699619366,
+          "per_step_ms": 4.421026549649934,
+          "pct_of_wall": 7.664760528371183
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.7612512999039609,
+          "per_step_ms": 1.4752932168681412,
+          "pct_of_wall": 2.5577247929714533
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06189859961159527,
+          "per_step_ms": 0.11995852637906061,
+          "pct_of_wall": 0.20797282434429198
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.003803599887760356,
+          "per_step_ms": 0.007371317611938675,
+          "pct_of_wall": 0.012779698027045013
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "progress",
+          "label": "Progress display / live feed",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "top_7_consumers": [
+        {
+          "key": "train",
+          "label": "Learner update (train)",
+          "total_s": 26.578557300032116,
+          "per_step_ms": 51.50883197680643,
+          "pct_of_wall": 89.30117423284658
+        },
+        {
+          "key": "sim_step",
+          "label": "Simulation step (integrate + shutter capture)",
+          "total_s": 2.281249699619366,
+          "per_step_ms": 4.421026549649934,
+          "pct_of_wall": 7.664760528371183
+        },
+        {
+          "key": "get_action",
+          "label": "Policy inference (get_action)",
+          "total_s": 0.7612512999039609,
+          "per_step_ms": 1.4752932168681412,
+          "pct_of_wall": 2.5577247929714533
+        },
+        {
+          "key": "obs_build",
+          "label": "Controller observation build",
+          "total_s": 0.06189859961159527,
+          "per_step_ms": 0.11995852637906061,
+          "pct_of_wall": 0.20797282434429198
+        },
+        {
+          "key": "store",
+          "label": "Replay buffer store",
+          "total_s": 0.003803599887760356,
+          "per_step_ms": 0.007371317611938675,
+          "pct_of_wall": 0.012779698027045013
+        },
+        {
+          "key": "state_copy",
+          "label": "Per-step state copy (collect_states)",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        },
+        {
+          "key": "controller_baseline",
+          "label": "Warmup baseline controller tick",
+          "total_s": 0.0,
+          "per_step_ms": 0.0,
+          "pct_of_wall": 0.0
+        }
+      ],
+      "thread_env": {
+        "OMP_NUM_THREADS": "4",
+        "MKL_NUM_THREADS": "4",
+        "OPENBLAS_NUM_THREADS": "4",
+        "ASC_CPU_THREADS": null
+      },
+      "context": {
+        "arm_id": "duty_100x100",
+        "ratio_label": "1:1:100",
+        "warmup_wall_s": 2.592294400004903,
+        "episode_wall_s": 29.778052800014848,
+        "n_train_updates": 500,
+        "n_sim_steps": 516,
+        "episode_return": -887.146079924967,
+        "train_every_n_steps": 100,
+        "updates_per_step": 100,
+        "controller_interval_s": 1.5,
+        "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217138605419_ml_mpo_learn_cadence_timing_duty_100x100_23-16-34"
+      },
+      "expected_train_updates": 500
+    }
+  ]
+}

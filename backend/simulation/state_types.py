@@ -48,6 +48,7 @@ class SimulationMetadata :
     builtin_torque_policy: str | None = None
     torque_policy_label: str | None = None
     attitude_controller_enabled: bool = False
+    attitude_request_mode: str = "torque"
     render_mode: str = "interactive"
     # Optional render framing for multi-band target grids (φ bounds on orbit disk, degrees).
     target_region_bounds_deg: tuple[tuple[float, float], ...] | None = None
@@ -124,6 +125,9 @@ class SimulationStateSeries:
     baseline_view_anchor_xy_km: np.ndarray | None = None
     baseline_active_target_idx: np.ndarray | None = None
     baseline_take_picture_cmd: np.ndarray | None = None
+    # Vector OBC: normalized pointing command u and signed requested off-nadir [deg].
+    agent_pointing_cmd_u: np.ndarray | None = None
+    agent_pointing_offnadir_deg: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         n = self.t_s.shape[0]

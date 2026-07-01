@@ -1005,7 +1005,7 @@ def _build_panels() -> None:
             latent_reward=latent,
             applied_reward=applied,
             title="Reward",
-            cmd_times_s=_take_picture_cmd_times_s(sim_series),
+            cmd_steps=cmd_steps,
         )
         PANELS["reward"] = {"axes": axes, "artists": artists}
     if SHOW_TORQUE_PLOT:

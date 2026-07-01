@@ -26,6 +26,9 @@ Each phase block uses **What / Why / How** subsections (see skill `reference.md`
 
 **One training run at a time** on this host ([D-012](../../research/DECISIONS.md)). Lock: `backend/scripts/experiments/.pipeline_run.lock` · mirror: [`.active_run.json`](.active_run.json) (gitignored).
 
+**Overnight batch (Exp 10→13):** `backend/scripts/experiments/run_pipeline_overnight_batch.py --show-progress --git-sync-runs --skip-not-ready --continue-on-error`  
+**Watch:** `.cursor/tools/watch_pipeline_overnight_batch.ps1` · profile [`ml-pipeline-overnight-batch-10-13`](../../.cursor/skills/long-run-watch/profiles/ml-pipeline-overnight-batch-10-13.md)
+
 ## Run order
 
 | # | Slug | Doc | Code | Phase | Verdict | Blocked by |
@@ -37,9 +40,12 @@ Each phase block uses **What / Why / How** subsections (see skill `reference.md`
 | 5 | `ml_mpo_model_size` | [05-mpo-model-size.md](4-documentation/05-mpo-model-size.md) | `backend/scripts/experiments/ml_mpo_model_size/` | 4 | **not_supported** | — |
 | 6 | `ml_modular_encoder_r2` | [0-06-modular-encoder-r2.md](99-archive/0-06-modular-encoder-r2.md) | `backend/scripts/experiments/ml_modular_encoder_r2/` | — | **deferred** | — |
 | 7 | `ml_sac_vector_budget_penalty` | [07-sac-vector-budget-penalty.md](4-documentation/07-sac-vector-budget-penalty.md) | `backend/scripts/experiments/ml_sac_vector_budget_penalty/` | 4 | **supported** | — |
-| 8 | `ml_mpo_decoupled_dual_torque` | [08-mpo-decoupled-dual-fix.md](0-initialized/08-mpo-decoupled-dual-fix.md) | `backend/scripts/experiments/ml_mpo_decoupled_dual_torque/` | 0 | pending | — |
-| 9 | `ml_mpo_decoupled_dual_vector` | [09-mpo-decoupled-dual-vector.md](0-initialized/09-mpo-decoupled-dual-vector.md) | `backend/scripts/experiments/ml_mpo_decoupled_dual_vector/` | 0 | pending | Exp 8 |
-| 9 | `ml_sac_shutter_reward_split` | [09-sac-shutter-reward-split.md](0-initialized/09-sac-shutter-reward-split.md) | `backend/scripts/experiments/ml_sac_shutter_reward_split/` | 1 | pending | — |
+| 8 | `ml_mpo_decoupled_dual_torque` | [08-mpo-decoupled-dual-fix.md](4-documentation/08-mpo-decoupled-dual-fix.md) | `backend/scripts/experiments/ml_mpo_decoupled_dual_torque/` | closeout | **partial** | — |
+| 9 | `ml_sac_shutter_reward_split` | [09-sac-shutter-reward-split.md](4-documentation/09-sac-shutter-reward-split.md) | `backend/scripts/experiments/ml_sac_shutter_reward_split/` | closeout | **supported** | — |
+| 10 | `ml_mpo_safe_mode_penalty` | [10-mpo-safe-mode-penalty.md](3-evaluation/10-mpo-safe-mode-penalty.md) | `backend/scripts/experiments/ml_mpo_safe_mode_penalty/` | **3** | pending | — |
+| 11 | `ml_mpo_decoupled_dual_vector` | [11-mpo-decoupled-dual-vector.md](3-evaluation/11-mpo-decoupled-dual-vector.md) | `backend/scripts/experiments/ml_mpo_decoupled_dual_vector/` | **3** | pending | — |
+| 12 | `ml_mpo_vector_torque_effort` | [12-mpo-vector-torque-effort.md](3-evaluation/12-mpo-vector-torque-effort.md) | `backend/scripts/experiments/ml_mpo_vector_torque_effort/` | **3** | pending | — |
+| 13 | `ml_mpo_learn_cadence_hparams` | [13-mpo-learn-cadence-hparams.md](2-run/13-mpo-learn-cadence-hparams.md) | `backend/scripts/experiments/ml_mpo_learn_cadence_hparams/` | 2 | pending | — |
 
 ## Shared knobs (all pipeline experiments)
 
@@ -90,8 +96,11 @@ All training outputs live under **`backend/autonomous_control/runs/`**. Folder n
 | `ml_encoder_r2_` | **Exp 6** | `ml_modular_encoder_r2` | `scripts/experiments/ml_modular_encoder_r2/` |
 | `ml_mpo_model_size_` | **Exp 5** | `ml_mpo_model_size` | `scripts/experiments/ml_mpo_model_size/` |
 | `ml_mpo_decoupled_dual_torque_` | **Exp 8** | `ml_mpo_decoupled_dual_torque` | `scripts/experiments/ml_mpo_decoupled_dual_torque/` |
-| `ml_mpo_decoupled_dual_vector_` | **Exp 9** | `ml_mpo_decoupled_dual_vector` | `scripts/experiments/ml_mpo_decoupled_dual_vector/` |
+| `ml_mpo_decoupled_dual_vector_` | **Exp 11** | `ml_mpo_decoupled_dual_vector` | `scripts/experiments/ml_mpo_decoupled_dual_vector/` |
 | `ml_sac_vector_budget_` | **Exp 7** | `ml_sac_vector_budget_penalty` | `scripts/experiments/ml_sac_vector_budget_penalty/` |
+| `ml_mpo_safe_mode_penalty_` | **Exp 10** | `ml_mpo_safe_mode_penalty` | `scripts/experiments/ml_mpo_safe_mode_penalty/` |
+| `ml_mpo_learn_cadence_` | **Exp 13** | `ml_mpo_learn_cadence_hparams` | `scripts/experiments/ml_mpo_learn_cadence_hparams/` |
+| `ml_mpo_vector_torque_effort_` | **Exp 12** | `ml_mpo_vector_torque_effort` | `scripts/experiments/ml_mpo_vector_torque_effort/` |
 | `ml_shutter_` | **Exp 1** | `ml_shutter_threshold` | `scripts/experiments/ml_shutter_threshold/` |
 | `ml_overnight_` | *(legacy)* | H0–H6 overnight campaign | `scripts/experiments/ml_algo_overnight/` |
 | `train_timing_` | *(not pipeline)* | Timing profiler only | `scripts/experiments/train_timing/` |

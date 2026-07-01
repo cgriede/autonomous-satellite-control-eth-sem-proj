@@ -197,6 +197,20 @@ class BaselineOverflightRolloutTest(unittest.TestCase):
         self.assertTrue(np.any(np.abs(agent_cmds) > 1e-9))
         self.assertLessEqual(len(rollout.cmd_steps), 3)
         self.assertGreater(len(rollout.cmd_steps), 0)
+        self.assertEqual(rollout.attitude_request_mode, "torque")
+
+    def test_rollout_vector_mode_records_pointing_u(self):
+        setup = build_baseline_overflight_setup(n_targets=3, cloud_seed=0)
+        rollout = run_baseline_overflight_rollout(
+            setup,
+            show_progress=False,
+            attitude_request_mode="vector",
+        )
+        self.assertEqual(rollout.attitude_request_mode, "vector")
+        self.assertEqual(rollout.series.metadata.attitude_request_mode, "vector")
+        u = rollout.series.agent_pointing_cmd_u
+        self.assertIsNotNone(u)
+        self.assertTrue(np.any(np.isfinite(np.asarray(u, dtype=float))))
 
 
 class AttitudePointingGroundTargetUpdateTest(unittest.TestCase):

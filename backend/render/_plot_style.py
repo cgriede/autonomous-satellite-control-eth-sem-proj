@@ -9,6 +9,14 @@ import matplotlib.pyplot as plt
 
 from environment_definition.constants import RENDER
 
+TAKE_PICTURE_CMD_COLOR = "deeppink"
+
+
+def take_picture_cmd_marker_y_bounds(y_top: float) -> tuple[float, float]:
+    """Short band above the x-axis — visible but not enormous."""
+    span = max(float(y_top), 1.0)
+    return 0.03 * span, 0.09 * span
+
 
 def style_dashboard_axes(
     ax: plt.Axes,

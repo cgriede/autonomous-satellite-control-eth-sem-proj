@@ -6,7 +6,7 @@
 
 **Verdict (high conviction):** The KL/η explosion is a **symptom**. The **cause** is that the MPO policy-improvement (M-step) is effectively an **unconstrained weighted MLE** — the implementation collapses the E-step temperature and the M-step trust-region into a **single `log_eta`** and drives it from the *parametric policy KL* against a mis-scaled target. With no working trust region the Gaussian policy collapses to **saturated max-torque actions inside one episode**; the reported KL is large only because the pre-tanh Gaussian parameters diverge while the squashed action is pinned at the boundary.
 
-**Feeds:** [Exp 08 charter](../experiments/pipeline/0-initialized/08-mpo-decoupled-dual-fix.md) · **Decision:** [D-022](DECISIONS.md)
+**Feeds:** [Exp 08 charter](../experiments/pipeline/4-documentation/08-mpo-decoupled-dual-fix.md) · **Decision:** [D-023](DECISIONS.md) · **Closeout:** [D-024](DECISIONS.md)
 **Knowledge index:** [PROJECT_KNOWLEDGE.md](PROJECT_KNOWLEDGE.md) · **Related:** [model-size-investigation.md](model-size-investigation.md), [sac-mpo-compare-investigation.md](sac-mpo-compare-investigation.md), [mpo-model-size-investigation.md](mpo-model-size-investigation.md), [shutter-threshold-investigation.md](shutter-threshold-investigation.md)
 **Code:** `backend/autonomous_control/controller_agent.py` (`MPOAgent.train`), `controller_actor.py`, `mpo_config.py`
 

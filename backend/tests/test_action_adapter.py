@@ -99,5 +99,22 @@ class PolicyOutputIntegrationTest(unittest.TestCase):
         np.testing.assert_allclose(env.action_space.high, [1.0, 1.0])
 
 
+class VectorModePolicyOutputTest(unittest.TestCase):
+    def test_vector_mode_stores_u_not_torque(self) -> None:
+        _, stored = policy_output_to_gym_action(
+            np.array([0.5, 0.6], dtype=np.float64),
+            attitude_request_mode="vector",
+        )
+        self.assertAlmostEqual(float(stored[0]), 0.5)
+        self.assertAlmostEqual(float(stored[1]), 0.6)
+
+    def test_vector_mode_placeholder_torque_is_zero(self) -> None:
+        parsed, _ = policy_output_to_gym_action(
+            np.array([0.5, 0.6], dtype=np.float64),
+            attitude_request_mode="vector",
+        )
+        self.assertAlmostEqual(float(parsed.wheel_torque_cmd.to("N*m").magnitude), 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

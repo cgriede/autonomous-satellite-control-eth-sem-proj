@@ -244,6 +244,17 @@ def body_boresight_off_nadir_rad(
     )
 
 
+def signed_boresight_off_nadir_rad(
+    *,
+    body_z_angle_rad: float,
+    theta_orbit_rad: float,
+) -> float:
+    """Signed off-nadir [rad]; matches dashboard ``Pointing vs nadir`` boresight convention."""
+    nadir_angle = float(theta_orbit_rad) + math.pi
+    delta = float(body_z_angle_rad) - nadir_angle
+    return float(math.atan2(math.sin(delta), math.cos(delta)))
+
+
 def target_pointing_safe_for_engage(
     *,
     sat_pos_xy_km: np.ndarray,

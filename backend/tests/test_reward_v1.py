@@ -142,7 +142,7 @@ class CanonicalRewardFlagsTest(unittest.TestCase):
 
     def test_all_on_matches_legacy_helper(self):
         signals = self._signals_in_band()
-        cfg = RewardConfig()  # defaults: everything on
+        cfg = RewardConfig(enable_distance_reward=True)  # explicit: distance terms on
         total, components = canonical_reward(signals=signals, cfg=cfg)
 
         e = energy_from_wheel_momentum_change(
@@ -179,7 +179,7 @@ class CanonicalRewardFlagsTest(unittest.TestCase):
 
     def test_disable_energy_drops_only_energy_term(self):
         signals = self._signals_in_band()
-        cfg = RewardConfig(enable_energy=False)
+        cfg = RewardConfig(enable_energy=False, enable_distance_reward=True)
         total, components = canonical_reward(signals=signals, cfg=cfg)
         self.assertEqual(components["energy"], 0.0)
         self.assertNotEqual(components["distance_band_reward"], 0.0)
@@ -191,7 +191,7 @@ class CanonicalRewardFlagsTest(unittest.TestCase):
             picture_taken=False,
             target_visible=True,
         )
-        cfg_on = RewardConfig(enable_energy=False)
+        cfg_on = RewardConfig(enable_energy=False, enable_distance_reward=True)
         total_on, comp_on = canonical_reward(signals=signals, cfg=cfg_on)
         self.assertEqual(comp_on["no_picture_penalty"], -100.0)
         self.assertEqual(total_on, -100.0)
@@ -207,7 +207,7 @@ class CanonicalRewardFlagsTest(unittest.TestCase):
             picture_taken=True,
             target_visible=True,
         )
-        cfg_on = RewardConfig(enable_energy=False)
+        cfg_on = RewardConfig(enable_energy=False, enable_distance_reward=True)
         total_on, _ = canonical_reward(signals=signals, cfg=cfg_on)
         self.assertEqual(total_on, 0.0)
 
@@ -218,7 +218,7 @@ class CanonicalRewardFlagsTest(unittest.TestCase):
         self.assertEqual(total_off, 0.0)
 
     def test_reward_varies_with_distance_in_slide_band(self):
-        cfg = RewardConfig(enable_energy=False)
+        cfg = RewardConfig(enable_energy=False, enable_distance_reward=True)
         r_values = []
         for d_km in (500.0, 800.0, 1100.0, 1400.0):
             signals = RewardSignals(

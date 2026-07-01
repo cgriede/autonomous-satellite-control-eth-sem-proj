@@ -1,0 +1,9 @@
+{
+  "aborted": false,
+  "sim_dt_s": 1.5,
+  "controller_interval_s": 1.5,
+  "effective_controller_interval_s": 1.5,
+  "label": "dt_1.5s",
+  "train_episodes": 50,
+  "source": "ml_mpo_safe_mode_penalty"
+}

@@ -1,0 +1,61 @@
+{
+  "run_at_utc": "2026-06-30T23:36:47.850026+00:00",
+  "smoke_only": false,
+  "git_sync_runs": true,
+  "queue": [
+    "ml_mpo_safe_mode_penalty",
+    "ml_mpo_decoupled_dual_vector",
+    "ml_mpo_vector_torque_effort",
+    "ml_mpo_learn_cadence_hparams"
+  ],
+  "results": [
+    {
+      "slug": "ml_mpo_safe_mode_penalty",
+      "label": "Exp 10",
+      "script": "run_mpo_safe_mode_penalty.py",
+      "exit_code": 0,
+      "elapsed_s": 1932.981314,
+      "status": "ok",
+      "git_sync": {
+        "status": "pushed",
+        "message": "chore(runs): sync after Exp 10 (ml_mpo_safe_mode_penalty) [2026-06-30T22:14:53Z]"
+      }
+    },
+    {
+      "slug": "ml_mpo_decoupled_dual_vector",
+      "label": "Exp 11",
+      "script": "run_mpo_vector.py",
+      "exit_code": 0,
+      "elapsed_s": 1795.756696,
+      "status": "ok",
+      "git_sync": {
+        "status": "pushed",
+        "message": "chore(runs): sync after Exp 11 (ml_mpo_decoupled_dual_vector) [2026-06-30T22:44:55Z]"
+      }
+    },
+    {
+      "slug": "ml_mpo_vector_torque_effort",
+      "label": "Exp 12",
+      "script": "run_mpo_vector_torque_effort.py",
+      "exit_code": 0,
+      "elapsed_s": 1770.164963,
+      "status": "ok",
+      "git_sync": {
+        "status": "pushed",
+        "message": "chore(runs): sync after Exp 12 (ml_mpo_vector_torque_effort) [2026-06-30T23:14:29Z]"
+      }
+    },
+    {
+      "slug": "ml_mpo_learn_cadence_hparams",
+      "label": "Exp 13",
+      "script": "run_exp13.py",
+      "exit_code": 0,
+      "elapsed_s": 1329.667335,
+      "status": "ok",
+      "git_sync": {
+        "status": "pushed",
+        "message": "chore(runs): sync after Exp 13 (ml_mpo_learn_cadence_hparams) [2026-06-30T23:36:42Z]"
+      }
+    }
+  ]
+}

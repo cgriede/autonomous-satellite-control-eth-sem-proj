@@ -1,0 +1,37 @@
+{
+  "ref_run_id": "ml_mpo_decoupled_dual_vector_pending",
+  "notes": "Exp 12: MPO vector sparse + torque-effort penalty forced on @ dt 1.5s. Comparator: Exp 11 (vector, effort off).",
+  "baseline_comparison": {
+    "experiment_id": "ml_mpo_decoupled_dual_vector",
+    "arm_id": "vector_sparse",
+    "notes": "Run Exp 11 first in overnight batch for read-only compare"
+  },
+  "workflow": {
+    "train_episodes": 50,
+    "experiment_name": "mpo vector torque effort",
+    "warmup_episodes": 5,
+    "eval_episodes": 2,
+    "seed": 7,
+    "train_episode_videos": 3,
+    "eval_episode_videos": 2,
+    "use_warmup_bundle_cache": true,
+    "rebuild_warmup_bundle_cache": true,
+    "train_every_n_steps": 1,
+    "updates_per_step": 1,
+    "warmup_targets_per_episode": 10,
+    "background_artifacts": false,
+    "collect_states": false,
+    "early_stop_on_budget_exhausted": false,
+    "export_episode_reward_plots": true,
+    "attitude_request_mode": "vector"
+  },
+  "mpo": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "actor_dropout": 0.0,
+    "warmup_episodes": 5
+  },
+  "reward_override": {
+    "enable_torque_effort": true
+  }
+}

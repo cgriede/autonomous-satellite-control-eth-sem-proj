@@ -1,0 +1,67 @@
+{
+  "run_at_utc": "2026-06-30T21:21:38.466733+00:00",
+  "phase": "smoke",
+  "experiment_id": "ml_mpo_vector_torque_effort",
+  "passed": true,
+  "arm_id": "vector_torque_effort",
+  "attitude_request_mode": "vector",
+  "enable_torque_effort": true,
+  "warmup_return": -200.0,
+  "warmup_steps": 516,
+  "buffer_size": 516,
+  "train_metrics": {
+    "q_loss": 3.7172908782958984,
+    "pi_loss": -0.022634020075201988,
+    "eta_loss": 0.14824584126472473,
+    "eta": 2.7155649662017822,
+    "kl": 0.0,
+    "alpha_mu": 1.0,
+    "alpha_sigma": 1.0,
+    "kl_mu": 0.0,
+    "kl_sigma": 0.0
+  },
+  "dual_snapshot": {
+    "alpha_mu": 1.0,
+    "alpha_sigma": 1.0,
+    "eta": 2.7182817459106445
+  },
+  "config_mpo": {
+    "batch_size": 256,
+    "buffer_size": 50000,
+    "cnn_embedding_dim": 32,
+    "code_embed_dim": 8,
+    "gamma": 0.99,
+    "learning_rate_eta": 0.001,
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "num_cnn_layers": 2,
+    "num_samples_pi": 40,
+    "num_samples_q": 80,
+    "num_units_actor": 90,
+    "num_units_critic": 140,
+    "reward": {
+      "enable_budget_exhausted_shutter_penalty": true,
+      "enable_cloud_penalty": false,
+      "enable_distance_reward": false,
+      "enable_energy": false,
+      "enable_image_quality_capture": true,
+      "enable_outer_gate": true,
+      "enable_shutter_waste_penalty": false,
+      "enable_torque_effort": true,
+      "k_shutter_waste": 5.0,
+      "k_torque_effort": 0.1,
+      "shutter_waste_reward_epsilon": 0.001
+    },
+    "target_kl_mu": 0.1,
+    "target_kl_sigma": 0.01,
+    "tau": 0.005,
+    "warmup_episodes": 5
+  },
+  "run_dir": "D:\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998217145505156_ml_mpo_vector_torque_effort_smoke_21-21-33",
+  "mpo_overrides": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "actor_dropout": 0.0,
+    "warmup_episodes": 5
+  }
+}

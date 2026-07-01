@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import time
-from pathlib import Path
-
 import numpy as np
 from matplotlib.patches import Patch
 
@@ -14,31 +10,19 @@ from simulation.capture_reward import applied_capture_reward_series, latent_capt
 from simulation.state_types import SimulationStateSeries
 
 if __package__:
-    from ._plot_style import style_dashboard_axes, style_dashboard_legend
+    from ._plot_style import (
+        TAKE_PICTURE_CMD_COLOR,
+        style_dashboard_axes,
+        style_dashboard_legend,
+        take_picture_cmd_marker_y_bounds,
+    )
 else:
-    from render._plot_style import style_dashboard_axes, style_dashboard_legend
-
-_TAKE_PICTURE_CMD_COLOR = "deeppink"
-_DEBUG_POINTING_LOG = Path(__file__).resolve().parents[2] / "debug-9ae4dd.log"
-
-
-def _debug_log_pointing_compare(*, location: str, hypothesis_id: str, message: str, data: dict) -> None:
-    # #region agent log
-    payload = {
-        "sessionId": "9ae4dd",
-        "runId": "post-fix",
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    try:
-        with _DEBUG_POINTING_LOG.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload) + "\n")
-    except OSError:
-        pass
-    # #endregion
+    from render._plot_style import (
+        TAKE_PICTURE_CMD_COLOR,
+        style_dashboard_axes,
+        style_dashboard_legend,
+        take_picture_cmd_marker_y_bounds,
+    )
 
 
 def series_attitude_request_mode(series: SimulationStateSeries) -> str:
@@ -104,16 +88,18 @@ def draw_episode_reward_axes(
     y_max = float(np.nanmax(latent)) if latent.size else 0.0
     y_max = max(y_max, float(np.nanmax(applied)) if applied.size else 0.0)
     pad = 1.0 if y_max <= 0.0 else 0.1 * y_max
+    y_top = y_max + pad
     ax.set_xlim(float(t_arr[0]), float(t_arr[-1]))
-    ax.set_ylim(0.0, y_max + pad)
+    ax.set_ylim(0.0, y_top)
 
     if cmd_times_s:
+        ymin, ymax = take_picture_cmd_marker_y_bounds(y_top)
         ax.vlines(
             list(cmd_times_s),
-            ymin=0.0,
-            ymax=max(0.02 * (y_max + pad), 0.5),
-            colors=_TAKE_PICTURE_CMD_COLOR,
-            linewidth=0.8,
+            ymin=ymin,
+            ymax=ymax,
+            colors=TAKE_PICTURE_CMD_COLOR,
+            linewidth=1.2,
             alpha=0.85,
             zorder=3,
         )
@@ -149,8 +135,8 @@ def draw_episode_reward_axes(
     if cmd_times_s:
         legend_handles.append(
             Patch(
-                facecolor=_TAKE_PICTURE_CMD_COLOR,
-                edgecolor=_TAKE_PICTURE_CMD_COLOR,
+                facecolor=TAKE_PICTURE_CMD_COLOR,
+                edgecolor=TAKE_PICTURE_CMD_COLOR,
                 linewidth=0.8,
                 label="take picture",
             )
@@ -216,42 +202,6 @@ def draw_episode_pointing_axes(
     )
     offnadir_deg = np.rad2deg(z_offnadir_rad)
     agent_offnadir_deg = agent_pointing_offnadir_deg_for_plot(series)
-
-    if agent_offnadir_deg is not None and offnadir_deg.size > 4:
-        # #region agent log
-        sample_idx = np.linspace(0, offnadir_deg.size - 1, num=min(8, offnadir_deg.size), dtype=int)
-        samples = []
-        for k in sample_idx:
-            b = float(offnadir_deg[k])
-            a = float(agent_offnadir_deg[k])
-            if not (np.isfinite(b) and np.isfinite(a)):
-                continue
-            samples.append(
-                {
-                    "k": int(k),
-                    "boresight_signed_deg": b,
-                    "agent_signed_deg": a,
-                    "signed_delta_deg": b - a,
-                }
-            )
-        if samples and len(samples) >= 2:
-            signed_corr = float(
-                np.corrcoef(
-                    [s["boresight_signed_deg"] for s in samples],
-                    [s["agent_signed_deg"] for s in samples],
-                )[0, 1]
-            )
-            _debug_log_pointing_compare(
-                location="episode_series_plotting.py:draw_episode_pointing_axes",
-                hypothesis_id="A_plot_convention",
-                message="pointing series convention compare",
-                data={
-                    "n_samples": len(samples),
-                    "corr_boresight_vs_agent_signed": signed_corr,
-                    "samples": samples,
-                },
-            )
-        # #endregion
 
     stack = [offnadir_deg]
     if agent_offnadir_deg is not None:

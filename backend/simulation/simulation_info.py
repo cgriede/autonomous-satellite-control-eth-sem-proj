@@ -112,6 +112,11 @@ def _reward_program_rows(reward_config: Any) -> list[tuple[str, str]]:
     if getattr(reward_config, "enable_shutter_waste_penalty", False):
         k = getattr(reward_config, "k_shutter_waste", 0.0)
         rows.append(("reward (shutter waste)", f"-{k:g} on accepted shutter with ~0 applied credit"))
+    if getattr(reward_config, "enable_budget_exhausted_shutter_penalty", False):
+        k = getattr(reward_config, "k_shutter_waste", 0.0)
+        rows.append(
+            ("reward (budget-exhausted shutter)", f"-{k:g} on shutter cmd when budget remaining ≤ 0")
+        )
     if getattr(reward_config, "enable_torque_effort", False):
         k = getattr(reward_config, "k_torque_effort", 0.0)
         rows.append(("reward (torque effort)", f"-{k:g} × (tau/tau_max)² per step"))
@@ -576,6 +581,8 @@ def print_simulation_info(
     tau_max_nm: float | None = None,
     agent: Any | None = None,
     episode_mode: str | None = None,
+    experiment_name: str | None = None,
+    phase_episode_total: int | None = None,
     file: Any | None = None,
 ) -> None:
     """Print a Rich panel before tqdm (works in Jupyter and terminals)."""
@@ -586,6 +593,10 @@ def print_simulation_info(
         agent=agent,
         episode_mode=episode_mode,
     )
+    if experiment_name:
+        rows.insert(0, ("experiment", str(experiment_name)))
+    if phase_episode_total is not None:
+        rows.insert(1 if experiment_name else 0, ("phase episodes", str(int(phase_episode_total))))
     _display_info_panel(
         rows,
         title="Simulation info",
