@@ -32,7 +32,6 @@ from simulation.attitude_controller import (
     target_boresight_rate_rad_s,
     target_pointing_safe_for_engage,
 )
-from simulation.capture_target import dominant_capture_target_index
 from simulation.obc_pointing_request import baseline_omega_target_rad_s
 from simulation.state_types import SimulationStateSeries, SimulationTimestepState
 from simulation.stepper_factory import build_stepper
@@ -61,37 +60,6 @@ BASELINE_MISSION_SEED = 0
 BASELINE_LEAD_MARGIN_DEG = 20.0
 DEFAULT_TRACKING_THRESHOLD_DEG = 15.0
 MIN_CAPTURE_QUALITY = 0.25
-
-_DEBUG_LOG_PATH = Path(__file__).resolve().parents[4] / "debug-3904c6.log"
-
-
-def _dbg3904c6(
-    *,
-    hypothesis_id: str,
-    location: str,
-    message: str,
-    data: dict[str, Any],
-    run_id: str = "baseline",
-) -> None:
-    # region agent log
-    import json
-    import time
-
-    payload = {
-        "sessionId": "3904c6",
-        "runId": run_id,
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    try:
-        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload) + "\n")
-    except OSError:
-        pass
-    # endregion
 
 
 # Baseline cloud formation: rainforest-style clouds seeded along the target-grid corridor
@@ -586,25 +554,6 @@ class SequentialTargetBaselinePolicy:
                 else:
                     should_shutter = False
                 if should_shutter:
-                    dominant = dominant_capture_target_index(
-                        np.asarray(state.camera_observation_line_codes, dtype=np.int8)
-                    )
-                    _dbg3904c6(
-                        hypothesis_id="H1-H2",
-                        location="baseline_overflight.py:act",
-                        message="baseline_shutter",
-                        data={
-                            "mode": "vector" if skip_torque_request else "torque",
-                            "step_idx": int(step_idx),
-                            "target_idx": idx,
-                            "tracking_err_deg": float(np.rad2deg(tracking_err)),
-                            "quality": quality,
-                            "dominant": dominant,
-                            "locked": locked,
-                            "in_band": in_band,
-                            "past_trailing": past_trailing,
-                        },
-                    )
                     self._shuttered.add(idx)
                     self.cmd_steps.append(int(step_idx))
                     self._capture_i += 1
@@ -952,8 +901,12 @@ def print_baseline_capture_kpis(
     kpis: BaselineCaptureKPIs,
     *,
     rollout: BaselineOverflightRollout | None = None,
+    title: str | None = None,
 ) -> None:
-    print("Baseline capture KPIs")
+    if title:
+        print(title)
+    else:
+        print("Baseline capture KPIs")
     print(f"  shutter commands:  {kpis.n_shutter_cmds} / {kpis.n_targets} targets")
     print(f"  captures taken:    {kpis.n_captures_taken} / {MAX_PRIMARY_CAPTURES_PER_ORBIT} budget")
     print(f"  latent capture:    {kpis.total_latent_capture_reward:.2f}  (k * cov * quality * (1 - cloud))")
@@ -982,6 +935,54 @@ def print_baseline_capture_kpis(
         )
     if len(kpis.capture_results) > 15:
         print(f"  ... ({len(kpis.capture_results) - 15} more shutter commands)")
+
+
+def print_baseline_mode_comparison(
+    *,
+    torque: tuple[BaselineOverflightRollout, BaselineCaptureKPIs],
+    vector: tuple[BaselineOverflightRollout, BaselineCaptureKPIs],
+) -> None:
+    """Side-by-side summary for torque vs vector baseline rollouts."""
+    t_roll, t_kpi = torque
+    v_roll, v_kpi = vector
+    rows = [
+        ("attitude mode", t_roll.attitude_request_mode, v_roll.attitude_request_mode),
+        ("shutter cmds", t_kpi.n_shutter_cmds, v_kpi.n_shutter_cmds),
+        ("captures taken", t_kpi.n_captures_taken, v_kpi.n_captures_taken),
+        (
+            "applied capture",
+            f"{t_kpi.total_applied_capture_reward:.2f}",
+            f"{v_kpi.total_applied_capture_reward:.2f}",
+        ),
+        ("mean quality", f"{t_kpi.mean_quality:.4f}", f"{v_kpi.mean_quality:.4f}"),
+        ("safety events", t_roll.n_safety_events, v_roll.n_safety_events),
+        (
+            "mean sim reward",
+            f"{float(np.mean(t_roll.series.simulation_reward)):.3f}",
+            f"{float(np.mean(v_roll.series.simulation_reward)):.3f}",
+        ),
+    ]
+    if t_roll.policy.capture_targets == v_roll.policy.capture_targets:
+        rows.insert(
+            1,
+            (
+                "capture schedule",
+                list(t_roll.policy.capture_targets),
+                list(v_roll.policy.capture_targets),
+            ),
+        )
+    cmd_match = t_roll.cmd_steps == v_roll.cmd_steps
+    rows.append(
+        (
+            "cmd_steps match",
+            "yes" if cmd_match else "no",
+            "yes" if cmd_match else "no",
+        )
+    )
+    print("Baseline torque vs vector comparison")
+    print(f"  {'metric':<18}  {'torque':>12}  {'vector':>12}")
+    for label, t_val, v_val in rows:
+        print(f"  {label:<18}  {str(t_val):>12}  {str(v_val):>12}")
 
 
 def export_baseline_overflight_video(

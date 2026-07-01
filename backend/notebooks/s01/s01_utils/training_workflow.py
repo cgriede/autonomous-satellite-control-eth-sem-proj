@@ -78,6 +78,7 @@ from utils.ml_training.ml_training_utils import (
     experiment_name_from_run_slug,
     make_run_id,
     init_run_markdown,
+    write_run_abort_stderr,
 )
 from utils.ml_training.training_artifact_worker import (
     BackgroundArtifactWorker,
@@ -795,7 +796,7 @@ def build_training_workflow_setup(
     capture_reward = RewardConfig(
         enable_distance_reward=False,
         enable_image_quality_capture=True,
-        enable_shutter_waste_penalty=True,
+        enable_shutter_waste_penalty=False,
         enable_budget_exhausted_shutter_penalty=True,
         enable_torque_effort=cfg.attitude_request_mode != "vector",
     )
@@ -1818,7 +1819,8 @@ def run_training_workflow(
         run_warmup(ctx)
         run_training(ctx)
         return run_eval(ctx)
-    except Exception:
+    except BaseException as exc:
+        write_run_abort_stderr(setup.run_dir, exc)
         if ctx.worker is not None and ctx.config.background_artifacts:
             ctx.worker.shutdown(wait=False)
         raise

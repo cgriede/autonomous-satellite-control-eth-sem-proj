@@ -1,6 +1,6 @@
 # Backlog (archive / narrative)
 
-**Source of truth:** [`backlog.xlsx`](backlog.xlsx) — edit rows there; use `python backend/scripts/backlog_xlsx.py list|check|init`.
+**Source of truth:** [`backlog.xlsx`](backlog.xlsx) — edit rows there; use `python .cursor/tools/backlog/backlog_xlsx.py list|check|init`.
 
 Columns: `uid`, `Sprint`, `prio`, `Size`, `status`, `dep on`, `name`, `notes / blockers`.
 
