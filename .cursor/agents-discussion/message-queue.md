@@ -243,3 +243,544 @@ Light fix applied overnight (exp4 vector warmup); resumed `--from exp4`. Full pi
 
 (none)
 
+
+---
+timestamp_utc: 2026-06-30T15:51:00Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: running
+---
+
+## Status
+
+**Exp 9** (`ml_sac_shutter_reward_split`, arm `waste_off_budget_on`) is **running** - python pid **30872**, train **ep 15/50** (~28%, ~21 s/ep). Terminal 8 has the live run; terminal 3 is idle. Run dir `9998217165798903_ml_sac_shutter_split_15-43-20`. **Exp 8** not started; smoke passed. Background watcher `.cursor/tools/watch_exp9_then_exp8.ps1` will auto-launch `run_mpo_torque.py --show-progress` when Exp 9 completes.
+
+## Artifacts
+
+- log: `shutter_reward_split.log` - START waste_off_budget_on
+- completion: `sac_shutter_reward_split.json` - no
+- exp8 smoke: `smoke.json` - passed
+- pipeline lock: pid 30872
+
+## Action taken
+
+Initial watch; profiles added; background watcher started (120s poll, hourly MQ).
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+
+---
+timestamp_utc: 2026-06-30T16:05:14Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:07:44Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:10:14Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:12:45Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:15:15Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:17:45Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:20:15Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:22:45Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:25:15Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:27:46Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:30:16Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:32:46Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:35:16Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:37:46Z
+agent: long-run-watch
+profile: ml-sac-shutter-reward-split
+status: completed
+---
+
+## Status
+
+Exp 9 finished; summary JSON present. Auto-launching Exp 8 per operator request.
+
+## Artifacts
+
+- completion: sac_shutter_reward_split.json yes
+- log: [16:04:57] DONE waste_off_budget_on learning_mode=True eval_mean=106.36074741388494 post_budget_cmds=75
+
+## Action taken
+
+auto-launch Exp 8
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T16:40:20Z
+agent: long-run-watch
+profile: ml-mpo-decoupled-dual-torque
+status: completed
+---
+
+## Status
+
+Watch loop exited cleanly. **Exp 9** done (learning_mode=true, eval_mean=106.4). **Exp 8** done (learning_mode=true, train_best=8.7, eval_mean=-81.1). Auto-launch hit repeated `43900` PowerShell read-only variable errors in stale-lock cleanup; one Exp 8 run still completed via spawned windows.
+
+## Artifacts
+
+- exp9: `sac_shutter_reward_split.json`
+- exp8: `mpo_torque.json` — DONE 16:38:06 UTC
+- watch log: `.cursor/debug_logs/watch-exp9-exp8.log`
+
+## Action taken
+
+Final closeout; fixed `43900` -> `` in watch script for future runs.
+
+## Errors encountered
+
+- Watch script: `Cannot overwrite variable PID` on each Exp 8 launch retry (symptom-only; run still finished)
+- Multiple duplicate Exp 8 window spawns from retry loop
+
+## Fixes applied
+
+- `.cursor/tools/watch_exp9_then_exp8.ps1`: rename `43900` to `` in Remove-StaleLockIfSafe
+
+---
+timestamp_utc: 2026-06-30T22:16:00Z
+agent: long-run-watch
+profile: ml-pipeline-overnight-batch-10-13
+status: running
+---
+
+## Status
+
+**Exp 10 complete** (wall **32.2 min**, exit 0). KPIs: `learning_mode=true`, eval mean **−510.4**, train best **−354.4** (ep 23), KL last **0.013**. Runs **git-pushed** after Exp 10. **Exp 11** started **22:15:02 UTC** — warmup done, **train ep 0** in progress. Handoff **OK**. Exp 11 ETA ~**22:47 UTC** at Exp 10 pace.
+
+## Artifacts
+
+- exp10: `results/mpo_safe_mode_penalty.json` · run `9998217144237087_ml_mpo_safe_mode_penalty_safe_mode_penalty_on_21-42-42`
+- batch log: `DONE Exp 10` → `GIT pushed` → `START Exp 11`
+- exp11: `9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02`
+
+## Action taken
+
+Handoff verified; `.cursor/debug_logs/watch-exp10-exp11-handoff.log`
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+
+---
+timestamp_utc: 2026-06-30T22:42:43Z
+agent: long-run-watch
+profile: ml-pipeline-overnight-batch-10-13
+status: running
+---
+
+## Status
+
+Overnight batch running (orchestrator pid 32068). Progress: 9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02: ep 1 step 516/516 ret=45.5. Log: [2026-06-30T21:42:40Z] START Exp 10 (ml_mpo_safe_mode_penalty) â†’ C:\Users\cedri\miniconda3\envs\auto-sat\python.exe run_mpo_safe_mode_penalty.py --show-progress | [2026-06-30T22:14:53Z] DONE Exp 10 exit=0 elapsed_s=1933 | [2026-06-30T22:14:53Z] GIT sync runs after Exp 10 | [2026-06-30T22:15:00Z] GIT result Exp 10: pushed  | [2026-06-30T22:15:00Z] START Exp 11 (ml_mpo_decoupled_dual_vector) â†’ C:\Users\cedri\miniconda3\envs\auto-sat\python.exe run_mpo_vector.py --show-progress
+
+## Artifacts
+
+- batch log: [2026-06-30T21:42:40Z] START Exp 10 (ml_mpo_safe_mode_penalty) â†’ C:\Users\cedri\miniconda3\envs\auto-sat\python.exe run_mpo_safe_mode_penalty.py --show-progress | [2026-06-30T22:14:53Z] DONE Exp 10 exit=0 elapsed_s=1933 | [2026-06-30T22:14:53Z] GIT sync runs after Exp 10 | [2026-06-30T22:15:00Z] GIT result Exp 10: pushed  | [2026-06-30T22:15:00Z] START Exp 11 (ml_mpo_decoupled_dual_vector) â†’ C:\Users\cedri\miniconda3\envs\auto-sat\python.exe run_mpo_vector.py --show-progress
+- lock: True
+
+## Action taken
+
+none
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-06-30T23:36:47Z
+agent: long-run-watch
+profile: ml-pipeline-overnight-batch-10-13
+status: completed
+---
+
+## Status
+
+Overnight batch **finished cleanly** at 23:36:47 UTC (~1h 54m wall). All four experiments exit=0; no matching python processes remain. Exp 10–13 ran sequentially with git sync **pushed** after each arm.
+
+## Artifacts
+
+- batch log: `backend/scripts/experiments/results/pipeline_overnight_batch.log`
+- completion: `backend/scripts/experiments/results/pipeline_overnight_batch.json` — yes
+- per-exp summaries: Exp10–13 result JSONs all present
+- errors: none
+
+## Action taken
+
+none (passive monitor; batch completed without intervention)
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none

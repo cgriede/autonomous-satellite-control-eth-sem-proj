@@ -7,6 +7,8 @@ description: Plan and structure changes as testable vertical slices with explici
 
 Use this skill when the task needs design choices before implementation.
 
+**Pipeline experiment Phase 1:** Prefer the Nike-vs-plan gate in [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md) over a full architecture plan when Phase 0.3 + sibling scaffold already define the hook. Use this skill for larger or non-pipeline design work.
+
 ## 1. Start with questions
 
 Ask at least three clarifying questions before proposing a plan or implementation approach.

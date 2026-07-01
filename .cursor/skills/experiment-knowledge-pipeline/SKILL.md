@@ -57,9 +57,11 @@ Full per-subsection map: [`skill-chain.md`](skill-chain.md).
 | `/init-experiment` | Create `0-initialized/{NN}-{slug}.md` with frontmatter + title only (**no phase body**) |
 | `/start-experiment-step` | Work on **current phase** — delegate to child skill; set `phases.<N>.status: in_progress` |
 | `/document-experiment-step` | **Append** `## Phase N` + all mandatory subsections for current phase |
-| `/close-experiment-step` | Verify phase block exists → `phases.<N>.status: done` → advance `current_phase` → **move bin** → update README + links |
+| `/close-experiment-step` | Verify phase block exists → `phases.<N>.status: done` → advance `current_phase` → **`pipeline_doc.py close-phase`** (bin move + README Doc link) → update README Phase/Verdict |
 
 **Order:** finish work → `/document-experiment-step` → `/close-experiment-step`. Do not close without documenting.
+
+**Proactive close (no slash command required):** When a run is complete and you deliver **evaluation / verdict / operator review** in chat, treat that as the close trigger — append missing `## Phase 2` and/or `## Phase 3` blocks, then run `pipeline_doc.py close-phase` for each completed phase. Never leave the doc in `2-run/` while discussing Phase 3 verdicts (see learnings.md `pipeline-advance-after-run-evaluation`).
 
 ## Phase → child skill map
 
@@ -67,7 +69,7 @@ Full per-subsection map: [`skill-chain.md`](skill-chain.md).
 |-------|----------------|----------|
 | **0** | [`hypothesis-research-literature`](../hypothesis-research-literature/SKILL.md) | [`isolated-notebook-hypotheses`](../isolated-notebook-hypotheses/SKILL.md) § Before launching branches |
 | **1** | [`hypothesis-experiment-cycle`](../hypothesis-experiment-cycle/SKILL.md) | `isolated-notebook-hypotheses` § Fixed result contract, evidence-first |
-| **2** | `hypothesis-experiment-cycle` | [`long-run-watch`](../long-run-watch/SKILL.md), [`visual-output-verification`](../visual-output-verification/SKILL.md), [`video-frame-inspect`](../video-frame-inspect/SKILL.md) |
+| **2** | `hypothesis-experiment-cycle` | [`long-run-watch`](../long-run-watch/SKILL.md), [`visual-output-verification`](../visual-output-verification/SKILL.md), [`video-frame-inspect`](../video-frame-inspect/SKILL.md) — confirm completion JSON before treating live terminal as the canonical run (see learnings.md `check-completion-json-before-live-terminal`) |
 | **3** | [`document-research`](../document-research/SKILL.md) | `hypothesis-experiment-cycle` + analysis card §1–8; `video-frame-inspect` if video informs verdict |
 | **4** | `document-research` | `visual-output-verification`, `video-frame-inspect`, [`minimal-feature-review`](../minimal-feature-review/SKILL.md) (human confirm) |
 
@@ -75,7 +77,7 @@ Full per-subsection map: [`skill-chain.md`](skill-chain.md).
 
 ```text
 1. Locate docs/experiments/pipeline/*/{NN}-{slug}.md; read current_phase + phases.* in frontmatter
-2. Confirm file is in the bin matching current_phase
+2. Confirm file is in the bin matching current_phase — run `python .cursor/tools/pipeline/pipeline_doc.py check`; fix with `sync-bin --slug <slug>` if needed.
 3. Read PROJECT_KNOWLEDGE + DECISIONS + STATUS — respect blocked_by
 4. Read skill-chain.md for current phase — invoke listed child skills
 5. If current_phase == 2 → pipeline mutex check before launching training
@@ -84,7 +86,46 @@ Full per-subsection map: [`skill-chain.md`](skill-chain.md).
 8. Do NOT append the phase block until /document-experiment-step
 9. Do NOT advance current_phase until /close-experiment-step
 10. Semantic bugs (action space, warmup contract): **define fix in doc/chat first** — do not edit fork code until user agrees (see learnings.md `define-fix-before-implement-experiment`).
+11. **Phase 1 implement gate (Nike vs plan):** run before first fork edit — see § Implement mode below; never ask "do we need a build plan?" when signals already decide.
 ```
+
+## Implement mode: Nike vs plan (Phase 1)
+
+**Do not** routinely ask the user whether a dedicated build plan is needed — **run this gate** from the pipeline doc + user message. Phase **0.3** is the charter-level plan; Phase **1.1** records what was built at `/document-experiment-step` (not a separate plan doc).
+
+### Nike mode — build now
+
+Proceed when **all** hold:
+
+| Signal | Check |
+|--------|--------|
+| Hook known | Phase 0.3 names hook point + smoke |
+| Sibling exists | Copy scaffold from a prior slug (ponytail rule) |
+| Single delta | One logical change; hypothesis doc states it in one sentence |
+| User approved | `/start-experiment-step`, "fine to build", or Phase 0 closed with build intent |
+| Fork-only | No production edit required ([D-003](../../../docs/research/DECISIONS.md)) |
+| No contract risk | Not action-space / warmup / comparator-semantics bug (see `define-fix-before-implement-experiment`) |
+
+**Required before first fork edit:** Tell the user you are in **Nike mode** and give **2–4 bullets** justifying why (e.g. "Phase 0.3 complete; Exp 8 sibling; one reward hook; smoke path known"). Do **not** silently start coding.
+
+### Plan mode — stop; user must decide
+
+**Never** agent-only decide. **Ask the user** (short build sketch or options) before coding when **any**:
+
+- Phase 0.3 thin or hook / penalty design / knobs still **TBD**
+- Multiple hooks or arms with different code surfaces
+- No sibling scaffold; runner layout unclear
+- Production edit may be required to run the hypothesis
+- **Semantic or upstream bug suspected** — warmup vs train mismatch, invalid comparator run, workaround would mask prod/sim defect
+- Cross-cutting change (sim + env + agent) beyond one hook
+
+See also [`architecture-planning`](../architecture-planning/SKILL.md) for large non-pipeline design; pipeline Phase 1 usually does not need it when Nike criteria pass.
+
+### Upstream bug suspicion
+
+If the fork would **work around** a likely production/sim bug instead of testing the hypothesis → **stop and ask the user**: fix upstream first, defer the arm, or document an explicit workaround in DECISIONS. Do not silently paper over.
+
+See learnings.md `pipeline-implement-nike-vs-plan-gate`.
 
 ## Workflow: document phase
 
@@ -105,9 +146,9 @@ Full per-subsection map: [`skill-chain.md`](skill-chain.md).
 1. Verify ## Phase N block exists and subsections are non-empty
 2. phases.<N>: status=done, completed_utc
 3. current_phase ← N+1 (or stay at 4 when finished)
-4. Move doc to bin for new current_phase if changed
-5. Update pipeline README Doc column ({bin}/{NN}-{slug}.md)
-6. Grep repo; fix stale pipeline paths in STATUS, investigation notes, analysis cards
+4. Run `python .cursor/tools/pipeline/pipeline_doc.py close-phase --slug <slug>` (moves bin, updates README Doc link, fixes experiment README paths)
+5. Update pipeline README **Phase** / **Verdict** columns manually if needed
+6. Grep repo for any remaining stale paths
 7. Phase 2 close: clear run_lock_holder
 8. Phase 3 close: overall_verdict set in frontmatter
 9. Phase 4 close: document-research + user visual sign-off per skill-chain.md

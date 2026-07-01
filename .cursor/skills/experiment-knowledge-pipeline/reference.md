@@ -109,6 +109,8 @@ Use **numbered headings** exactly as below. Tag (What)/(Why)/(How) in the headin
 
 **Exit criteria:** Runner + `_run_guard` → global mutex; smoke passes.
 
+**Start gate (before coding):** Run § Implement mode (Nike vs plan) in [`SKILL.md`](SKILL.md). Nike mode → notify user + justify in chat; plan mode or upstream-bug suspicion → **ask user** before first fork edit (see learnings.md `pipeline-implement-nike-vs-plan-gate`).
+
 ---
 
 ### Phase 2 — Run
@@ -202,9 +204,9 @@ Use **numbered headings** exactly as below. Tag (What)/(Why)/(How) in the headin
 
 ## Move + link update (every close)
 
-1. Move file if bin changed.
-2. Update [`README.md`](../../../docs/experiments/pipeline/README.md) **Doc** column.
-3. Grep `docs/experiments/pipeline/`, STATUS, investigation notes, experiment `*_analysis.md`.
+1. Run `python .cursor/tools/pipeline/pipeline_doc.py close-phase --slug <slug>` (or `sync-bin` if only the folder is wrong).
+2. Tool updates [`README.md`](../../../docs/experiments/pipeline/README.md) **Doc** column and fixes links under `backend/scripts/experiments/<slug>/`.
+3. Agent updates README **Phase** / **Verdict** columns; grep for any remaining stale paths in STATUS / investigation notes.
 
 ## README index columns
 
@@ -221,3 +223,15 @@ Use **numbered headings** exactly as below. Tag (What)/(Why)/(How) in the headin
 ## Mutex (D-012)
 
 One active training process per host. Phase 2 only.
+
+## Implement mode gate (Phase 1 start)
+
+Run before first fork edit ([`SKILL.md`](SKILL.md) § Implement mode; learnings.md `pipeline-implement-nike-vs-plan-gate`).
+
+| Mode | When | Agent action |
+|------|------|--------------|
+| **Nike** | Phase 0.3 complete (hook + sibling + smoke); single delta; user approved build; fork-only; no semantic-contract risk | Notify user + 2–4 bullet justification; then build |
+| **Plan** | Any TBD on hook; no sibling; multi-hook; prod edit; cross-cutting | Short sketch in chat; **wait for user** |
+| **Upstream bug** | Workaround would mask prod/sim defect | **Ask user** — fix upstream, defer, or DECISIONS workaround |
+
+Do not ask "do we need a build plan?" when Nike criteria already pass. Phase 1.1 is documented at `/document-experiment-step`, not a separate plan artifact.

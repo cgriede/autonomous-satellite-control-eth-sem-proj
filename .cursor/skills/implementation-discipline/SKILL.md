@@ -19,6 +19,8 @@ Before touching code, ask about:
 
 If critical ambiguity remains, do not implement yet.
 
+**Pipeline experiment implement (Phase 1):** Run the Nike-vs-plan gate in [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md) — do not ask "need a build plan?" when Nike criteria pass; do ask the user when plan mode or upstream-bug signals fire (learnings.md `pipeline-implement-nike-vs-plan-gate`).
+
 **Pipeline promote requests:** if the user asks to merge an experiment fork to production, confirm pipeline closeout is done (`4-documentation/`, verdict set) before editing `autonomous_control/` / `simulation/` — see learnings.md `pipeline-closeout-before-promote`.
 
 ## 2. Reflect back the working understanding

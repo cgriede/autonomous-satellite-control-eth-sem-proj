@@ -45,8 +45,10 @@ Re-implementing Python for every chat action (add one backlog row, update one sl
 │   ├── presentation_pptx.py # check | list | set | append | diagrams | build
 │   ├── presentation_diagrams.py
 │   └── presentation_seed_final_review.py
-└── video_frame_inspect/
-    └── extract_frames.py
+├── video_frame_inspect/
+│   └── extract_frames.py
+└── pipeline/
+    └── pipeline_doc.py        # check | sync-bin | close-phase
 ```
 
 Each tool folder gets a short **README.md** with conda env, commands, and artifact paths.
@@ -69,6 +71,8 @@ python .cursor/tools/backlog/backlog_xlsx.py check
 python .cursor/tools/presentation/presentation_pptx.py list
 ```
 
+**PowerShell helpers** in `.cursor/tools/`: never assign to `$pid` (automatic read-only) — see learnings.md `powershell-pid-automatic-readonly`.
+
 ## Catalog (this repo)
 
 | Tool | Skill / use | Artifact |
@@ -76,6 +80,7 @@ python .cursor/tools/presentation/presentation_pptx.py list
 | [backlog](../../tools/backlog/) | [pm-backlog-review](../pm-backlog-review/SKILL.md) | `backlog.xlsx` |
 | [presentation](../../tools/presentation/) | [create-update-presentation](../create-update-presentation/SKILL.md) | `docs/presentation/final/with-cursor/` |
 | [video_frame_inspect](../../tools/video_frame_inspect/) | [video-frame-inspect](../video-frame-inspect/SKILL.md) | `.cursor/video_frame_inspect/data/` |
+| [pipeline](../../tools/pipeline/) | [experiment-knowledge-pipeline](../experiment-knowledge-pipeline/SKILL.md) | `docs/experiments/pipeline/{bin}/` |
 
 Detail: [reference.md](reference.md)
 

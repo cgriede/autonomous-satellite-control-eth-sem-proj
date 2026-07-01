@@ -428,6 +428,12 @@ _SCOREBOARD = [
     ("SAC M sparse · hparam", 50.6, True),
     ("SAC S sparse · hparam", 69.8, True),
     ("SAC compress · encoder r2", 80.9, True),
+    # Exp 8: MPO fixed dual torque — first learning signal
+    ("MPO fixed dual · Exp8 torque", -81.1, True),
+    # Exp 11: MPO fixed dual vector — second positive path
+    ("MPO fixed dual · Exp11 vector", 45.5, True),
+    # Exp 9: SAC shutter split — waste penalty OFF beats baseline
+    ("SAC shutter-split · Exp9 vector", 106.4, True),
 ]
 
 
@@ -461,7 +467,7 @@ def render_results_scoreboard(output_path: Path | str) -> Path:
 
     ax.set_yticks(ypos)
     ax.set_yticklabels(labels, color=INK, fontsize=10.5, family=_FONT)
-    ax.set_xlim(-285, 135)
+    ax.set_xlim(-285, 160)
     ax.tick_params(axis="x", colors=MUTED)
     for spine in ax.spines.values():
         spine.set_visible(False)

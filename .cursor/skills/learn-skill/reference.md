@@ -25,7 +25,7 @@ When in doubt, **POINTER** at minimum: `See [learn-skill](../learn-skill/SKILL.m
 | `bulk-change-triage-commit` | git hygiene, unrelated WIP |
 | `debug-workflow` | probes, logs, root-cause loop |
 | `hypothesis-experiment-cycle` | experiment harness, promotion |
-| `experiment-knowledge-pipeline` | phases 0–4, closeout before promote |
+| `experiment-knowledge-pipeline` | phases 0–4, closeout before promote, **Nike vs plan implement gate** |
 | `implementation-discipline` | scope, constants, terminology |
 | `isolated-notebook-hypotheses` | notebook-only logic, reload |
 | `learn-skill` | meta — record format, sweep completeness |

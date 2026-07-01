@@ -67,7 +67,7 @@ Example: [`backend/scripts/experiments/sensor_ray_batch/`](../../../backend/scri
 - One logical change per branch; max **3** runs after shared baseline.
 - Fixed JSON result contract + **per-hypothesis analysis card** (sections 1–8).
 - **One pipeline training run per host** — `backend/scripts/experiments/pipeline_run_guard.py`; see [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md). Do not launch a second slug while `.active_run.json` shows a live holder.
-- Numbered pipeline experiments: append `docs/experiments/pipeline/{bin}/{NN}-{slug}.md` per phase via `/document-experiment-step`; see [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md) + [`skill-chain.md`](../experiment-knowledge-pipeline/skill-chain.md).
+- Numbered pipeline experiments: append `docs/experiments/pipeline/{bin}/{NN}-{slug}.md` per phase via `/document-experiment-step`; after evaluation in chat, **proactively** `close-phase` — see learnings.md `pipeline-advance-after-run-evaluation` and [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md).
 - After Phase 2 runs with video export: optional [`video-frame-inspect`](../video-frame-inspect/SKILL.md) before Phase 3 verdict; Phase 4 requires [`visual-output-verification`](../visual-output-verification/SKILL.md) for report-facing artifacts.
 - Windows PowerShell: `conda activate auto-sat; python ...` (use `;` not `&&`). See `python-runtime-environment`.
 
@@ -91,6 +91,8 @@ If the arm runs without a file, do not add that file.
 4. **One fork module per logical change** — e.g. `_reward_fork.py` only switches reward mode; do not fork the whole training stack for a threshold tweak.
 5. **Smoke before full matrix** — `--smoke` or 1-ep dry run; fix imports/env in the **experiment folder** only.
 6. **Charter first** — `SUBAGENT_CHARTER.md` lists protected vs editable paths before any `*_fork.py` is written.
+
+**Pipeline Phase 1:** Run the Nike-vs-plan gate in [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md) § Implement mode before the first fork edit — Nike mode requires user-visible justification; plan mode or upstream-bug suspicion requires **user** decision (see learnings.md `pipeline-implement-nike-vs-plan-gate`).
 
 ### Do not
 

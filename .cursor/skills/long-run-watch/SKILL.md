@@ -28,6 +28,7 @@ Read the matching file under [`profiles/`](profiles/) before watching:
 | [`ml-algo-overnight.md`](profiles/ml-algo-overnight.md) | `ml_algo_overnight/run_overnight.py` on GPU machine |
 | [`ml-modular-encoder.md`](profiles/ml-modular-encoder.md) | `ml_modular_encoder/run_modular_encoder.py` (Exp 2 SAC A0/A1) |
 | [`ml-pipeline-overnight.md`](profiles/ml-pipeline-overnight.md) | `ml_pipeline_overnight/run_pipeline_overnight.py` — sequential Exp 3–6 |
+| [`ml-pipeline-overnight-batch-10-13.md`](profiles/ml-pipeline-overnight-batch-10-13.md) | `run_pipeline_overnight_batch.py` — sequential Exp 10–13 + git sync runs |
 
 No profile fits? Copy [`profiles/_template.md`](profiles/_template.md), fill it in, and watch using that profile for this session.
 
@@ -108,6 +109,12 @@ Also paste the **Status** paragraph in chat under heading `## Agents-Discussion 
 - Any edit outside `light_fix_scope` (especially production library code).
 
 **Never** start a duplicate full run while another matching process is active. For pipeline experiments (`experiment-knowledge-pipeline`), never start **any** other slug while `.active_run.json` shows a live holder.
+
+**Before auto-launching the next step:** read the target profile's **completion JSON** — if it exists, do **not** spawn again. Use a one-shot launch flag in watch scripts.
+
+**PowerShell watch scripts:** never assign to `$pid` (automatic read-only); use `$lockPid` for lock-file PIDs. Prefer non-interactive `Start-Process python …` over `powershell -NoExit` for auto-launch (avoids dormant windows re-running later).
+
+**"Did this already run?"** — check completion JSON + log `DONE` line before interpreting live terminal output; scrollback may be a duplicate spawn. See learnings.md `check-completion-json-before-live-terminal`.
 
 **Symptom-only fixes:** If a light fix unblocks a crash but leaves wrong action semantics (e.g. vector warmup still on torque), document it as **symptom-only**, flag prior run artifacts invalid, and ask user before resume — see learnings.md `experiment-light-fix-action-space-semantics`.
 

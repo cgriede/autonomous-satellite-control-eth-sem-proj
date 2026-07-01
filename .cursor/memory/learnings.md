@@ -112,3 +112,61 @@ Invoke **`/learn-skill`** (see [`.cursor/commands/learn-skill.md`](../commands/l
 - **Evidence:** Exp 7: agent jumped to reward-kernel promotion after KPI review; user stopped — “lets not get ahead you forgot to move the experiment note through the pipeline.”
 - **Applied to:** experiment-knowledge-pipeline, hypothesis-experiment-cycle, implementation-discipline, document-research (POINTER), learn-skill (POINTER), all other skills (N/A), all rules (N/A)
 - **Status:** applied
+
+---
+
+### 2026-06-30 — powershell-pid-automatic-readonly
+
+- **Type:** anti-pattern
+- **Learning:** In PowerShell watch/launch scripts, never assign to `$pid` — it is an automatic read-only variable; use `$lockPid` or `$processId` for lock-file PIDs.
+- **Evidence:** `watch_exp9_then_exp8.ps1` stale-lock cleanup failed every retry with `Cannot overwrite variable PID`; Exp 8 auto-launch retried ~15×.
+- **Applied to:** long-run-watch, learn-skill (POINTER), build-tool (POINTER)
+- **Status:** applied
+
+---
+
+### 2026-06-30 — long-run-watch-no-duplicate-auto-launch
+
+- **Type:** anti-pattern
+- **Learning:** Before auto-launching the next experiment, read the profile **completion JSON** — if it exists, treat the step as done and never spawn another full run; use a one-shot launch flag and non-interactive `Start-Process python` (not `powershell -NoExit`).
+- **Evidence:** Watch script retried Exp 8 launch until summary appeared; a later window (`18-55-51` run dir) duplicated full 50-ep training while `mpo_torque.json` already held results from `16-05-19`.
+- **Applied to:** long-run-watch, experiment-knowledge-pipeline (POINTER), learn-skill (POINTER)
+- **Status:** applied
+
+---
+
+### 2026-06-30 — check-completion-json-before-live-terminal
+
+- **Type:** breakthrough
+- **Learning:** When the user asks whether a training run "already ran", read the profile completion JSON and `results/*.log` DONE line **before** interpreting live terminal scrollback — live output may be a duplicate spawn.
+- **Evidence:** User saw MPO train ep 23 while `mpo_torque.json` (16:38 UTC) and run dir `9998217164480175_*_16-05-19` already existed; active terminal was duplicate `9998217154247371_*_18-55-51`.
+- **Applied to:** long-run-watch, experiment-knowledge-pipeline (POINTER), learn-skill (POINTER)
+- **Status:** applied
+
+---
+
+### 2026-06-30 — pipeline-doc-bin-sync-tool
+
+- **Type:** breakthrough
+- **Learning:** Never manually move pipeline experiment notes between bins — on `/close-experiment-step` run `python .cursor/tools/pipeline/pipeline_doc.py close-phase --slug <slug>`; on `/start-experiment-step` run `check` first.
+- **Evidence:** Exp 8/9 docs stayed in wrong bins while `current_phase` advanced; user asked to automate bin moves.
+- **Applied to:** experiment-knowledge-pipeline, build-tool, learn-skill (POINTER), close-experiment-step command, start-experiment-step command
+- **Status:** applied
+
+---
+
+### 2026-06-30 — pipeline-implement-nike-vs-plan-gate
+
+- **Type:** breakthrough
+- **Learning:** On pipeline Phase 1 / implement, run the Nike-vs-plan gate yourself — **Nike mode** (build now) only when Phase 0.3 has hook + sibling + smoke, single delta, user approved build, no hook TBD, fork-only, no semantic-contract risk; **notify the user in chat with a brief justification before the first fork edit**; **plan mode** (stop and ask the user) when any plan signal fires or an upstream/production bug is suspected — never agent-only decide those cases.
+- **Evidence:** Exp 10: Phase 0.3 + Exp 8 sibling made a separate build plan redundant; user asked when planning is worth it and that missing plan/upstream-bug calls must always go to the operator.
+- **Applied to:** experiment-knowledge-pipeline, hypothesis-experiment-cycle, implementation-discipline (POINTER), start-experiment-step command, learn-skill (POINTER), architecture-planning (POINTER), all other skills (N/A), all rules (N/A)
+- **Status:** applied
+
+---
+
+- **Type:** anti-pattern
+- **Learning:** After a pipeline run completes and you deliver evaluation or operator verdict in chat, **proactively** append missing `## Phase 2` / `## Phase 3` blocks and run `pipeline_doc.py close-phase --slug <slug>` — do not wait for `/close-experiment-step` and do not leave docs in `2-run/` with stale `current_phase`.
+- **Evidence:** Exp 8/9: runs evaluated and discussed in chat; pipeline MD stayed in `2-run/` at phase 2 until user asked again — same class of mistake as Exp 7 bin skip.
+- **Applied to:** experiment-knowledge-pipeline, hypothesis-experiment-cycle, close-experiment-step command, learn-skill (POINTER), long-run-watch (POINTER), all other skills (N/A), all rules (N/A)
+- **Status:** applied

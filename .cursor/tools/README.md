@@ -9,6 +9,7 @@ Reusable Python CLIs for **Cursor agent ↔ user** workflows. Not part of the sa
 | `backlog/` | `backlog_xlsx.py` | Live sprint board `backlog.xlsx` |
 | `presentation/` | `presentation_pptx.py` | JSON manifest → PowerPoint iteration |
 | `video_frame_inspect/` | `extract_frames.py` | MP4 → PNG for agent vision |
+| `pipeline/` | `pipeline_doc.py` | Experiment pipeline doc bin sync (`check`, `sync-bin`, `close-phase`) |
 
 ```powershell
 conda activate auto-sat

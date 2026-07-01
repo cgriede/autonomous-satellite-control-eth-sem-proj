@@ -5,11 +5,13 @@ Read and follow **`.cursor/skills/experiment-knowledge-pipeline/SKILL.md`** — 
 ## Steps
 
 1. Read [`docs/experiments/pipeline/README.md`](../../docs/experiments/pipeline/README.md) and target `docs/experiments/pipeline/*/{NN}-{slug}.md` (`current_phase`).
-2. Confirm doc bin matches `current_phase` (reference.md § Bin resolver).
+2. Run `python .cursor/tools/pipeline/pipeline_doc.py check` — if mismatches, `sync-bin --slug <slug>` before work.
+3. Confirm doc bin matches `current_phase` (reference.md § Bin resolver).
 3. If `current_phase` is **2**: `pipeline_run_guard.check_pipeline_run_clear(slug)` — abort if blocked; offer `long-run-watch`.
 4. Run phase checklist and **child skills** from [`skill-chain.md`](../../.cursor/skills/experiment-knowledge-pipeline/skill-chain.md).
-5. Delegate to child skill for this phase (see skill § Phase → child skill map).
-6. Set `phases."N".status: in_progress` in frontmatter.
+5. **Phase 1 only:** Run implement gate (Nike vs plan) per [`SKILL.md`](../../.cursor/skills/experiment-knowledge-pipeline/SKILL.md) § Implement mode — Nike → notify + justify before coding; plan or upstream bug → ask user first.
+6. Delegate to child skill for this phase (see skill § Phase → child skill map).
+7. Set `phases."N".status: in_progress` in frontmatter.
 
 Do **not** append the phase block here — use `/document-experiment-step` when ready to write.
 
