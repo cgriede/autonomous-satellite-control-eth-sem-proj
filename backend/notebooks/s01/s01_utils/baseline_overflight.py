@@ -22,7 +22,6 @@ from environment_definition.constants.SIMULATION import (
 from environment_definition.constants.UNIT_REGISTRY import UREG as ureg
 from environment_definition.mission_profiles.s01_multiple_targets_fwd_fish import build_setup
 from environment_definition.constants.ATTITUDE_SAFETY import OFF_NADIR_HARD_LIMIT_DEG
-from environment_definition.constants.SATELLITE import REACTION_WHEEL_MAX_TORQUE
 from simulation.attitude_controller import (
     NadirPointingGains,
     body_pointing_torque_nm,
