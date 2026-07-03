@@ -6,6 +6,7 @@ Read **`.cursor/skills/experiment-knowledge-pipeline/SKILL.md`** and [`reference
 
 ## Steps
 
+0. **Atomic scope check:** If the user describes two independent experiment directions (e.g. cadence + hyperparams, two unrelated arm matrices), use **AskQuestion** — default **two** `/init-experiment` calls (two slugs). Do not create one mixed charter unless the user explicitly chooses a single sequential slug with overnight coverage for every track (see learnings.md `atomic-one-hypothesis-per-pipeline-slug`).
 1. Read [`docs/experiments/pipeline/README.md`](../../docs/experiments/pipeline/README.md) for next `NN`, gating (`blocked_by`), and slug.
 2. Create `docs/experiments/pipeline/0-initialized/{NN}-{kebab-slug}.md`:
    - Frontmatter: `current_phase: 0`, all `phases."0"`…`"4"` `status: pending`

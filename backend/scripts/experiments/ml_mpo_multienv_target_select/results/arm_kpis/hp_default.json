@@ -1,0 +1,181 @@
+{
+  "run_at_utc": "2026-07-02T23:28:05.111061+00:00",
+  "arm_id": "hp_default",
+  "experiment_id": "ml_mpo_multienv_target_select",
+  "phase": "screen",
+  "reward_mode_contract": {
+    "mode": "exp14_sparse",
+    "capture_credit": "enabled",
+    "torque_effort_penalty": "enabled(k_torque_effort=0.01)",
+    "budget_exhausted_shutter_penalty": "enabled",
+    "composite_alpha_beta_gamma_delta": "not_implemented"
+  },
+  "wall_s": 864.6127253000159,
+  "dt_profile": {
+    "sim_dt_s": 1.5,
+    "controller_interval_s": 1.5,
+    "effective_controller_interval_s": 1.5,
+    "label": "dt_1.5s"
+  },
+  "train_returns": [
+    -1161.2932481977095,
+    -1171.313340230378,
+    -1191.3443563791561,
+    -1186.5194250022105,
+    -1021.3947364889038,
+    -1106.302542732194,
+    -1066.4255419717572,
+    -951.2823812421182,
+    -986.4197719948544,
+    -871.2189185782935,
+    -941.4866846656834,
+    -886.5538409435808,
+    -951.4260389675526,
+    -841.1732009759977,
+    -761.4486362307534,
+    -791.328985708992,
+    -681.2751626839924,
+    -681.2190045627393,
+    -841.2429767654361,
+    -686.4987813175418
+  ],
+  "eval_returns": [
+    -0.05728627834339659
+  ],
+  "train_return_ep20": -686.4987813175418,
+  "eval_return_mean": -0.05728627834339659,
+  "mission_score_eval": {
+    "score_mean": 0.0,
+    "score_std": 0.0,
+    "score_min": 0.0,
+    "score_max": 0.0,
+    "score_ep": [
+      0.0
+    ]
+  },
+  "learning_signal": {
+    "learning_mode": false,
+    "strong_lead": false,
+    "beats_baseline": false,
+    "train_returns": [
+      -1161.2932481977095,
+      -1171.313340230378,
+      -1191.3443563791561,
+      -1186.5194250022105,
+      -1021.3947364889038,
+      -1106.302542732194,
+      -1066.4255419717572,
+      -951.2823812421182,
+      -986.4197719948544,
+      -871.2189185782935,
+      -941.4866846656834,
+      -886.5538409435808,
+      -951.4260389675526,
+      -841.1732009759977,
+      -761.4486362307534,
+      -791.328985708992,
+      -681.2751626839924,
+      -681.2190045627393,
+      -841.2429767654361,
+      -686.4987813175418
+    ],
+    "eval_return_mean": -0.05728627834339659,
+    "kl_mean_last": NaN
+  },
+  "policy_target_entropy_bits": 0.2447594439007061,
+  "mpo_overrides": {
+    "learning_rate_pi": 0.00015,
+    "learning_rate_q": 0.00045,
+    "batch_size": 256,
+    "entropy_coef": 0.01,
+    "reward_mode": "exp14_sparse"
+  },
+  "trim_artifacts": true,
+  "warmup_quality": {
+    "passed": true,
+    "episode_count": 5,
+    "mission_score_mean": 3.1860926420772495,
+    "mission_score_min": 2.1554718809818367,
+    "mean_peak_efficiency_mean": 1.0,
+    "capture_count_mean": 10.0,
+    "episodes": [
+      {
+        "passed": true,
+        "mission_score": 3.7989149247734595,
+        "episode_return": 413.97360935631457,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 6,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.08831014514613024,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      },
+      {
+        "passed": true,
+        "mission_score": 2.751436087397061,
+        "episode_return": 293.4383912747607,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 5,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.13529522796788718,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      },
+      {
+        "passed": true,
+        "mission_score": 2.641153671295421,
+        "episode_return": 302.99059894142175,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 5,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.1348473936750452,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      },
+      {
+        "passed": true,
+        "mission_score": 4.583486645938468,
+        "episode_return": 485.4147504667917,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 8,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.12007109477696286,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      },
+      {
+        "passed": true,
+        "mission_score": 2.1554718809818367,
+        "episode_return": 242.39780517125178,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 4,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.06402825958751383,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      }
+    ],
+    "gate": {
+      "mission_score_min": 1.0,
+      "capture_count_min": 4,
+      "mean_peak_efficiency_min": 0.75
+    }
+  },
+  "artifacts": null,
+  "checkpoint_path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_mpo_multienv_target_select\\results\\checkpoints\\hp_default\\screen_final.pt"
+}

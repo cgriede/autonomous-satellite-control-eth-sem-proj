@@ -30,7 +30,7 @@ When working a numbered pipeline experiment ([`experiment-knowledge-pipeline`](.
 
 | Phase | Use |
 |-------|-----|
-| **2** | **Required** when training exported video/plots or behavior is in scope — record paths + manifest in Phase **2.3** |
+| **2** | **Required** when training exported video/plots or behavior is in scope — record paths + manifest in Phase **2.3**; if run used default trim, report **artifact gap** and do not claim behavioral evidence (see learnings.md `phase2-export-artifacts-not-trim-default`) |
 | **3** | **Required** before qualitative claims in Phase **3.2** / verdict table |
 | **4** | **Required** for report-archive artifacts in Phase **4.3** — user sign-off before `/close-experiment-step` |
 

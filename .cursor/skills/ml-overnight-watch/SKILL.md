@@ -11,3 +11,5 @@ disable-model-invocation: false
 This skill was renamed. Use **[`long-run-watch`](../long-run-watch/SKILL.md)** with profile **[`ml-algo-overnight`](../long-run-watch/profiles/ml-algo-overnight.md)**.
 
 Trigger phrases like `/ml-overnight-watch` still apply — read the general skill, then the profile.
+
+**Closeout:** charter scope audit required — see learnings.md `overnight-charter-scope-audit` in [`long-run-watch`](../long-run-watch/SKILL.md).

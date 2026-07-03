@@ -68,6 +68,8 @@ Tail active child log + `telemetry/current_step.json` under latest matching `bac
 `pipeline_overnight_batch.json` exists **and** no orchestrator process.  
 All **executed** steps show `status: ok` or intentional `skipped` (Exp 13 if smoke missing at launch).
 
+**Per-slug charter audit (mandatory before `completed`):** For each step, diff pipeline doc Phase 0.3 execution order + arms against child `results/` — flag **scope incomplete** if any charter step lacks artifacts (e.g. Exp 13 Track B with zero `hparam_*.json`). See learnings.md `overnight-charter-scope-audit`.
+
 ## Start command
 
 ```powershell
@@ -109,5 +111,5 @@ python run_pipeline_overnight_batch.py --from-slug ml_mpo_decoupled_dual_vector 
 
 Read `pipeline_overnight_batch.json` → per-slug `status`, `elapsed_s`, `git_sync`.  
 Link each child summary JSON + canonical `run_dir` from KPI files.  
-Note Exp 13 overnight = Track A0 + A1 parity only (B0 hparam screen deferred).  
+**Charter scope audit:** For Exp 13, verify Track A **and** Track B artifacts vs `13-mpo-learn-cadence-hparams.md` Phase 0.3 — if only A0/A1 ran, report **scope incomplete** (not silent defer).  
 Cite eval/train MP4 paths under `backend/autonomous_control/runs/` for behavioral claims.

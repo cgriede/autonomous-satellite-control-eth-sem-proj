@@ -480,6 +480,32 @@ def _render_info_panel_html(
     return wrap_notebook_rich_html(console.export_html(inline_styles=False))
 
 
+def _supports_unicode_panels(file: Any | None) -> bool:
+    """Rich box-drawing needs a UTF-8 TTY; pipes (e.g. PowerShell Tee-Object) mangle it."""
+    out = sys.stdout if file is None else file
+    isatty = getattr(out, "isatty", None)
+    if callable(isatty) and not isatty():
+        return False
+    encoding = (getattr(out, "encoding", None) or "").lower()
+    if encoding and encoding not in {"utf-8", "utf8"}:
+        return False
+    return True
+
+
+def _print_plain_info_panel(
+    rows: list[tuple[str, str]],
+    *,
+    title: str,
+    file: Any | None = None,
+) -> None:
+    out = sys.stdout if file is None else file
+    print(f"=== {title} ===", file=out)
+    width = max((len(label) for label, _ in rows), default=0)
+    for label, value in rows:
+        print(f"  {label:<{width}}  {value}", file=out)
+    print(file=out)
+
+
 def _display_info_panel(
     rows: list[tuple[str, str]],
     *,
@@ -491,6 +517,10 @@ def _display_info_panel(
         from IPython.display import HTML, display
 
         display(HTML(_render_info_panel_html(rows, title=title, border_style=border_style)))
+        return
+
+    if not _supports_unicode_panels(file):
+        _print_plain_info_panel(rows, title=title, file=file)
         return
 
     out = sys.stdout if file is None else file
@@ -507,10 +537,7 @@ def _display_info_panel(
             )
         )
     except ImportError:
-        print(f"=== {title} ===", file=out)
-        for label, value in rows:
-            print(f"  {label}: {value}", file=out)
-        print(file=out)
+        _print_plain_info_panel(rows, title=title, file=file)
 
 
 def build_warmup_phase_summary_rows(

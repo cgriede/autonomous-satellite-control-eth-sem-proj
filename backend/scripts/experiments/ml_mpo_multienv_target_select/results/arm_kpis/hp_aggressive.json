@@ -1,0 +1,181 @@
+{
+  "run_at_utc": "2026-07-03T00:16:05.234244+00:00",
+  "arm_id": "hp_aggressive",
+  "experiment_id": "ml_mpo_multienv_target_select",
+  "phase": "screen",
+  "reward_mode_contract": {
+    "mode": "exp14_sparse",
+    "capture_credit": "enabled",
+    "torque_effort_penalty": "enabled(k_torque_effort=0.01)",
+    "budget_exhausted_shutter_penalty": "enabled",
+    "composite_alpha_beta_gamma_delta": "not_implemented"
+  },
+  "wall_s": 1084.1789930000086,
+  "dt_profile": {
+    "sim_dt_s": 1.5,
+    "controller_interval_s": 1.5,
+    "effective_controller_interval_s": 1.5,
+    "label": "dt_1.5s"
+  },
+  "train_returns": [
+    -1201.2820744780001,
+    -1151.3553456300524,
+    -1196.5239927580415,
+    -1071.293246353792,
+    -1131.2878224384226,
+    -1096.5560956667682,
+    -1056.3127655070034,
+    -1046.2351530309686,
+    -1051.2852660499352,
+    -961.3551327570532,
+    -1036.2102525165374,
+    -921.3214385971052,
+    -916.4078237202164,
+    -926.2592655497101,
+    -896.0968943213148,
+    -936.3663250396675,
+    -911.30927274122,
+    -901.417262767907,
+    -911.362948734996,
+    -880.9819376507061
+  ],
+  "eval_returns": [
+    43.69797435128284
+  ],
+  "train_return_ep20": -880.9819376507061,
+  "eval_return_mean": 43.69797435128284,
+  "mission_score_eval": {
+    "score_mean": 0.43698146485186345,
+    "score_std": 0.0,
+    "score_min": 0.43698146485186345,
+    "score_max": 0.43698146485186345,
+    "score_ep": [
+      0.43698146485186345
+    ]
+  },
+  "learning_signal": {
+    "learning_mode": false,
+    "strong_lead": false,
+    "beats_baseline": false,
+    "train_returns": [
+      -1201.2820744780001,
+      -1151.3553456300524,
+      -1196.5239927580415,
+      -1071.293246353792,
+      -1131.2878224384226,
+      -1096.5560956667682,
+      -1056.3127655070034,
+      -1046.2351530309686,
+      -1051.2852660499352,
+      -961.3551327570532,
+      -1036.2102525165374,
+      -921.3214385971052,
+      -916.4078237202164,
+      -926.2592655497101,
+      -896.0968943213148,
+      -936.3663250396675,
+      -911.30927274122,
+      -901.417262767907,
+      -911.362948734996,
+      -880.9819376507061
+    ],
+    "eval_return_mean": 43.69797435128284,
+    "kl_mean_last": NaN
+  },
+  "policy_target_entropy_bits": 1.1640791040955312,
+  "mpo_overrides": {
+    "learning_rate_pi": 0.00045,
+    "learning_rate_q": 0.001,
+    "batch_size": 512,
+    "entropy_coef": 0.02,
+    "reward_mode": "exp14_sparse"
+  },
+  "trim_artifacts": true,
+  "warmup_quality": {
+    "passed": true,
+    "episode_count": 5,
+    "mission_score_mean": 3.1860926420772495,
+    "mission_score_min": 2.1554718809818367,
+    "mean_peak_efficiency_mean": 1.0,
+    "capture_count_mean": 10.0,
+    "episodes": [
+      {
+        "passed": true,
+        "mission_score": 3.7989149247734595,
+        "episode_return": 413.97360935631457,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 6,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.08831014514613024,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      },
+      {
+        "passed": true,
+        "mission_score": 2.751436087397061,
+        "episode_return": 293.4383912747607,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 5,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.13529522796788718,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      },
+      {
+        "passed": true,
+        "mission_score": 2.641153671295421,
+        "episode_return": 302.99059894142175,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 5,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.1348473936750452,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      },
+      {
+        "passed": true,
+        "mission_score": 4.583486645938468,
+        "episode_return": 485.4147504667917,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 8,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.12007109477696286,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      },
+      {
+        "passed": true,
+        "mission_score": 2.1554718809818367,
+        "episode_return": 242.39780517125178,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 4,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.06402825958751383,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      }
+    ],
+    "gate": {
+      "mission_score_min": 1.0,
+      "capture_count_min": 4,
+      "mean_peak_efficiency_min": 0.75
+    }
+  },
+  "artifacts": null,
+  "checkpoint_path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_mpo_multienv_target_select\\results\\checkpoints\\hp_aggressive\\screen_final.pt"
+}

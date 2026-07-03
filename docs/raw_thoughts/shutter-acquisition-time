@@ -1,0 +1,4 @@
+the shutter is acquisition time is chosen (CHECK: 2s)
+// Check in the codebase what we defined as the shutter acquisition time.
+
+the illumination time (lens opening) is much shorter, modeled with 0.1 ms / 100 micro_seconds

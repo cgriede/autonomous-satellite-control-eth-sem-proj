@@ -68,6 +68,7 @@ Example: [`backend/scripts/experiments/sensor_ray_batch/`](../../../backend/scri
 - Fixed JSON result contract + **per-hypothesis analysis card** (sections 1–8).
 - **One pipeline training run per host** — `backend/scripts/experiments/pipeline_run_guard.py`; see [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md). Do not launch a second slug while `.active_run.json` shows a live holder.
 - Numbered pipeline experiments: append `docs/experiments/pipeline/{bin}/{NN}-{slug}.md` per phase via `/document-experiment-step`; after evaluation in chat, **proactively** `close-phase` — see learnings.md `pipeline-advance-after-run-evaluation` and [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md).
+- **Overnight / `--overnight` runners** must implement every charter execution step in Phase 0.3, or the watch closeout must flag **scope incomplete** — see learnings.md `overnight-charter-scope-audit`.
 - After Phase 2 runs with video export: optional [`video-frame-inspect`](../video-frame-inspect/SKILL.md) before Phase 3 verdict; Phase 4 requires [`visual-output-verification`](../visual-output-verification/SKILL.md) for report-facing artifacts.
 - Windows PowerShell: `conda activate auto-sat; python ...` (use `;` not `&&`). See `python-runtime-environment`.
 
@@ -89,7 +90,7 @@ If the arm runs without a file, do not add that file.
 2. **State the single delta** in `<hypothesis>.md` before coding (one sentence: *what one thing changes*).
 3. **Prefer runtime hook over vendoring** — `monkeypatch`, `dataclasses.replace`, injected callback, or a thin `_*_fork.py` imported only from the experiment entry script.
 4. **One fork module per logical change** — e.g. `_reward_fork.py` only switches reward mode; do not fork the whole training stack for a threshold tweak.
-5. **Smoke before full matrix** — `--smoke` or 1-ep dry run; fix imports/env in the **experiment folder** only.
+5. **Smoke before full matrix** — `--smoke` or 1-ep dry run; fix imports/env in the **experiment folder** only. When smoke is single-episode only, extend `--verify` with **stage-runner binding checks** (imports for symbols called in `_screen_runner` / artifact export) — smoke alone does not exercise post-eval export paths (see learnings.md `screen-runner-smoke-wiring`). Before Phase 2 matrix/overnight, confirm launch commands include **`--export-artifacts`** when `profile.json` enables plots/videos (see learnings.md `phase2-export-artifacts-not-trim-default`).
 6. **Charter first** — `SUBAGENT_CHARTER.md` lists protected vs editable paths before any `*_fork.py` is written.
 
 **Pipeline Phase 1:** Run the Nike-vs-plan gate in [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md) § Implement mode before the first fork edit — Nike mode requires user-visible justification; plan mode or upstream-bug suspicion requires **user** decision (see learnings.md `pipeline-implement-nike-vs-plan-gate`).
@@ -112,7 +113,11 @@ If the arm runs without a file, do not add that file.
 - [ ] Scaffold copied from existing slug where possible
 - [ ] Smoke passes with minimal LOC diff vs sibling experiment
 - [ ] git diff paths ⊆ experiment folder (+ docs closeout if applicable)
+- [ ] (complex experiments only) review-experiment-build gate passed before Phase 2 launch
+- [ ] Pipeline doc Phase 1 ends with `### 1.3 Run instructions` (copy-paste commands + artifacts) before `/close-experiment-step` — see learnings.md `phase1-run-instructions-required`
 ```
+
+**Complex experiment = new actor/critic architecture, custom action space / factored heads, custom episode loop, or off-policy buffer rewiring.** Run [`review-experiment-build`](../review-experiment-build/SKILL.md) after smoke and before any screen/full run — critical ML pitfalls to check: M-step rsample gradient cancellation (actions must be `.detach()`-ed before `log_prob` when sampled from the same distribution), tanh Jacobian sign (`− log(1−a²)`, not `+ log(1−a²)`), eval metric collection lists that are never populated.
 
 ### When the minimal fork is blocked
 

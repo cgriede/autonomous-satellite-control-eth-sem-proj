@@ -58,6 +58,7 @@ Use **numbered headings** exactly as below. Tag (What)/(Why)/(How) in the headin
 - Hypothesis statement + numbered claims (H1a, H1b, …)
 - Arms, frozen knobs, success metrics
 - Gates / `blocked_by`
+- **Atomic scope:** one primary hypothesis per slug — if two independent tracks (e.g. cadence + hyperparams), split into two experiments via AskQuestion unless user explicitly accepts one sequential slug with a runner that covers **every** track (see learnings.md `atomic-one-hypothesis-per-pipeline-slug`)
 
 ### 0.2 Thought process (Why)
 
@@ -102,12 +103,13 @@ Use **numbered headings** exactly as below. Tag (What)/(Why)/(How) in the headin
 
 ### 1.3 Run instructions (How to execute)
 
-- Entrypoint command(s), CLI flags, arms list
-- Mutex reminder (`pipeline_run_guard`)
-- Expected artifacts per arm: JSON summary, `*_analysis.md`, optional `videos/` / `plots/` (training workflow)
+- **Numbered step table:** command → stage name (e.g. Stage A hparam sweep vs Stage B full) → what it does → output artifact — not a flat command list
+- Entrypoint command(s), CLI flags, arms list; which step runs **after** which (e.g. `--full` after `screen_summary.json`)
+- Mutex: auto on training commands; optional `run.py --check-mutex` — no fragile `python -c` from experiment cwd
+- Expected artifacts per step: JSON summary paths
 ```
 
-**Exit criteria:** Runner + `_run_guard` → global mutex; smoke passes.
+**Exit criteria:** Runner + `_run_guard` → global mutex; smoke passes; **pipeline MD includes `### 1.3 Run instructions`** with copy-paste commands (not README-only).
 
 **Start gate (before coding):** Run § Implement mode (Nike vs plan) in [`SKILL.md`](SKILL.md). Nike mode → notify user + justify in chat; plan mode or upstream-bug suspicion → **ask user** before first fork edit (see learnings.md `pipeline-implement-nike-vs-plan-gate`).
 
@@ -137,7 +139,7 @@ Use **numbered headings** exactly as below. Tag (What)/(Why)/(How) in the headin
 - *(Skills)* [`long-run-watch`](../../.cursor/skills/long-run-watch/SKILL.md) if multi-hour; optional [`video-frame-inspect`](../../.cursor/skills/video-frame-inspect/SKILL.md) spot-check — record manifest path in 2.3
 ```
 
-**Exit criteria:** All arms complete; `run_lock_holder` cleared; KPIs recorded.
+**Exit criteria:** All arms complete; `run_lock_holder` cleared; KPIs recorded. When behavior is in scope and `profile.json` enables export: at least one reward plot or MP4 path under `results/artifacts/` per stage, **or** Phase 2.3 documents explicit `--trim-artifacts` opt-in and **artifact gap** (see learnings.md `phase2-export-artifacts-not-trim-default`).
 
 ---
 

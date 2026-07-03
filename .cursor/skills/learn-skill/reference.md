@@ -25,7 +25,8 @@ When in doubt, **POINTER** at minimum: `See [learn-skill](../learn-skill/SKILL.m
 | `bulk-change-triage-commit` | git hygiene, unrelated WIP |
 | `debug-workflow` | probes, logs, root-cause loop |
 | `hypothesis-experiment-cycle` | experiment harness, promotion |
-| `experiment-knowledge-pipeline` | phases 0–4, closeout before promote, **Nike vs plan implement gate** |
+| `experiment-knowledge-pipeline` | phases 0–4, closeout before promote, **atomic one-hypothesis-per-slug**, Nike vs plan implement gate |
+| `long-run-watch` | overnight monitoring, **charter scope audit at closeout**, **visual artifact gap audit** |
 | `implementation-discipline` | scope, constants, terminology |
 | `isolated-notebook-hypotheses` | notebook-only logic, reload |
 | `learn-skill` | meta — record format, sweep completeness |
@@ -35,6 +36,7 @@ When in doubt, **POINTER** at minimum: `See [learn-skill](../learn-skill/SKILL.m
 | `notebook-hparam-sweep` | notebook experiments |
 | `performance-optimization` | profiling, bottlenecks |
 | `pm-backlog-review` | backlog.xlsx, preflight, row updates |
+| `review-experiment-build` | fork review gate, stage-runner wiring, ML pitfalls |
 | `pm-briefing` | backlog.xlsx, sprint readout |
 | `python-runtime-environment` | conda ASC, PYTHONPATH |
 | `targeted-cleanup-pass` | focused refactors |

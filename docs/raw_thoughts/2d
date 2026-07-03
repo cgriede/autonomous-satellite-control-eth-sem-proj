@@ -1,0 +1,4 @@
+It is to be noted that the real orbit has a precession and therefore rarely explores an equivalent
+orbit twice. We just assume there is some cloud distribution over some area which is important.
+We dont care so much about where that area is so we just set the orbit to a polar (only technical
+convention for coordinate frame) orbit, perfectly circular and simplify into a 2D problem.

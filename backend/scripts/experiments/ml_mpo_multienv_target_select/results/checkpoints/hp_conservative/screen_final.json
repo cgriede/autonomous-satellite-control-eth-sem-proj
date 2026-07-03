@@ -1,0 +1,86 @@
+{
+  "checkpoint_path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_mpo_multienv_target_select\\results\\checkpoints\\hp_conservative\\screen_final.pt",
+  "arm_id": "hp_conservative",
+  "phase": "screen",
+  "tag": "screen_final",
+  "saved_at_utc": "2026-07-02T23:39:56.267840+00:00",
+  "reward_mode": "exp14_sparse_no_torque",
+  "warmup_episodes": 5,
+  "train_episodes_completed": 20,
+  "train_returns": [
+    -1295.0,
+    -1140.0,
+    -1225.0,
+    -1220.0,
+    -1315.0,
+    -1220.0,
+    -1185.0,
+    -1015.0,
+    -1050.0,
+    -990.0,
+    -950.0,
+    -1040.0,
+    -865.0,
+    -805.0,
+    -910.0,
+    -940.0,
+    -765.0,
+    -810.0,
+    -765.0,
+    -845.0
+  ],
+  "eval_returns": [
+    30.65928380606916
+  ],
+  "train_return_ep20": -845.0,
+  "eval_return_mean": 30.65928380606916,
+  "mission_score_eval": {
+    "score_mean": 0.30659283806069154,
+    "score_std": 0.0,
+    "score_min": 0.30659283806069154,
+    "score_max": 0.30659283806069154,
+    "score_ep": [
+      0.30659283806069154
+    ]
+  },
+  "learning_metrics_last": {
+    "q_loss": 229.35520935058594,
+    "pi_loss": -0.22355437278747559,
+    "eta_loss": -58.14979553222656,
+    "eta": 7.010619640350342,
+    "kl": 9.307661821367219e-05,
+    "kl_mu": 4.6538309106836095e-05,
+    "kl_sigma": 4.6538309106836095e-05,
+    "alpha_mu": 0.00550944684073329,
+    "alpha_sigma": 0.0401018001139164
+  },
+  "learning_signal": {
+    "learning_mode": false,
+    "strong_lead": false,
+    "beats_baseline": false,
+    "train_returns": [
+      -1295.0,
+      -1140.0,
+      -1225.0,
+      -1220.0,
+      -1315.0,
+      -1220.0,
+      -1185.0,
+      -1015.0,
+      -1050.0,
+      -990.0,
+      -950.0,
+      -1040.0,
+      -865.0,
+      -805.0,
+      -910.0,
+      -940.0,
+      -765.0,
+      -810.0,
+      -765.0,
+      -845.0
+    ],
+    "eval_return_mean": 30.65928380606916,
+    "kl_mean_last": NaN
+  }
+}

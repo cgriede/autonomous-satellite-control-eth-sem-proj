@@ -1,0 +1,37 @@
+{
+  "run_at_utc": "2026-07-02T21:57:51.502422+00:00",
+  "phase": "smoke",
+  "passed": true,
+  "experiment_id": "ml_mpo_multienv_target_select",
+  "reward_mode_contract": {
+    "mode": "exp14_sparse",
+    "capture_credit": "enabled",
+    "torque_effort_penalty": "enabled(k_torque_effort=0.01)",
+    "budget_exhausted_shutter_penalty": "enabled",
+    "composite_alpha_beta_gamma_delta": "not_implemented"
+  },
+  "warmup_return": 347.0543660933145,
+  "warmup_mission_score": 3.186430758520189,
+  "train_returns": [
+    -1106.446983208372,
+    -1301.444114920839
+  ],
+  "train_mission_scores": [
+    0.0,
+    0.0
+  ],
+  "eval_return": -43.622077791387206,
+  "score_ep": 0.1676255407091302,
+  "buffer_size": 1572,
+  "train_metrics": {
+    "q_loss": 8.5786714553833,
+    "pi_loss": -0.2227412909269333,
+    "eta_loss": -1.2591712474822998,
+    "eta": 6.064907073974609,
+    "kl": -0.14763595163822174,
+    "kl_mu": 5.5502190662082285e-05,
+    "kl_sigma": -0.14769145846366882,
+    "alpha_mu": 0.4241971969604492,
+    "alpha_sigma": 0.41948750615119934
+  }
+}

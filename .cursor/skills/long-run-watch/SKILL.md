@@ -142,3 +142,9 @@ Follow the profile's `final_summary` section (read completion JSON, list key out
 ### Outcomes (brief)
 
 - Step statuses, summary JSON path, key KPIs — after the audit sections above.
+
+### Charter scope (mandatory)
+
+- Read the pipeline doc Phase 0.3 execution order + arm list; list **ran** vs **missing** steps/artifacts.
+- If any charter step has no results (e.g. hparam B0 arms with zero `hparam_*.json`), set status to **scope incomplete** (even when exit 0) and ask user to resume, extend runner, or split experiment — see learnings.md `overnight-charter-scope-audit`.
+- When Phase 2 behavior is in scope, grep `results/artifacts/**/*.{png,mp4}` (or read `trim_artifacts` in summary JSON): zero visual artifacts with KPI-only completion → report **artifact gap** in closeout; auto-launch next step with **`--export-artifacts`** when `profile.json` enables export (see learnings.md `phase2-export-artifacts-not-trim-default`).

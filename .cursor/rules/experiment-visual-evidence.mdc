@@ -13,7 +13,7 @@ Physical control behavior (pointing, shutters, capture timing, attitude) is visi
 
 For ML experiments, hypothesis cycles, and pipeline Phases **2–4**:
 
-1. **Export videos** from training runs when behavior is in scope (`TrainingWorkflowConfig` defaults: `train_episode_videos=3`, `eval_episode_videos=2`). Do **not** silently trim video export in runners unless the user explicitly opts in (e.g. `--trim-artifacts`).
+1. **Export videos and reward plots** from training runs when behavior is in scope (`TrainingWorkflowConfig` defaults: `train_episode_videos=3`, `eval_episode_videos=2`; `export_episode_reward_plots=true` in experiment `profile.json`). Phase 2 `--screen` / `--full` must pass **`--export-artifacts`** when those flags are enabled — do **not** rely on default trim. Trim only when the user explicitly passes **`--trim-artifacts`** (see learnings.md `phase2-export-artifacts-not-trim-default`).
 2. **[`video-frame-inspect`](../skills/video-frame-inspect/SKILL.md)** — extract PNGs from `.mp4`; read frames with vision; cite `manifest.json` path in Phase **2.3** / **4.3**.
 3. **[`visual-output-verification`](../skills/visual-output-verification/SKILL.md)** — agent pre-check on concrete artifacts before behavioral verdict language.
 4. **User sign-off** — agent frame review is pre-check only; user confirms before Phase 4 close ([`minimal-feature-review`](../skills/minimal-feature-review/SKILL.md)).
@@ -32,6 +32,7 @@ Pair with [`isolated-notebook-hypotheses`](../skills/isolated-notebook-hypothese
 ## Forbidden
 
 - Closing Phase 2–4 on KPI JSON or `run_log.md` alone when videos or plots were exported or are needed for the claim.
+- Running Phase 2 with default artifact trim when `profile.json` enables plot/video export — operators expect sibling-experiment artifacts under `results/artifacts/`; KPI JSON alone is not enough.
 - Verdict language about shutters, pointing, or “learned behavior” without `video-frame-inspect` findings (or explicit user frame review).
 - Saying “videos exist” without **full paths** and manifest path.
 - Discussing pipeline run results in chat (review, recap, arm comparison) with **KPI-only** tables and no MP4 paths when videos were exported.

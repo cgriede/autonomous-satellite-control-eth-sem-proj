@@ -274,6 +274,69 @@ none
 
 none
 
+---
+timestamp_utc: 2026-07-02T23:05:00Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Exp 14 pipeline holder is still present (`pid=23776`, `script=screen:hp_default`) so the mutex correctly blocks Stage B, but the process appears stalled: command line remains `run.py --screen`, CPU did not move over a 5s check (`3147.5 -> 3147.5`), and no new Stage A KPI files beyond `hp_default`, `hp_conservative`, `hp_mid_batch` were written after 00:57 local.
+
+## Artifacts
+
+- log: no fresh tail from the original screen terminal; latest prior crash artifact remains `results/run_error.json`
+- completion: Stage A summary exists but incomplete arm set (`results/screen_summary.json` currently winner from `hp_default`-only summary); Stage B summary `results/stage_b_summary.json` not present
+- errors: `results/run_error.json` (historical tqdm/pipe crash), current symptom is probable stalled `run.py --screen` holder
+
+## Action taken
+
+Passive status check only; no lock/process mutation yet.
+
+## Errors encountered
+
+- Stage B launch blocked by active pipeline lock (`pid=23776`)
+- Potential stalled Stage A process (no measurable CPU advance, no new arm KPI artifact)
+
+## Fixes applied
+
+none
+
+## Question for user
+
+Approve killing `pid=23776` and then resuming Stage A to completion before auto-starting Stage B?
+
+---
+timestamp_utc: 2026-07-02T23:07:00Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+User confirmed GPU utilization is high (~80%), so the Stage A holder (`pid=23776`, `run.py --screen`) is treated as actively working; keep passive monitoring and do not kill/restart while it runs.
+
+## Artifacts
+
+- log: lock holder still `screen:hp_default`; terminal output for that run is not currently streaming here
+- completion: Stage A still incomplete (3 arm KPI files present); Stage B not started yet
+- errors: none new in this check
+
+## Action taken
+
+Continue passive watch; no process intervention.
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
 
 ---
 timestamp_utc: 2026-06-30T16:05:14Z
@@ -780,6 +843,355 @@ none (passive monitor; batch completed without intervention)
 ## Errors encountered
 
 none
+
+## Fixes applied
+
+none---
+timestamp_utc: 2026-07-02T23:12:22Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: failed
+---
+
+## Status
+
+No active Stage A process detected, but Stage A summary is incomplete (1 arms). Stage B was not started to avoid promoting incomplete Stage A outputs.
+
+## Artifacts
+
+- stage A summary path: D:\code\sem-proj-asc\backend\scripts\experiments\ml_mpo_multienv_target_select\results\screen_summary.json
+- arms found: 1
+- stage B summary exists: False
+
+## Action taken
+
+none
+
+## Errors encountered
+
+Stage A ended or disappeared before producing full 5-arm summary
+
+## Fixes applied
+
+none
+## Question for user
+
+Restart Stage A (python run.py --screen) or approve explicit Stage B override with a selected arm?
+---
+timestamp_utc: 2026-07-02T23:13:37Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+No active Stage A process was detected and summary is incomplete (1 arms), so Stage A was auto-resumed with a full screen rerun (pid 12984). Stage B will auto-start after Stage A completes.
+
+## Artifacts
+
+- stage A summary path: D:\code\sem-proj-asc\backend\scripts\experiments\ml_mpo_multienv_target_select\results\screen_summary.json
+- arms found before resume: 1
+- stage B summary exists: False
+- stale lock cleared: True
+
+## Action taken
+
+auto-started: run.py --screen
+
+## Errors encountered
+
+Stage A process exited before full 5-arm completion
+
+## Fixes applied
+
+removed stale pipeline lock mirror and relaunched Stage A (semantically correct resume)
+
+---
+timestamp_utc: 2026-07-02T23:15:00Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Stage A is now running under resumed pid `12984` (`run.py --screen`) and the watcher has been corrected to track the lock pid directly; it will auto-start Stage B (`run.py --full --show-progress`) immediately after Stage A is complete.
+
+## Artifacts
+
+- lock file: `backend/scripts/experiments/.pipeline_run.lock` -> pid 12984
+- active run mirror: `docs/experiments/pipeline/.active_run.json` -> `screen:hp_default`
+- Stage A arms currently on disk: `hp_default`, `hp_conservative`, `hp_mid_batch`
+- Stage B summary exists: no (`results/stage_b_summary.json`)
+
+## Action taken
+
+Restarted watch loop with fixed process detection; no duplicate experiment launch.
+
+## Errors encountered
+
+none new after watcher relaunch
+
+## Fixes applied
+
+`.cursor/tools/watch_exp14_stage_a_b.ps1`: process detection now uses active-run lock pid first (prevents false "no process" while run is alive).
+
+---
+timestamp_utc: 2026-07-03T00:07:00Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Hourly check: Stage A still running on pid `12984` (`run.py --screen`); duplicate pid `23776` is gone. Four of five screen arms have KPI files (`hp_default`, `hp_conservative`, `hp_mid_batch`, `hp_aggressive`); `hp_explore` remains. Watcher pid `39356` active; Stage B will auto-start after Stage A completes.
+
+## Artifacts
+
+- lock: pid 12984, script `screen:hp_default`
+- arm_kpis: 4/5 present
+- stage_b_summary.json: not present
+
+## Action taken
+
+none (hourly status check)
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+---
+timestamp_utc: 2026-07-02T23:15:25Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Stage A is still running (
+un.py --screen) with pid 12984; Stage B remains blocked until this process exits and Stage A artifacts are complete.
+
+## Artifacts
+
+- lock file: True
+- active_run.json: True
+- stage A arms in summary: 1
+- current winner_arm_id: hp_default
+- stage_b_summary.json exists: False
+
+## Action taken
+
+none (passive monitor)
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+---
+timestamp_utc: 2026-07-03T00:15:25Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Stage A is still running (
+un.py --screen) with pid 12984; Stage B remains blocked until this process exits and Stage A artifacts are complete.
+
+## Artifacts
+
+- lock file: True
+- active_run.json: True
+- stage A arms in summary: 1
+- current winner_arm_id: hp_default
+- stage_b_summary.json exists: False
+
+## Action taken
+
+none (passive monitor)
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+
+---
+timestamp_utc: 2026-07-03T00:21:00Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Stage B is **not** running yet. Stage A pid `12984` is still on the final screen arm (`hp_explore`; 4/5 arm KPI files present). Watcher pid `39356` will auto-start `run.py --full --show-progress` when Stage A completes and writes a 5-arm `screen_summary.json`.
+
+## Artifacts
+
+- active process: `run.py --screen` pid 12984
+- arm_kpis: 4/5 (missing `hp_explore.json`)
+- stage_b_summary.json: not present
+
+## Action taken
+
+none
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+---
+timestamp_utc: 2026-07-03T01:15:25Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Stage A appears complete (no screen process, screen summary has 5 arms). Stage B was auto-started with pid 17372.
+
+## Artifacts
+
+- stage A summary: yes (D:\code\sem-proj-asc\backend\scripts\experiments\ml_mpo_multienv_target_select\results\screen_summary.json)
+- winner_arm_id: hp_explore
+- stage B summary present before launch: no
+
+## Action taken
+
+auto-started: run.py --full --show-progress
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+---
+timestamp_utc: 2026-07-03T02:15:25Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Stage B is running (un.py --full) with pid 17372; monitoring until completion artifact is written.
+
+## Artifacts
+
+- stage B summary exists: False
+- lock file present: True
+- active_run.json present: True
+
+## Action taken
+
+none (passive monitor)
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+---
+timestamp_utc: 2026-07-03T03:15:25Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Stage B is running (un.py --full) with pid 17372; monitoring until completion artifact is written.
+
+## Artifacts
+
+- stage B summary exists: False
+- lock file present: True
+- active_run.json present: True
+
+## Action taken
+
+none (passive monitor)
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+---
+timestamp_utc: 2026-07-03T04:15:25Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: running
+---
+
+## Status
+
+Stage B is running (un.py --full) with pid 17372; monitoring until completion artifact is written.
+
+## Artifacts
+
+- stage B summary exists: False
+- lock file present: True
+- active_run.json present: True
+
+## Action taken
+
+none (passive monitor)
+
+## Errors encountered
+
+none
+
+## Fixes applied
+
+none
+---
+timestamp_utc: 2026-07-03T05:15:25Z
+agent: long-run-watch
+profile: exp14-stage-a-b (ad-hoc)
+status: completed
+---
+
+## Status
+
+Stage B process is no longer running and completion artifact is present; Aâ†’B overnight chain finished.
+
+## Artifacts
+
+- stage B summary: yes (D:\code\sem-proj-asc\backend\scripts\experiments\ml_mpo_multienv_target_select\results\stage_b_summary.json)
+- stage A summary arms: 5
+- winner_arm_id: hp_explore
+
+## Action taken
+
+none
+
+## Errors encountered
+
+none after resume
 
 ## Fixes applied
 

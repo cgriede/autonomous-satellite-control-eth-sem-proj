@@ -101,17 +101,26 @@ class TrainingProgressDisplay:
             self._agent = agent
         self._metrics_start = metrics_start
         if self._step_bar is not None:
-            self._step_bar.close()
-        self._step_bar = tqdm(
-            total=self._total_steps,
-            desc=f"{mode} ep {episode_idx + 1}",
-            unit="step",
-            leave=self._in_notebook,
-            dynamic_ncols=True,
-            file=sys.stdout,
-            position=1 if self._phase_bar is not None else 0,
-            mininterval=0.25,
-        )
+            self._safe_close_step_bar()
+        try:
+            self._step_bar = tqdm(
+                total=self._total_steps,
+                desc=f"{mode} ep {episode_idx + 1}",
+                unit="step",
+                leave=self._in_notebook,
+                dynamic_ncols=True,
+                file=sys.stdout,
+                position=1 if self._phase_bar is not None else 0,
+                mininterval=0.25,
+            )
+        except (OSError, ValueError):
+            self._step_bar = None
+            return
+        try:
+            # Smoke-test the handle once so broken pipe/console targets fail fast.
+            self._step_bar.refresh()
+        except (OSError, ValueError):
+            self._safe_close_step_bar()
 
     def on_step(
         self,
@@ -126,7 +135,11 @@ class TrainingProgressDisplay:
     ) -> None:
         if self._step_bar is None:
             return
-        self._step_bar.update(1)
+        try:
+            self._step_bar.update(1)
+        except (OSError, ValueError):
+            self._safe_close_step_bar()
+            return
         interval = self._live_feed_interval()
         if (step % interval) == 0 or done:
             postfix: dict[str, str] = {"return": f"{episode_return:.1f}"}
@@ -134,8 +147,12 @@ class TrainingProgressDisplay:
                 postfix["budget"] = str(int(capture_budget_remaining))
             if safe_mode_activations is not None:
                 postfix["safe"] = str(int(safe_mode_activations))
-            self._step_bar.set_postfix(**postfix, refresh=False)
-            self._step_bar.refresh()
+            if self._step_bar is not None:
+                try:
+                    self._step_bar.set_postfix(**postfix, refresh=False)
+                    self._step_bar.refresh()
+                except (OSError, ValueError):
+                    self._safe_close_step_bar()
             self._emit_live_update(
                 ts,
                 step=step,
@@ -147,9 +164,7 @@ class TrainingProgressDisplay:
             )
 
     def end_episode(self) -> None:
-        if self._step_bar is not None:
-            self._step_bar.close()
-            self._step_bar = None
+        self._safe_close_step_bar()
         self._metrics_start = None
 
     def show_warmup_summary(self, results: list[Any]) -> None:
@@ -177,11 +192,21 @@ class TrainingProgressDisplay:
         if self._telemetry is not None:
             self._telemetry.on_training_log(message=msg, mode=self._mode, episode_idx=self._episode_idx)
         if self._step_bar is not None:
-            self._step_bar.write(msg)
-        elif self._phase_bar is not None:
-            self._phase_bar.write(msg)
-        else:
+            try:
+                self._step_bar.write(msg)
+                return
+            except (OSError, ValueError):
+                self._safe_close_step_bar()
+        if self._phase_bar is not None:
+            try:
+                self._phase_bar.write(msg)
+                return
+            except (OSError, ValueError):
+                pass
+        try:
             tqdm.write(msg, file=sys.stdout)
+        except (OSError, ValueError):
+            print(msg)
 
     def close(self) -> None:
         self.end_episode()
@@ -342,7 +367,19 @@ class TrainingProgressDisplay:
         if self._step_bar is None:
             return
         status = "done" if done else "running"
-        self._step_bar.write(
-            f"[camera] {self._mode} ep {self._episode_idx + 1} step {step} "
-            f"return={episode_return:.1f} ({status})"
-        )
+        try:
+            self._step_bar.write(
+                f"[camera] {self._mode} ep {self._episode_idx + 1} step {step} "
+                f"return={episode_return:.1f} ({status})"
+            )
+        except (OSError, ValueError):
+            self._safe_close_step_bar()
+
+    def _safe_close_step_bar(self) -> None:
+        if self._step_bar is None:
+            return
+        try:
+            self._step_bar.close()
+        except (OSError, ValueError):
+            pass
+        self._step_bar = None

@@ -1,0 +1,13 @@
+we are solving the problem of efficient satellite earth observation in a cloud 
+occluded environment
+
+goals:
+-high value images
+
+mission and technical constraints:
+- safety,
+- physics, dynamics,
+- technical,
+- fixed orbit,
+- computational
+-

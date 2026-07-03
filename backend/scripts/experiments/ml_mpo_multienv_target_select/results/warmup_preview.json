@@ -1,0 +1,53 @@
+{
+  "run_at_utc": "2026-07-02T21:37:09.723601+00:00",
+  "phase": "warmup_preview",
+  "experiment_id": "ml_mpo_multienv_target_select",
+  "arm_id": "hp_conservative",
+  "warmup_episodes": 1,
+  "warmup_returns": [
+    414.99668411732983
+  ],
+  "warmup_mission_scores": [
+    3.7989149247734595
+  ],
+  "warmup_quality": {
+    "passed": true,
+    "episode_count": 1,
+    "mission_score_mean": 3.7989149247734595,
+    "mission_score_min": 3.7989149247734595,
+    "mean_peak_efficiency_mean": 1.0,
+    "capture_count_mean": 10.0,
+    "episodes": [
+      {
+        "passed": true,
+        "mission_score": 3.7989149247734595,
+        "episode_return": 414.99668411732983,
+        "n_shutter_cmds": 10,
+        "n_rewarded_captures": 6,
+        "mean_peak_efficiency": 1.0,
+        "reward_harvest_ratio": 0.08831014514613024,
+        "gate": {
+          "mission_score_min": 1.0,
+          "capture_count_min": 4,
+          "mean_peak_efficiency_min": 0.75
+        }
+      }
+    ],
+    "gate": {
+      "mission_score_min": 1.0,
+      "capture_count_min": 4,
+      "mean_peak_efficiency_min": 0.75
+    }
+  },
+  "out_dir": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_mpo_multienv_target_select\\results\\artifacts\\warmup_preview",
+  "artifacts": [
+    {
+      "phase": "warmup",
+      "kind": "reward_plot",
+      "episode_idx": 0,
+      "rank": 1,
+      "path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_mpo_multienv_target_select\\results\\artifacts\\warmup_preview\\episodes\\warmup_ep_0_rank1_latent_applied.png"
+    }
+  ],
+  "errors": []
+}

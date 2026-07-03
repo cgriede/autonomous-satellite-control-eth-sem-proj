@@ -13,6 +13,7 @@ disable-model-invocation: false
 # Experiment Knowledge Pipeline
 
 **One experiment = one markdown file** under [`docs/experiments/pipeline/{bin}/`](../../../docs/experiments/pipeline/).  
+**One slug = one atomic hypothesis** — do not mix independent directions (e.g. cadence + hyperparams) in one charter; see learnings.md `atomic-one-hypothesis-per-pipeline-slug`.  
 **Index only:** [`README.md`](../../../docs/experiments/pipeline/README.md).
 
 ## Core doc rule (mandatory)
@@ -54,7 +55,7 @@ Full per-subsection map: [`skill-chain.md`](skill-chain.md).
 
 | Command | Action |
 |---------|--------|
-| `/init-experiment` | Create `0-initialized/{NN}-{slug}.md` with frontmatter + title only (**no phase body**) |
+| `/init-experiment` | Create `0-initialized/{NN}-{slug}.md` with frontmatter + title only (**no phase body**); if scope has two independent tracks → **AskQuestion** to split into two slugs before Phase 0.1 |
 | `/start-experiment-step` | Work on **current phase** — delegate to child skill; set `phases.<N>.status: in_progress` |
 | `/document-experiment-step` | **Append** `## Phase N` + all mandatory subsections for current phase |
 | `/close-experiment-step` | Verify phase block exists → `phases.<N>.status: done` → advance `current_phase` → **`pipeline_doc.py close-phase`** (bin move + README Doc link) → update README Phase/Verdict |
@@ -68,7 +69,7 @@ Full per-subsection map: [`skill-chain.md`](skill-chain.md).
 | Phase | Primary skills | Also use |
 |-------|----------------|----------|
 | **0** | [`hypothesis-research-literature`](../hypothesis-research-literature/SKILL.md) | [`isolated-notebook-hypotheses`](../isolated-notebook-hypotheses/SKILL.md) § Before launching branches |
-| **1** | [`hypothesis-experiment-cycle`](../hypothesis-experiment-cycle/SKILL.md) | `isolated-notebook-hypotheses` § Fixed result contract, evidence-first |
+| **1** | [`hypothesis-experiment-cycle`](../hypothesis-experiment-cycle/SKILL.md) | `isolated-notebook-hypotheses` § Fixed result contract, evidence-first; **[`review-experiment-build`](../review-experiment-build/SKILL.md) after smoke** for complex experiments (new actor architecture, custom action space, custom episode loop, off-policy buffer rewiring) — catches zero-gradient and Jacobian bugs before compute spend; when smoke is single-episode only, `--verify` must bind stage-runner symbols (`screen-runner-smoke-wiring`)
 | **2** | `hypothesis-experiment-cycle` | [`long-run-watch`](../long-run-watch/SKILL.md), [`visual-output-verification`](../visual-output-verification/SKILL.md), [`video-frame-inspect`](../video-frame-inspect/SKILL.md) — confirm completion JSON before treating live terminal as the canonical run (see learnings.md `check-completion-json-before-live-terminal`) |
 | **3** | [`document-research`](../document-research/SKILL.md) | `hypothesis-experiment-cycle` + analysis card §1–8; `video-frame-inspect` if video informs verdict |
 | **4** | `document-research` | `visual-output-verification`, `video-frame-inspect`, [`minimal-feature-review`](../minimal-feature-review/SKILL.md) (human confirm) |
@@ -80,13 +81,14 @@ Full per-subsection map: [`skill-chain.md`](skill-chain.md).
 2. Confirm file is in the bin matching current_phase — run `python .cursor/tools/pipeline/pipeline_doc.py check`; fix with `sync-bin --slug <slug>` if needed.
 3. Read PROJECT_KNOWLEDGE + DECISIONS + STATUS — respect blocked_by
 4. Read skill-chain.md for current phase — invoke listed child skills
-5. If current_phase == 2 → pipeline mutex check before launching training
+5. If current_phase == 2 → pipeline mutex check before launching training; if `profile.json` enables `export_episode_reward_plots` / `train_episode_videos`, launch commands must include **`--export-artifacts`** unless user opted **`--trim-artifacts`** (see learnings.md `phase2-export-artifacts-not-trim-default`)
 6. Run phase checklist (reference.md)
 7. Set phases.<N>.status: in_progress
 8. Do NOT append the phase block until /document-experiment-step
 9. Do NOT advance current_phase until /close-experiment-step
 10. Semantic bugs (action space, warmup contract): **define fix in doc/chat first** — do not edit fork code until user agrees (see learnings.md `define-fix-before-implement-experiment`).
-11. **Phase 1 implement gate (Nike vs plan):** run before first fork edit — see § Implement mode below; never ask "do we need a build plan?" when signals already decide.
+11. **Phase 0 atomic scope gate:** If Phase 0.1 names **two independent tracks** (different knobs, claims, or overnight queues — e.g. cadence + hparam screen), use **AskQuestion** — default is **split** into two `/init-experiment` slugs; only continue single-slug if user explicitly accepts sequential dependency **and** Phase 0.3 lists a runner step for every track (see learnings.md `atomic-one-hypothesis-per-pipeline-slug`).
+12. **Phase 1 implement gate (Nike vs plan):** run before first fork edit — see § Implement mode below; never ask "do we need a build plan?" when signals already decide.
 ```
 
 ## Implement mode: Nike vs plan (Phase 1)
@@ -133,6 +135,7 @@ See learnings.md `pipeline-implement-nike-vs-plan-gate`.
 1. Confirm current_phase = N and phases.N not already documented (status != done)
 2. Run any child skills not yet done for this phase (skill-chain.md) — e.g. analysis card before Phase 3 append
 3. Append ## Phase N — … plus every mandatory ### subsection (reference.md)
+3b. Phase 1: must include `### 1.3 Run instructions` — smoke + screen/full + eval commands, mutex, `results/` artifacts
 4. Fill only this phase — leave earlier phases untouched
 5. Phase 2: include video/plot paths in 2.3 if exported; note video-frame-inspect manifest if run
 6. Phase 4: 4.3 must list report-archive paths + persistence layers (skill-chain.md checklist)
@@ -144,6 +147,7 @@ See learnings.md `pipeline-implement-nike-vs-plan-gate`.
 
 ```text
 1. Verify ## Phase N block exists and subsections are non-empty
+1b. Phase 1 close: **require** `### 1.3 Run instructions (How to execute)` with copy-paste commands + artifact paths — README alone is insufficient (see learnings.md `phase1-run-instructions-required`)
 2. phases.<N>: status=done, completed_utc
 3. current_phase ← N+1 (or stay at 4 when finished)
 4. Run `python .cursor/tools/pipeline/pipeline_doc.py close-phase --slug <slug>` (moves bin, updates README Doc link, fixes experiment README paths)

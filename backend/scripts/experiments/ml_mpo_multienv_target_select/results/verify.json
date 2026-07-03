@@ -1,0 +1,17 @@
+{
+  "run_at_utc": "2026-07-02T21:55:46.755831+00:00",
+  "experiment_id": "ml_mpo_multienv_target_select",
+  "passed": true,
+  "checks": {
+    "A_sample_to_onehot": true,
+    "B_index_layout": true,
+    "C_decode_roundtrip": true,
+    "D_swap_detection": true,
+    "E_actuator_u_bounded": true,
+    "F_warmup_format": true,
+    "G_baseline_score_positive": true,
+    "G_baseline_vector_mode": true,
+    "G_obs_layout": true,
+    "H_screen_artifact_export_bound": true
+  }
+}

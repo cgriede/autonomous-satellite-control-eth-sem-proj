@@ -1,0 +1,13 @@
+{
+  "checkpoint_path": "D:\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_mpo_multienv_target_select\\results\\checkpoints\\hp_explore\\stage_b_env9.pt",
+  "arm_id": "hp_explore",
+  "phase": "stage_b",
+  "tag": "stage_b_env9",
+  "saved_at_utc": "2026-07-03T04:40:45.571808+00:00",
+  "reward_mode": "exp14_capture_only",
+  "env_index": 9,
+  "screen_train_episodes_completed": 20,
+  "stage_b_train_episodes_completed": 300,
+  "total_train_episodes_completed": 320,
+  "eval_score_mean": 0.29218277995054676
+}

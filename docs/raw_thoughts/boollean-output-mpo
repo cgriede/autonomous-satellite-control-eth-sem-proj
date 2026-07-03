@@ -1,0 +1,1 @@
+ah yes actually it makes much more sense to do booleans like this lol: negative means False, positive means True. Instead of the weird tanh shift which gives the same result. Right. Then we set the manual bias threshold.
