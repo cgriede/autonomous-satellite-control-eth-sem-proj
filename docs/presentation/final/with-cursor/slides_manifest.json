@@ -1,13 +1,13 @@
 {
   "manifest_version": 1,
   "deck_title": "Autonomous Satellite Control",
-  "deck_subtitle": "Cloud-aware learned pointing in a from-scratch 2D simulation ┬╖ full work review",
+  "deck_subtitle": "Cloud-aware learned pointing in a from-scratch 2D simulation · full work review",
   "slides": [
     {
       "id": "S1",
       "section": "main",
       "kind": "section",
-      "title": "1 ┬╖ Problem & mission",
+      "title": "1 · Problem & mission",
       "status": "ready",
       "bullets": [
         "Why cloud-aware Earth observation needs onboard intelligence"
@@ -22,7 +22,7 @@
       "image": "artifacts/m01_cloudy_rainforest.jpg",
       "bullets": [
         "Earth observation of rainforests is constantly defeated by cloud cover.",
-        "From orbit, much of every pass is cloud-blocked ΓÇö capturing the clear moments is the whole game.",
+        "From orbit, much of every pass is cloud-blocked — capturing the clear moments is the whole game.",
         "Image: clouds scattered over the Amazon basin (Wikimedia Commons, NASA/aerial)."
       ],
       "notes": "Hook-first opening: the cloud-occlusion problem, made concrete."
@@ -33,11 +33,11 @@
       "title": "Agenda",
       "status": "ready",
       "bullets": [
-        "1 ┬╖ Problem & mission ΓÇö cloud-aware EO and today's deterministic baseline.",
-        "2 ┬╖ The system we built from scratch ΓÇö simulation, sensing, reward, ML, safety.",
-        "3 ┬╖ Scientific method ΓÇö the hypothesis-driven experiment pipeline.",
-        "4 ┬╖ Results & evidence ΓÇö what learns, what does not, and the video proof.",
-        "5 ┬╖ Conclusion & next steps."
+        "1 · Problem & mission — cloud-aware EO and today's deterministic baseline.",
+        "2 · The system we built from scratch — simulation, sensing, reward, ML, safety.",
+        "3 · Scientific method — the hypothesis-driven experiment pipeline.",
+        "4 · Results & evidence — what learns, what does not, and the video proof.",
+        "5 · Conclusion & next steps."
       ],
       "notes": "Roadmap."
     },
@@ -50,7 +50,7 @@
         "Current practice: scientists pre-define which areas to image; cloudy frames are filtered out later in post-processing.",
         "That spends scarce memory and downlink on cloud-blocked captures and cannot react to live conditions.",
         "Our baseline mimics today's plan: a fixed set of targets along the pass, imaged at the best (closest) estimated quality, then move to the next.",
-        "Fixed attitude + pre-planned shutter ΓÇö no onboard cloud awareness. Best seen in the video next."
+        "Fixed attitude + pre-planned shutter — no onboard cloud awareness. Best seen in the video next."
       ],
       "notes": "Links the scheduling concept to the deterministic baseline policy."
     },
@@ -89,7 +89,7 @@
       "status": "ready",
       "bullets": [
         "In scope: single-satellite 2D overflight simulation with cloud-aware sensing, built from scratch.",
-        "Simplifications: 2D attitude, single pass, simulated vision ΓÇö not flight hardware.",
+        "Simplifications: 2D attitude, single pass, simulated vision — not flight hardware.",
         "Non-goals: multi-satellite ops, 3D deliverable, SOTA RL benchmark chasing.",
         "North star: hierarchical mission planner over OBC tracking; direct torque RL is interim."
       ],
@@ -99,10 +99,10 @@
       "id": "S2",
       "section": "main",
       "kind": "section",
-      "title": "2 ┬╖ The system we built from scratch",
+      "title": "2 · The system we built from scratch",
       "status": "ready",
       "bullets": [
-        "Simulation core, sensing, reward, ML loop and renderer ΓÇö one converged architecture"
+        "Simulation core, sensing, reward, ML loop and renderer — one converged architecture"
       ],
       "notes": ""
     },
@@ -121,7 +121,7 @@
     {
       "id": "M07c",
       "section": "main",
-      "title": "Simulation kernel ΓÇö build & step loop",
+      "title": "Simulation kernel — build & step loop",
       "status": "ready",
       "image": "diagrams/simulation_kernel_flow.png",
       "bullets": [
@@ -133,12 +133,12 @@
     {
       "id": "M07b",
       "section": "main",
-      "title": "ML training loop ΓÇö SAC & MPO",
+      "title": "ML training loop — SAC & MPO",
       "status": "ready",
       "image": "diagrams/ml_agents_flow.png",
       "bullets": [
         "Shared Encoder / Actor / Critic; per controller-tick store to the ReplayBuffer.",
-        "Reward shaping (sparse / dense) and algorithm (SAC / MPO) are tuned independently ΓÇö we test which pairing works."
+        "Reward shaping (sparse / dense) and algorithm (SAC / MPO) are tuned independently — we test which pairing works."
       ],
       "notes": "diagrams/ml_agents_flow.png."
     },
@@ -159,7 +159,7 @@
     {
       "id": "M08",
       "section": "main",
-      "title": "ML integration ΓÇö observations & actions",
+      "title": "ML integration — observations & actions",
       "status": "ready",
       "bullets": [
         "Observation: attitude + orbit scalars, primary/secondary camera observation-line codes, mission scalars (capture budget, per-target imaged mask, bearing errors).",
@@ -178,7 +178,7 @@
       "bullets": [
         "Capture credit = quality x coverage x (1 - cloud_frac), paid only on budgeted, novel shutter events (<=10/orbit).",
         "Dense penalties (shutter waste, torque effort) regularize control.",
-        "'quality' is the image-quality term from motion smear ΓÇö detailed on the next slide."
+        "'quality' is the image-quality term from motion smear — detailed on the next slide."
       ],
       "notes": "diagrams/reward_anatomy.png. Source: autonomous_control/reward.py."
     },
@@ -202,10 +202,10 @@
       "title": "The shutter budget",
       "status": "ready",
       "bullets": [
-        "Onboard limit: max 10 primary-camera captures per orbit (MAX_PRIMARY_CAPTURES_PER_ORBIT) ΓÇö a memory + downlink budget. One episode Γëê one orbit pass.",
+        "Onboard limit: max 10 primary-camera captures per orbit (MAX_PRIMARY_CAPTURES_PER_ORBIT) — a memory + downlink budget. One episode ≈ one orbit pass.",
         "The agent sees capture_budget_remaining in its observation, so it always knows how many shots are left.",
         "Capture credit is paid only while budget remains and the target is novel; once the 10 shots are spent, extra shutter earns nothing and incurs the shutter-waste penalty.",
-        "So the task is to spend the best 10 moments ΓÇö clear, high-quality, novel targets ΓÇö not to shutter constantly.",
+        "So the task is to spend the best 10 moments — clear, high-quality, novel targets — not to shutter constantly.",
         "This is why the MPO collapse (~516 shutter commands against a budget of 10) is almost pure waste."
       ],
       "notes": "Source: constants/SATELLITE.py (MAX_PRIMARY_CAPTURES_PER_ORBIT=10); observation include_capture_budget; reward shutter-waste penalty."
@@ -229,27 +229,27 @@
         ],
         [
           "Platform (bus)",
-          "250 kg  ┬╖  2D env inertia Izz = 31.2 kg┬╖m┬▓"
+          "250 kg  ·  2D env inertia Izz = 31.2 kg·m²"
         ],
         [
           "Reaction wheel",
-          "max torque 0.1 N┬╖m  ┬╖  momentum 0.4 N┬╖m┬╖s  ┬╖  omega_w_max 150 rad/s"
+          "max torque 0.1 N·m  ·  momentum 0.4 N·m·s  ·  omega_w_max 150 rad/s"
         ],
         [
           "Attitude limits",
-          "star-tracker slew 3┬░/s  ┬╖  hard limit 45┬░ off-nadir"
+          "star-tracker slew 3°/s  ·  hard limit 45° off-nadir"
         ],
         [
           "Primary camera",
-          "9344├ù7000 px  ┬╖  3.2 ┬╡m pitch  ┬╖  1067 mm focal  ┬╖  100 ┬╡s exposure"
+          "9344×7000 px  ·  3.2 µm pitch  ·  1067 mm focal  ·  100 µs exposure"
         ],
         [
           "Sensing",
-          "primary observation line 100 bins + secondary context 200 bins  ┬╖  ray-traced clouds"
+          "primary observation line 100 bins + secondary context 200 bins  ·  ray-traced clouds"
         ],
         [
           "Mission",
-          "altitude ~U(510, 570) km  ┬╖  ~50-target polar stripe  ┬╖  dt 1.5 s  ┬╖  Γëñ1000 steps/episode"
+          "altitude ~U(510, 570) km  ·  ~50-target polar stripe  ·  dt 1.5 s  ·  ≤1000 steps/episode"
         ]
       ],
       "notes": "technical-constants.md + environment-hyperparameters.md."
@@ -257,13 +257,13 @@
     {
       "id": "M12",
       "section": "main",
-      "title": "Safety ΓÇö mode-specific control",
+      "title": "Safety — mode-specific control",
       "status": "ready",
       "image": "diagrams/safety_flow.png",
       "bullets": [
         "Torque mode (Ref0): agent torque is arbitrated -> pass-through / taper / safe-mode (BRAKE->CRUISE->SETTLE->LOCKOUT 60 s).",
-        "Vector mode (Ref1): safety acts on the pointing request (hold-last at 45┬░), the torque-path safety is bypassed.",
-        "Both paths share one reaction-wheel gate and the same dynamics; hard limit 45┬░ off-nadir."
+        "Vector mode (Ref1): safety acts on the pointing request (hold-last at 45°), the torque-path safety is bypassed.",
+        "Both paths share one reaction-wheel gate and the same dynamics; hard limit 45° off-nadir."
       ],
       "notes": "diagrams/safety_flow.png. simulation/attitude_controller.py + ATTITUDE_SAFETY.py."
     },
@@ -271,7 +271,7 @@
       "id": "S3",
       "section": "main",
       "kind": "section",
-      "title": "3 ┬╖ Scientific method",
+      "title": "3 · Scientific method",
       "status": "ready",
       "bullets": [
         "Hypothesis-driven pipeline with frozen protocol and documented verdicts"
@@ -312,7 +312,7 @@
           "Result (verdict)"
         ],
         [
-          "Agent always fires ΓÇö is the shutter boolean threshold too low (tanh saturates near +1)?",
+          "Agent always fires — is the shutter boolean threshold too low (tanh saturates near +1)?",
           "shutter threshold 0.5 -> 0.9 (+15 s credit window)",
           "MPO",
           "No change: 516 -> 514.9 cmds/ep, fires 99.8%; not the root cause (Exp 1, not supported)"
@@ -336,19 +336,19 @@
           "In learnable regime: compress +80.9 beats flat -3.9 (Exp 2, confirmed later)"
         ],
         [
-          "Model does not learn ΓÇö can a simpler algorithm produce learning?",
+          "Model does not learn — can a simpler algorithm produce learning?",
           "swap MPO -> SAC (off-policy, simpler)",
           "SAC vs MPO",
           "SAC learns (+5.3 train, learning signal); MPO collapses (Exp 3, SAC supported)"
         ],
         [
-          "Model outputs high torque always ΓÇö penalize effort?",
-          "add torque-effort penalty -k(tau/tau_max)┬▓",
+          "Model outputs high torque always — penalize effort?",
+          "add torque-effort penalty -k(tau/tau_max)²",
           "SAC/MPO",
           "Late-episode torque becomes structured (not constant); regularizes control"
         ],
         [
-          "Safe-mode triggers a lot ΓÇö is torque control too hard to learn?",
+          "Safe-mode triggers a lot — is torque control too hard to learn?",
           "vector (nadir-relative) action vs torque",
           "SAC",
           "Both learn, hold-last=0; torque eval -11.1 beats vector -24.1 (Exp 4, KPI pending)"
@@ -372,24 +372,24 @@
       "id": "S4",
       "section": "main",
       "kind": "section",
-      "title": "4 ┬╖ Results & evidence",
+      "title": "4 · Results & evidence",
       "status": "ready",
       "bullets": [
-        "From a collapsed MPO start to a positive SAC result ΓÇö examples first, then the summary"
+        "From a collapsed MPO start to a positive SAC result — examples first, then the summary"
       ],
       "notes": ""
     },
     {
       "id": "M15b",
       "section": "main",
-      "title": "First experiments ΓÇö MPO collapse",
+      "title": "First experiments — MPO collapse",
       "status": "ready",
       "image": "artifacts/journey_mpo_collapse.png",
       "bullets": [
-        "Our first MPO experiments did not work ΓÇö we call this the 'MPO collapse'.",
+        "Our first MPO experiments did not work — we call this the 'MPO collapse'.",
         "Overnight MPO sparse: eval -243.5, no learning signal; eta ~1.9e6, KL ~407k.",
         "Symptom: 100% torque saturation, ~1936 shutter cmds / 2 eval eps, 0 meaningful captures.",
-        "Note: 'baseline' elsewhere is our deterministic reference (+89) ΓÇö a different thing from this failed learned run."
+        "Note: 'baseline' elsewhere is our deterministic reference (+89) — a different thing from this failed learned run."
       ],
       "notes": "runs/ml_overnight_h1a_mpo_sparse_22-18-35/plots/learning_curves.png."
     },
@@ -404,7 +404,7 @@
         "Model: MPO, sparse reward, eval rollout.",
         "Reaction-wheel torque pins to the limit (square-wave saturation).",
         "Shutter fires almost every step (pink line) with ~0 useful captures.",
-        "Safe-mode activates repeatedly ΓÇö the agent never settles on a target.",
+        "Safe-mode activates repeatedly — the agent never settles on a target.",
         "eval return -243.5; this failure motivated the whole experiment pipeline."
       ],
       "notes": "Embedded. runs/ml_overnight_h1a_mpo_sparse_22-18-35/videos/eval_best.mp4."
@@ -412,13 +412,13 @@
     {
       "id": "M16b",
       "section": "main",
-      "title": "Breakthrough ΓÇö SAC learns",
+      "title": "Breakthrough — SAC learns",
       "status": "ready",
       "image": "artifacts/sac_learns_encoder_r2.png",
       "bullets": [
         "Model: SAC, compressed 1D-CNN encoder, sparse reward, 50 episodes.",
         "Train return climbs from ~-75 to +137; eval stabilises at +80.9.",
-        "Encoder reversal: compressed (A1) +80.9 beats flat (A0) -3.9 ΓÇö Exp 2's deferred interest confirmed."
+        "Encoder reversal: compressed (A1) +80.9 beats flat (A0) -3.9 — Exp 2's deferred interest confirmed."
       ],
       "notes": "runs/9998217211235184_ml_encoder_r2_sac_a1_03-06-04/plots/returns_by_episode.png."
     },
@@ -430,9 +430,9 @@
       "video": "videos/03_sac_first_good_result.mp4",
       "poster": "artifacts/poster_03_sac_first_good_result.png",
       "bullets": [
-        "Model: SAC, compressed encoder, eval rollout ΓÇö the best learned policy (+80.9).",
+        "Model: SAC, compressed encoder, eval rollout — the best learned policy (+80.9).",
         "Clean target captures; smear ~0.2 px; safe-mode activations = 0.",
-        "Reaction-wheel torque is structured, not saturated ΓÇö pointing holds on target.",
+        "Reaction-wheel torque is structured, not saturated — pointing holds on target.",
         "Contrast directly with the MPO collapse clip earlier."
       ],
       "notes": "Embedded. runs/9998217211235184_ml_encoder_r2_sac_a1_03-06-04/videos/eval_best.mp4."
@@ -440,7 +440,7 @@
     {
       "id": "M16c",
       "section": "main",
-      "title": "Algorithm compare ΓÇö SAC vs MPO",
+      "title": "Algorithm compare — SAC vs MPO",
       "status": "ready",
       "image": "diagrams/exp3_compare.png",
       "bullets": [
@@ -457,8 +457,8 @@
       "status": "ready",
       "image": "diagrams/exp4_compare.png",
       "bullets": [
-        "Question: torque control triggers safe-mode a lot ΓÇö is a higher-level action easier to learn?",
-        "Alternative action: u in [-1,1] -> nadir-relative offset (max 45┬░) -> PD -> torque (torque-path safety bypassed).",
+        "Question: torque control triggers safe-mode a lot — is a higher-level action easier to learn?",
+        "Alternative action: u in [-1,1] -> nadir-relative offset (max 45°) -> PD -> torque (torque-path safety bypassed).",
         "Model: SAC, 50 episodes, both arms; hold-last safety events = 0.",
         "Result: both show a learning signal; torque (Ref0) eval -11.1 still beats vector (Ref1) eval -24.1; vector peaks higher in training (+95.8).",
         "SAC mode preference: torque eval −11.1 still beats vector −24.1. MPO mode preference is the opposite: vector eval +45.5 far exceeds torque −81.1. Mode preference is algorithm-dependent — not a single universal answer."
@@ -571,13 +571,13 @@
         "Exp 11 (MPO vector): eval +45.5 — second positive generalisation path; vector removes saturation barrier.",
         "SAC shutter split (Exp 9): removing waste penalty gave +895% jump — eval +106 current best."
       ],
-      "notes": "diagrams/results_scoreboard.png ΓÇö verified from verdict JSONs + summary_metrics.json. Includes old KPI-summary content."
+      "notes": "diagrams/results_scoreboard.png — verified from verdict JSONs + summary_metrics.json. Includes old KPI-summary content."
     },
     {
       "id": "S5",
       "section": "main",
       "kind": "section",
-      "title": "5 ┬╖ Conclusion & next steps",
+      "title": "5 · Conclusion & next steps",
       "status": "ready",
       "bullets": [
         "What we proved, what is still open, and where this goes next"
@@ -608,7 +608,7 @@
         "Run the final matched eval (same clouds/altitude/targets) of best SAC policy vs the deterministic baseline.",
         "Close Exp 3-4 verdicts with frame-level behavioral review of the exported videos.",
         "Iterate reward + control interface until the learned policy beats the baseline on observation value.",
-        "Then build the mission-planner layer above the OBC ΓÇö the hierarchical north star."
+        "Then build the mission-planner layer above the OBC — the hierarchical north star."
       ],
       "notes": "Iterate until beat baseline; then mission planner."
     },
@@ -619,7 +619,7 @@
       "status": "ready",
       "bullets": [
         "Questions?",
-        "Cedric Grieder ┬╖ ETH x Beyond Gravity semester project"
+        "Cedric Grieder · ETH x Beyond Gravity semester project"
       ],
       "notes": ""
     },
@@ -629,7 +629,7 @@
       "title": "Admin slide 1",
       "status": "placeholder",
       "bullets": [
-        "Company / org content ΓÇö add Beyond Gravity branding, context, or intro."
+        "Company / org content — add Beyond Gravity branding, context, or intro."
       ],
       "notes": "User fills in."
     },
@@ -639,18 +639,18 @@
       "title": "Admin slide 2",
       "status": "placeholder",
       "bullets": [
-        "Second admin slide ΓÇö team, project placement, or logistics."
+        "Second admin slide — team, project placement, or logistics."
       ],
       "notes": "User fills in."
     },
     {
       "id": "B01",
       "section": "backup",
-      "title": "Backup ΓÇö best SAC hparam run",
+      "title": "Backup — best SAC hparam run",
       "status": "draft",
       "image": "artifacts/sac_best_hparam.png",
       "bullets": [
-        "Experiment: SAC hparam grid ┬╖ arm SAC-M sparse ┬╖ 50 episodes.",
+        "Experiment: SAC hparam grid · arm SAC-M sparse · 50 episodes.",
         "Result: train best +129.8, eval +50.6, learning signal inferred.",
         "run: 9998217230681332_ml_sac_hparam_sac_m_sparse_21-41-58."
       ],
@@ -659,25 +659,25 @@
     {
       "id": "B02",
       "section": "backup",
-      "title": "Backup ΓÇö Exp 4 torque arm (Ref0)",
+      "title": "Backup — Exp 4 torque arm (Ref0)",
       "status": "draft",
       "image": "artifacts/exp4_ref0_torque.png",
       "bullets": [
-        "Experiment: Exp 4 agent-reference ┬╖ arm Ref0 torque ┬╖ SAC ┬╖ 50 episodes.",
+        "Experiment: Exp 4 agent-reference · arm Ref0 torque · SAC · 50 episodes.",
         "Result: eval -11.1, learning signal inferred, train spike +8.4 at ep 49.",
-        "run: 9998217183842846_ml_ref_ref0_torque_10-42-36 ┬╖ video: videos/05_torque_action_eval.mp4."
+        "run: 9998217183842846_ml_ref_ref0_torque_10-42-36 · video: videos/05_torque_action_eval.mp4."
       ],
       "notes": "agent_reference.json."
     },
     {
       "id": "B03",
       "section": "backup",
-      "title": "Backup ΓÇö vector action eval (video)",
+      "title": "Backup — vector action eval (video)",
       "status": "draft",
       "video": "videos/04_vector_action_eval.mp4",
       "poster": "artifacts/poster_04_vector_action_eval.png",
       "bullets": [
-        "Experiment: Exp 4 agent-reference ┬╖ arm Ref1 vector ┬╖ SAC ┬╖ 50 episodes.",
+        "Experiment: Exp 4 agent-reference · arm Ref1 vector · SAC · 50 episodes.",
         "Result: eval -24.1, train peak +95.8, hold-last safety events = 0.",
         "Cleaner safety interface (D-016); promoted to production."
       ],
@@ -686,12 +686,12 @@
     {
       "id": "B04",
       "section": "backup",
-      "title": "Backup ΓÇö Exp 3 SAC eval (video)",
+      "title": "Backup — Exp 3 SAC eval (video)",
       "status": "draft",
       "video": "videos/06_exp3_sac_eval.mp4",
       "poster": "artifacts/poster_06_exp3_sac_eval.png",
       "bullets": [
-        "Experiment: Exp 3 SAC vs MPO ┬╖ arm SAC sparse ┬╖ dt 1.5 s, patience-stopped at 37 ep.",
+        "Experiment: Exp 3 SAC vs MPO · arm SAC sparse · dt 1.5 s, patience-stopped at 37 ep.",
         "Result: supported, best train +5.33, eval -22.2 (learning signal).",
         "MPO contrast arm: inconclusive, plateau -51.6, 22 ep.",
         "docs/experiments/pipeline/1-built/03-sac-mpo-compare.md."
@@ -701,7 +701,7 @@
     {
       "id": "B05",
       "section": "backup",
-      "title": "Backup ΓÇö experiment x research cross-map",
+      "title": "Backup — experiment x research cross-map",
       "status": "draft",
       "bullets": [
         "Each experiment is grounded in repo literature + logged decisions."
@@ -720,28 +720,28 @@
           "Decisions / notes"
         ],
         [
-          "Exp 1 ΓÇö Shutter (MPO)",
+          "Exp 1 — Shutter (MPO)",
           "shutter spam / sparse credit assignment",
           "Abdolmaleki 2018 (MPO); internal shutter mechanics",
-          "D-009/010/011 ┬╖ shutter-threshold-investigation.md"
+          "D-009/010/011 · shutter-threshold-investigation.md"
         ],
         [
-          "Exp 2 ΓÇö Encoder (SAC)",
+          "Exp 2 — Encoder (SAC)",
           "flatten vs structured observations",
-          "Gorishniy 2022 ┬╖ entity-based RL (2206.02855) ┬╖ SRL survey (2506.17518) ┬╖ Bruin 2018",
-          "D-014/015 ┬╖ LITERATURE_HIGHLIGHTS.md"
+          "Gorishniy 2022 · entity-based RL (2206.02855) · SRL survey (2506.17518) · Bruin 2018",
+          "D-014/015 · LITERATURE_HIGHLIGHTS.md"
         ],
         [
-          "Exp 3 ΓÇö SAC vs MPO",
+          "Exp 3 — SAC vs MPO",
           "which algorithm learns on this task",
-          "Haarnoja 2018 (SAC) ┬╖ Abdolmaleki 2018 (MPO)",
+          "Haarnoja 2018 (SAC) · Abdolmaleki 2018 (MPO)",
           "model-size-investigation.md"
         ],
         [
-          "Exp 4 ΓÇö Vector OBC",
+          "Exp 4 — Vector OBC",
           "action interface & safety",
           "MPC lecture (rec 08, hierarchical reference)",
-          "D-001 ┬╖ D-016"
+          "D-001 · D-016"
         ]
       ],
       "notes": "docs/research/LITERATURE_HIGHLIGHTS.md (cross-paper cheat sheet) + DECISIONS.md."
@@ -749,7 +749,7 @@
     {
       "id": "B06",
       "section": "backup",
-      "title": "Backup ΓÇö full experiment list & verdicts",
+      "title": "Backup — full experiment list & verdicts",
       "status": "ready",
       "bullets": [
         "Exp 1 Shutter: not_supported · Exp 2 Encoder: not_supported.",
@@ -781,7 +781,7 @@
     {
       "id": "B07",
       "section": "backup",
-      "title": "Backup ΓÇö reward & environment constants",
+      "title": "Backup — reward & environment constants",
       "status": "draft",
       "bullets": [
         "docs/presentation/machine-learning.md (reward, losses, encoder).",
@@ -793,7 +793,7 @@
     {
       "id": "B08",
       "section": "backup",
-      "title": "Backup ΓÇö literature & decisions log",
+      "title": "Backup — literature & decisions log",
       "status": "draft",
       "bullets": [
         "docs/research/LITERATURE_HIGHLIGHTS.md.",

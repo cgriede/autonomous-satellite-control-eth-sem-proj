@@ -1,0 +1,267 @@
+{
+  "manifest_version": 1,
+  "deck_title": "Autonomous Satellite control",
+  "deck_subtitle": "Cloud-aware learned pointing · making the problem engineerable",
+  "slides": [
+    {
+      "id": "S1",
+      "section": "main",
+      "kind": "section",
+      "title": "Act I — Making the problem engineerable",
+      "status": "ready",
+      "bullets": [
+        "Simulation, features, randomization, and a reproducible experiment pipeline"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "M01",
+      "section": "main",
+      "title": "Motivation: clouds waste imaging opportunities",
+      "status": "ready",
+      "image": "artifacts/m01_cloudy_rainforest.jpg",
+      "bullets": [
+        "Satellites have limited onboard storage and downlink capacity.",
+        "Cloud-blocked captures waste scarce imaging opportunities.",
+        "The valuable decision is not only where to image, but also when."
+      ],
+      "notes": "READ slide 2."
+    },
+    {
+      "id": "M02",
+      "section": "main",
+      "title": "Research question",
+      "status": "ready",
+      "bullets": [
+        "Can a cloud-aware learned policy outperform the deterministic baseline on observation value?",
+        "Compare learned policies against a fixed sequential baseline under matched simulation conditions.",
+        "Focus on useful captures — not motion for its own sake.",
+        "Status after early experiments: hypothesis not yet supported on matched episode return."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "M03",
+      "section": "main",
+      "title": "The bar: deterministic baseline (~393 mean return)",
+      "status": "ready",
+      "image": "artifacts/poster_01_baseline_deterministic.png",
+      "bullets": [
+        "Baseline = SequentialTargetBaselinePolicy: fixed target list, best-estimate capture timing.",
+        "Matched warmup in SAC encoder run: return_mean ≈ 393, return_best ≈ 468 (summary_metrics.json).",
+        "This is the reference bar — not the smaller ~89 smoke-run warmup.",
+        "Every learned policy must be judged against this same-pipeline baseline."
+      ],
+      "notes": "Run 9998217211235184 warmup block."
+    },
+    {
+      "id": "M04",
+      "section": "main",
+      "title": "One system: sim → artifact → learn → render",
+      "status": "ready",
+      "image": "diagrams/architecture_overview.png",
+      "bullets": [
+        "One episode = one canonical simulation rollout (SimulationStateSeries).",
+        "Train, eval, and render consume the same simulation outputs.",
+        "Simulation owns physics, sensing, and reward; rendering is view-only."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "M05",
+      "section": "main",
+      "title": "Features and reward — why learning could work",
+      "status": "ready",
+      "image": "diagrams/reward_anatomy.png",
+      "bullets": [
+        "Observations: orbit, attitude, primary + secondary vision lines, shutter budget.",
+        "Actions: dim0 = control interface (see Act II); dim1 = shutter command.",
+        "Reward: image quality × coverage × novelty; penalties for budget waste and pointing effort.",
+        "Dense vision + shaped reward gives credit for timing clear windows — if the action interface is right."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "M06",
+      "section": "main",
+      "title": "Randomization and experiment method",
+      "status": "ready",
+      "bullets": [
+        "Episode = one polar overflight; pre-maneuver segment included in canonical rollout."
+      ],
+      "table": [
+        ["Drawn each episode", "Fixed across runs"],
+        ["Altitude ~U(510, 570) km", "Physics, camera model, dt = 1.5 s"],
+        ["~50-target polar stripe position", "Reaction-wheel and safety limits"],
+        ["Cloud field (seeded patches along corridor)", "Baseline target schedule logic"],
+        ["Initial attitude / phase", "Reward term definitions"],
+        ["", "Hypothesis → isolated change → plot/video verdict"]
+      ],
+      "col_widths": [0.45, 0.55],
+      "notes": "environment-hyperparameters.md"
+    },
+    {
+      "id": "S2",
+      "section": "main",
+      "kind": "section",
+      "title": "Act II — Early experiments: hypothesis not proven",
+      "status": "ready",
+      "bullets": [
+        "Learning signal yes; beating the ~393 baseline no — three action interfaces tested"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "M07",
+      "section": "main",
+      "title": "Returns vs the baseline bar",
+      "status": "ready",
+      "image": "artifacts/sac_learns_encoder_r2.png",
+      "bullets": [
+        "SAC compressed encoder (50 train eps): train return_mean ≈ 1.2, train_best ≈ 137, eval ≈ 81.",
+        "Warmup baseline in the same run: return_mean ≈ 393 — learned eval sits well below.",
+        "One high train episode is not beating the baseline; the mean curve does not cross the bar.",
+        "Dashed reference line in plot = deterministic warmup level."
+      ],
+      "notes": "9998217211235184_ml_encoder_r2_sac_a1_03-06-04"
+    },
+    {
+      "id": "M07b",
+      "section": "main",
+      "title": "The learnability journey",
+      "status": "ready",
+      "image": "diagrams/results_scoreboard.png",
+      "bullets": [
+        "Only runs with warmup baseline > 300 (fairly tuned deterministic reference).",
+        "Eval return (bars) vs same-run warmup (amber marker, ~393 for all shown).",
+        "Green = learning signal inferred; red = none. Best eval SAC encoder +81 — still below ~393 bar."
+      ],
+      "notes": "diagrams/results_scoreboard.png — data from summary_metrics.json per run"
+    },
+    {
+      "id": "M08",
+      "section": "main",
+      "title": "MPO collapse (torque mode)",
+      "status": "ready",
+      "video": "videos/02_mpo_collapse_safemode.mp4",
+      "poster": "artifacts/poster_02_mpo_collapse_safemode.png",
+      "bullets": [
+        "First MPO torque experiments: eval ≈ −243, torque saturation, shutter spam.",
+        "Safe-mode activations throughout — no useful captures.",
+        "Motivated systematic experiment pipeline and implementation fixes (dual-KL bug)."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "M09",
+      "section": "main",
+      "title": "Three ways to feed actions into the stack",
+      "status": "ready",
+      "bullets": [
+        "Same shutter dim; dim0 semantics climb from low-level torque toward mission planning."
+      ],
+      "table": [
+        ["Interface", "Agent decides", "Low-level executes", "Early outcome"],
+        ["1 · Torque (Ref0)", "RW torque + shutter", "Safety controller arbitrates torque", "Learning signal; far below ~393 bar"],
+        ["2 · Vector (Ref1)", "Nadir-relative offset u + shutter", "OBC PD → torque", "Tested (Exp 4/11); still below bar"],
+        ["3 · Target select (Exp 14)", "Which target + move + shutter", "PD OBC tracks latched target", "Built & run; learning_mode false — not successful yet"]
+      ],
+      "col_widths": [0.18, 0.28, 0.28, 0.26],
+      "notes": "Exp 14 = ml_mpo_multienv_target_select"
+    },
+    {
+      "id": "M10",
+      "section": "main",
+      "title": "Interface 1 vs 2: torque vs vector",
+      "status": "ready",
+      "image": "diagrams/exp4_compare.png",
+      "bullets": [
+        "Question: is torque too hard — should the agent command pointing, not wheel torque?",
+        "Both arms show a learning signal; neither approaches warmup ~393 on eval return.",
+        "SAC: torque eval −11.1 vs vector −24.1. MPO: vector +45.5 vs torque −81.1 — mode preference is algorithm-dependent.",
+        "Partial segregation helps diagnostics; does not close the mission gap yet."
+      ],
+      "notes": "agent_reference_pointing experiment"
+    },
+    {
+      "id": "M11",
+      "section": "main",
+      "title": "Interface 3: target selection + OBC (Exp 14)",
+      "status": "ready",
+      "image": "diagrams/ml_agents_flow.png",
+      "bullets": [
+        "Radical shift: Categorical(50) target + move + shutter; PD OBC when move=True.",
+        "Primary KPI = mission score (quality × coverage per capture), not raw return alone.",
+        "Multi-environment curriculum; eval on unseen env seeds.",
+        "Screen arm hp_default: learning_mode false; mission_score_mean ≈ 3.2; eval_return ≈ 0 — not successful yet.",
+        "Critical implementation bugs found and fixed before Phase 2; architecture reuse validated."
+      ],
+      "notes": "ml_mpo_multienv_target_select"
+    },
+    {
+      "id": "M12",
+      "section": "main",
+      "title": "What the experiments did prove",
+      "status": "ready",
+      "bullets": [
+        "The problem is engineerable: reproducible runs, KPIs, videos, and isolated hypotheses.",
+        "Failures are diagnosable (MPO dual bug, encoder choice, reward penalties, action interface).",
+        "SAC and fixed MPO can learn non-trivial structure; MPO vector mode shows mode-dependent gains.",
+        "Superiority over the ~393 deterministic baseline on matched return: not demonstrated."
+      ],
+      "notes": ""
+    },
+    {
+      "id": "S3",
+      "section": "main",
+      "kind": "section",
+      "title": "Act III — Why we still believe this path",
+      "status": "ready",
+      "bullets": [
+        "Segregate learning from low-level control; let AI choose what to point at"
+      ],
+      "notes": ""
+    },
+    {
+      "id": "M13",
+      "section": "main",
+      "title": "Segregate concerns: planner · pilot · plant",
+      "status": "ready",
+      "image": "diagrams/safety_flow.png",
+      "bullets": [
+        "North star: hierarchical mission planner over OBC low-level tracking.",
+        "Wrong split: RL learns raw torque — couples timing, dynamics, and safety arbitration.",
+        "Right split: RL chooses target / when to move / when to shoot; OBC closes the pointing loop.",
+        "Exp 14 is the first prototype of that split — early run unsuccessful, direction unchanged."
+      ],
+      "notes": "project-charter north-star architecture"
+    },
+    {
+      "id": "M14",
+      "section": "main",
+      "title": "Behavioral evidence below the return bar",
+      "status": "ready",
+      "video": "videos/03_sac_first_good_result.mp4",
+      "poster": "artifacts/poster_03_sac_first_good_result.png",
+      "bullets": [
+        "Even when return < baseline, eval video shows structured pointing and shutter timing.",
+        "Behavioral claims require video — aggregate KPIs alone are insufficient.",
+        "Return gap may be reward shaping / interface / training budget — not absence of learning."
+      ],
+      "notes": "User-sign-off on frames before behavioral verdict in talk."
+    },
+    {
+      "id": "M15",
+      "section": "main",
+      "title": "Open work and close",
+      "status": "ready",
+      "bullets": [
+        "Align training reward with mission score; iterate Exp 14 curriculum and factorized policy.",
+        "Matched eval protocol: same clouds / altitude / targets for best learned policy vs baseline ~393.",
+        "Continue climbing the action ladder: torque → vector → target select → full mission planner.",
+        "One-liner: we made cloud-aware onboard imaging an engineerable RL problem — hypothesis deferred, path convinced."
+      ],
+      "notes": ""
+    }
+  ]
+}
