@@ -4,12 +4,13 @@ Manifest-driven deck iteration for agent + user Q&A.
 
 **Skill:** [create-update-presentation](../../skills/create-update-presentation/SKILL.md) · tools: [build-tool](../../skills/build-tool/SKILL.md)
 
-**Default deck:** `docs/presentation/final/with-cursor/`
+**Manifest + diagrams:** `docs/presentation/final/with-cursor/`
 
 | File | Role |
 |------|------|
 | `slides_manifest.json` | Source of truth (slide ids, bullets, images) |
-| `work_review_with_cursor.pptx` | Built output |
+| `docs/presentation/READ_Final_presentation.pptx` | Layout reference (ETH template — inspect before edits) |
+| `docs/presentation/WRITE_Final_presentation.pptx` | Built output (`build --output` default) |
 | `diagrams/*.mmd` | Editable flowchart source |
 | `diagrams/*.png` | Embedded images (regenerate with `diagrams`) |
 

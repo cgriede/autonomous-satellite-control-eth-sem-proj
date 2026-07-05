@@ -19,6 +19,7 @@ Agent tool — .cursor/tools/presentation/
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import matplotlib
@@ -49,6 +50,19 @@ PURPLE = "#A78BFA"    # MPO
 PINK = "#F472B6"
 
 _FONT = "DejaVu Sans"
+
+# ETH READ deck (light) — used by synthesis plots embedded in READ_Final_presentation
+ETH_BG = "#FFFFFF"
+ETH_INK = "#000000"
+ETH_MUTED = "#5A5A5A"
+ETH_EDGE = "#D8DEE8"
+ETH_BLUE = "#1269B0"
+ETH_GREEN = "#1B8A5A"
+ETH_RED = "#C43C3C"
+ETH_AMBER = "#D97706"
+ETH_FONT = "Arial"
+
+_RUNS_ROOT = _REPO_ROOT / "backend" / "autonomous_control" / "runs"
 
 
 def _new_canvas(title: str, subtitle: str | None = None):
@@ -416,79 +430,98 @@ def render_simulation_kernel_flowchart(output_path: Path | str) -> Path:
 
 # --- 6. results scoreboard (synthesis plot, verified numbers) ----------------
 
-# (label, eval mean return, learning_mode, source verdict file)
-_SCOREBOARD = [
-    ("MPO sparse · overnight H1a", -243.5, False),
-    ("MPO sparse · Exp1 shutter t09", -101.6, False),
-    ("SAC flat encoder · Exp2 v1", -78.9, False),
-    ("MPO dense · Exp3", -51.6, False),
-    ("SAC vector · Exp4 ref1", -24.1, True),
-    ("SAC sparse · Exp3", -22.2, True),
-    ("SAC torque · Exp4 ref0", -11.1, True),
-    ("SAC M sparse · hparam", 50.6, True),
-    ("SAC S sparse · hparam", 69.8, True),
-    ("SAC compress · encoder r2", 80.9, True),
-    # Exp 8: MPO fixed dual torque — first learning signal
-    ("MPO fixed dual · Exp8 torque", -81.1, True),
-    # Exp 11: MPO fixed dual vector — second positive path
-    ("MPO fixed dual · Exp11 vector", 45.5, True),
-    # Exp 9: SAC shutter split — waste penalty OFF beats baseline
-    ("SAC shutter-split · Exp9 vector", 106.4, True),
+# (short label, run_id under backend/autonomous_control/runs, learning_mode inferred)
+# Runs with warmup return_mean <= 300 are excluded (baseline not tuned for fair comparison).
+_SCOREBOARD_BASELINE_MIN = 300.0
+_SCOREBOARD_RUNS = [
+    ("SAC encoder", "9998217211235184_ml_encoder_r2_sac_a1_03-06-04", True),
+    ("SAC torque", "9998217183842846_ml_ref_ref0_torque_10-42-36", True),
+    ("SAC sparse", "9998217225628033_ml_compare_compare_sac_23-06-11", True),
+    ("MPO dense", "9998217224670341_ml_compare_compare_mpo_23-22-09", False),
+    ("SAC flat", "9998217249101092_ml_encoder_sac_a0_16-34-58", False),
+    ("MPO torque fix", "9998217164480175_ml_mpo_decoupled_dual_torque_sparse_16-05-19", True),
+    ("MPO shutter", "ml_shutter_mpo_t05_14-04-49", False),
+    ("MPO collapse", "ml_overnight_h1a_mpo_sparse_22-18-35", False),
 ]
+
+
+def _scoreboard_row(run_id: str) -> tuple[float, float]:
+    path = _RUNS_ROOT / run_id / "summary_metrics.json"
+    if not path.is_file():
+        raise FileNotFoundError(f"summary_metrics.json missing for scoreboard run: {run_id}")
+    metrics = json.loads(path.read_text(encoding="utf-8"))
+    eval_mean = float(metrics["eval"]["return_mean"])
+    baseline = float(metrics["warmup"]["return_mean"])
+    return eval_mean, baseline
 
 
 def render_results_scoreboard(output_path: Path | str) -> Path:
     output_path = Path(output_path)
+    rows = []
+    for label, run_id, learning in _SCOREBOARD_RUNS:
+        eval_mean, baseline = _scoreboard_row(run_id)
+        if baseline <= _SCOREBOARD_BASELINE_MIN:
+            continue
+        rows.append((label, eval_mean, baseline, learning))
+    if not rows:
+        raise ValueError("no scoreboard runs pass baseline filter")
+    rows.sort(key=lambda r: r[1], reverse=True)  # best eval at top
+    n = len(rows)
+    labels = [r[0] for r in rows]
+    values = [r[1] for r in rows]
+    baselines = [r[2] for r in rows]
+    learn = [r[3] for r in rows]
+    ypos = list(range(n - 1, -1, -1))
+
     fig, ax = plt.subplots(figsize=(13.333, 7.5))
-    fig.patch.set_facecolor(BG)
-    ax.set_facecolor(BG)
+    fig.patch.set_facecolor(ETH_BG)
+    ax.set_facecolor(ETH_BG)
 
-    labels = [r[0] for r in _SCOREBOARD]
-    values = [r[1] for r in _SCOREBOARD]
-    learn = [r[2] for r in _SCOREBOARD]
-    ypos = list(range(len(labels)))
-    colors = [GREEN if lm else RED for lm in learn]
+    colors = [ETH_GREEN if lm else ETH_RED for lm in learn]
 
-    ax.barh(ypos, values, color=colors, edgecolor="#0B1221", height=0.66, zorder=3)
-    ax.axvline(0, color=MUTED, lw=1.2, zorder=2)
+    ax.barh(ypos, values, color=colors, edgecolor=ETH_BG, height=0.66, zorder=3)
+    ax.axvline(0, color=ETH_MUTED, lw=1.2, zorder=2)
 
-    # deterministic baseline reference (frozen warmup mean return = +89)
-    baseline = 89.0
-    ax.axvline(baseline, color=AMBER, lw=2.0, ls="--", zorder=5)
-    ax.text(baseline + 3, len(labels) - 0.35, "deterministic\nbaseline +89",
-            color=AMBER, fontsize=10, fontweight="bold", va="top", ha="left",
-            family=_FONT, zorder=6)
+    for y, base in zip(ypos, baselines):
+        ax.plot([base, base], [y - 0.33, y + 0.33], color=ETH_AMBER, lw=2.8, zorder=5)
+        ax.scatter([base], [y], marker="D", s=42, color=ETH_AMBER, edgecolor=ETH_BG,
+                   linewidths=0.6, zorder=6)
 
     for y, v in zip(ypos, values):
         off = 4 if v >= 0 else -4
         ha = "left" if v >= 0 else "right"
-        ax.text(v + off, y, f"{v:+.1f}", va="center", ha=ha, color=INK,
-                fontsize=10, fontweight="bold", family=_FONT, zorder=4)
+        ax.text(v + off, y, f"{v:+.1f}", va="center", ha=ha, color=ETH_INK,
+                fontsize=10, fontweight="bold", family=ETH_FONT, zorder=4)
 
+    xmin = min(min(values), min(baselines)) - 35
+    xmax = max(max(values), max(baselines)) + 45
     ax.set_yticks(ypos)
-    ax.set_yticklabels(labels, color=INK, fontsize=10.5, family=_FONT)
-    ax.set_xlim(-285, 160)
-    ax.tick_params(axis="x", colors=MUTED)
+    ax.set_yticklabels(labels, color=ETH_INK, fontsize=10.5, family=ETH_FONT)
+    ax.set_xlim(xmin, xmax)
+    ax.tick_params(axis="x", colors=ETH_MUTED)
     for spine in ax.spines.values():
         spine.set_visible(False)
-    ax.set_xlabel("eval mean episode return", color=MUTED, fontsize=11, family=_FONT)
+    ax.set_xlabel("eval mean episode return", color=ETH_MUTED, fontsize=11, family=ETH_FONT)
     ax.set_title("The learnability journey  —  eval return across the campaign",
-                 color=INK, fontsize=18, fontweight="bold", family=_FONT, pad=16, loc="left")
-    ax.grid(axis="x", color=EDGE, lw=0.7, zorder=0)
+                 color=ETH_BLUE, fontsize=18, fontweight="bold", family=ETH_FONT, pad=16, loc="left")
+    ax.grid(axis="x", color=ETH_EDGE, lw=0.7, zorder=0)
 
-    # legend (placed in the empty lower-right quadrant)
-    ax.text(0.985, 0.17, "learning signal inferred", transform=ax.transAxes, color=GREEN,
-            fontsize=11, fontweight="bold", ha="right", va="center", family=_FONT)
-    ax.text(0.985, 0.115, "no learning signal", transform=ax.transAxes, color=RED,
-            fontsize=11, fontweight="bold", ha="right", va="center", family=_FONT)
+    ax.text(0.985, 0.17, "learning signal inferred", transform=ax.transAxes, color=ETH_GREEN,
+            fontsize=11, fontweight="bold", ha="right", va="center", family=ETH_FONT)
+    ax.text(0.985, 0.115, "no learning signal", transform=ax.transAxes, color=ETH_RED,
+            fontsize=11, fontweight="bold", ha="right", va="center", family=ETH_FONT)
+    ax.text(0.985, 0.055, "warmup baseline (same run)", transform=ax.transAxes,
+            color=ETH_AMBER, fontsize=10, fontweight="bold", ha="right", va="center",
+            family=ETH_FONT)
 
     fig.text(0.012, 0.012,
-             "Learning signal = our read of returns trending up with finite KL (heuristic, not a setting).  "
-             "Baseline = deterministic warmup mean (+89).  Sources: verdict JSONs + run summary_metrics.json",
-             color=MUTED, fontsize=8, family=_FONT)
-    fig.subplots_adjust(left=0.27, right=0.97, top=0.86, bottom=0.12)
+             "Learning signal = returns trending up with finite KL (heuristic, not a setting).  "
+             f"Included only if warmup baseline > {_SCOREBOARD_BASELINE_MIN:.0f} (fair baseline tuning).  "
+             "Sources: backend/autonomous_control/runs/*/summary_metrics.json",
+             color=ETH_MUTED, fontsize=8, family=ETH_FONT)
+    fig.subplots_adjust(left=0.22, right=0.97, top=0.86, bottom=0.12)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=200, facecolor=BG)
+    fig.savefig(output_path, dpi=200, facecolor=ETH_BG)
     plt.close(fig)
     return output_path
 

@@ -14,7 +14,7 @@
 
 ## CLI reference
 
-All commands accept `--manifest PATH` and `build` accepts `--output PATH`.
+All commands accept `--manifest PATH`; `build` accepts `--template` (READ layout ref) and `--output` (WRITE target).
 
 | Command | Action |
 |---------|--------|
@@ -24,7 +24,8 @@ All commands accept `--manifest PATH` and `build` accepts `--output PATH`.
 | `set --id ID [--title] [--bullets a\|b] [--notes] [--status]` | Replace fields |
 | `append --id ID --bullets a\|b` | Append bullets |
 | `diagrams` | Regenerate PNGs from matplotlib renderer |
-| `build` | Write `.pptx` |
+| `build` | Write `.pptx` from ETH template (default) |
+| `build --legacy` | Write dark-theme programmatic deck |
 
 Pipe separator for bullets avoids JSON escaping in PowerShell.
 

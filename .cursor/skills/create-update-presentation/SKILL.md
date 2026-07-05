@@ -20,11 +20,25 @@ Tools live in [`.cursor/tools/presentation/`](../../tools/presentation/) — see
 | Artifact | Path |
 |----------|------|
 | Manifest (source of truth) | `docs/presentation/final/with-cursor/slides_manifest.json` |
-| Output | `docs/presentation/final/with-cursor/work_review_with_cursor.pptx` |
+| Layout reference (READ — user-edited ETH template) | `docs/presentation/READ_Final_presentation.pptx` |
+| Output (WRITE — agent rebuild target) | `docs/presentation/WRITE_Final_presentation.pptx` |
 | Diagrams | `docs/presentation/final/with-cursor/diagrams/` |
 | Technical record (cite, don't duplicate blindly) | `docs/presentation/*.md` |
 
-Override with `--manifest` / `--output` on the CLI when the user names another deck.
+Override with `--manifest` / `--template` / `--output` on the CLI when the user names another deck.
+
+### ETH layout contract (READ deck)
+
+Inspect `READ_Final_presentation.pptx` before patching — the deck uses the **ETH Zürich** theme (Arial, white background), not the legacy dark mission-control builder theme.
+
+| Layout | Use |
+|--------|-----|
+| `Titelfolie 04` | Title slide — accent3 (`#007A96`) hero block, ETH + Beyond Gravity logos |
+| `Agenda` (OBJECT) | Content slides — title bar, body bullets, footer logos, slide number |
+
+Content slides with images use a **two-column** split (~5.46″ bullets left, ~5.46″ image right). Slide size: 13.333″ × 7.5″ (16:9).
+
+**Note:** `build` copies `READ_Final_presentation.pptx`, clears slides, and fills ETH layouts from the manifest. Use `--legacy` for the old dark-theme programmatic deck. Missing MP4s fall back to poster PNGs with an embed hint.
 
 ## Preflight (mandatory)
 
@@ -96,7 +110,7 @@ python .cursor/tools/presentation/presentation_pptx.py check
 python .cursor/tools/presentation/presentation_pptx.py build
 ```
 
-Confirm `Wrote ...work_review_with_cursor.pptx`. Tell the user which slide ids changed and the full path to the pptx.
+Confirm `Wrote ...WRITE_Final_presentation.pptx`. Tell the user which slide ids changed and the full path to the pptx.
 
 ### 6. Close the loop
 

@@ -30,9 +30,18 @@ If nothing concrete is found after these steps, ask: *What should we never do ag
 
 ## Workflow (follow in order)
 
-### 0. Repo check (when user asks to "add" a skill)
+### 0. Repo check (when user asks to "add" or "create" a skill)
 
-Glob `.cursor/skills/**/SKILL.md` and `.cursor/commands/`. If a match exists, **refine** it; do not create a parallel skill unless the user wants a split.
+**Before writing any file**, ask where the skill should live (**AskQuestion** unless the user already specified — see `learnings.md` → `ask-skill-location-before-create`):
+
+| Option | Path |
+|--------|------|
+| **User / personal** — cross-project workflows | `~/.cursor/skills/` (e.g. `dev-skills/{name}/`) |
+| **Project** — repo-specific, shared with collaborators | `.cursor/skills/{name}/` |
+
+Then glob **both** skill trees plus project `.cursor/commands/` for duplicates. If a match exists, **refine** it; do not create a parallel skill unless the user wants a split.
+
+**Forbidden:** defaulting to project `.cursor/skills/` without asking.
 
 ### 1. Collect learnings
 

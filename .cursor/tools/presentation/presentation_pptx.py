@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -31,7 +32,8 @@ ALLOWED_STATUS = frozenset({"draft", "ready", "placeholder"})
 
 DEFAULT_MANIFEST_DIR = _REPO_ROOT / "docs" / "presentation" / "final" / "with-cursor"
 DEFAULT_MANIFEST = DEFAULT_MANIFEST_DIR / "slides_manifest.json"
-DEFAULT_PPTX = DEFAULT_MANIFEST_DIR / "work_review_with_cursor.pptx"
+DEFAULT_TEMPLATE = _REPO_ROOT / "docs" / "presentation" / "READ_Final_presentation.pptx"
+DEFAULT_PPTX = _REPO_ROOT / "docs" / "presentation" / "WRITE_Final_presentation.pptx"
 
 REQUIRED_SLIDE_KEYS = frozenset({"id", "section", "title", "bullets", "status"})
 
@@ -54,6 +56,25 @@ FONT = "Segoe UI"
 # accent colour per deck section
 SECTION_ACCENT = {"main": C_CYAN, "admin": C_AMBER, "backup": C_GREEN}
 
+# ETH READ deck two-column content band (matches slide 2 in READ_Final_presentation.pptx)
+ETH_COL_LEFT_X = Inches(0.52)
+ETH_COL_LEFT_W = Inches(5.97)
+ETH_COL_RIGHT_X = Inches(6.84)
+ETH_COL_RIGHT_W = Inches(5.97)
+ETH_CONTENT_Y = Inches(2.02)
+ETH_CONTENT_H = Inches(4.76)
+
+LAYOUT_TITLE = "Titelfolie 04"
+LAYOUT_CONTENT = "OBJECT"  # Agenda layout name in ETH template
+
+# ETH template table styling
+C_ETH_ACCENT = RGBColor(0x12, 0x69, 0xB0)
+C_ETH_INK = RGBColor(0x00, 0x00, 0x00)
+C_ETH_HEAD_FG = RGBColor(0xFF, 0xFF, 0xFF)
+C_ETH_ROW_A = RGBColor(0xF0, 0xF4, 0xF8)
+C_ETH_ROW_B = RGBColor(0xFF, 0xFF, 0xFF)
+ETH_FONT = "Arial"
+
 
 def _load_manifest(path: Path) -> dict[str, Any]:
     with path.open(encoding="utf-8") as fh:
@@ -62,7 +83,27 @@ def _load_manifest(path: Path) -> dict[str, Any]:
         raise ValueError("Manifest root must be a JSON object")
     if "slides" not in data or not isinstance(data["slides"], list):
         raise ValueError("Manifest must contain a 'slides' array")
-    return data
+    return _repair_mojibake_obj(data)
+
+
+def _repair_mojibake(text: str) -> str:
+    """Fix UTF-8 text that was mis-read as CP437 and stored as box-drawing glyphs."""
+    if not text or not any(ord(c) > 127 for c in text):
+        return text
+    try:
+        return text.encode("cp437").decode("utf-8")
+    except (UnicodeDecodeError, UnicodeEncodeError, LookupError):
+        return text
+
+
+def _repair_mojibake_obj(obj: Any) -> Any:
+    if isinstance(obj, str):
+        return _repair_mojibake(obj)
+    if isinstance(obj, list):
+        return [_repair_mojibake_obj(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _repair_mojibake_obj(v) for k, v in obj.items()}
+    return obj
 
 
 def _save_manifest(path: Path, data: dict[str, Any]) -> None:
@@ -413,7 +454,267 @@ def _resolve(manifest_path: Path, rel: str) -> Path:
     return p if p.is_absolute() else (manifest_path.parent / p)
 
 
-def build_pptx(manifest_path: Path | str, output_path: Path | str) -> Path:
+def _find_layout(prs: Presentation, *names: str):
+    for layout in prs.slide_layouts:
+        if layout.name in names:
+            return layout
+    raise ValueError(f"Template missing layout (want one of {names!r})")
+
+
+def _clear_slides(prs: Presentation) -> None:
+    """Remove all slides while keeping masters/theme from the template."""
+    ids = list(prs.slides._sldIdLst)  # ponytail: private API; only stable clear path in python-pptx
+    for sld_id in ids:
+        prs.part.drop_rel(sld_id.rId)
+        prs.slides._sldIdLst.remove(sld_id)
+
+
+def _fill_bullets(text_frame, bullets: list[str]) -> None:
+    if not bullets:
+        text_frame.text = ""
+        return
+    text_frame.text = bullets[0]
+    for line in bullets[1:]:
+        text_frame.add_paragraph().text = line
+
+
+def _add_eth_table_slide(
+    prs: Presentation,
+    title: str,
+    rows: list[list[str]],
+    *,
+    notes: str = "",
+    intro: str | None = None,
+    col_widths: list[float] | None = None,
+) -> None:
+    layout = _find_layout(prs, LAYOUT_CONTENT)
+    slide = prs.slides.add_slide(layout)
+    slide.shapes.title.text = title
+
+    top = Inches(1.35)
+    if intro:
+        box = slide.shapes.add_textbox(Inches(0.52), Inches(1.15), Inches(12.2), Inches(0.45))
+        box.text_frame.text = intro
+        for p in box.text_frame.paragraphs:
+            for run in p.runs:
+                run.font.name = ETH_FONT
+                run.font.size = Pt(11)
+                run.font.color.rgb = C_ETH_INK
+        top = Inches(1.65)
+
+    n_rows = len(rows)
+    n_cols = max(len(r) for r in rows) if rows else 1
+    table_w = Inches(12.2)
+    avail_h = Inches(5.6) - (top - Inches(1.35))
+    gfx = slide.shapes.add_table(n_rows, n_cols, Inches(0.52), top, table_w, avail_h)
+    table = gfx.table
+    table.first_row = False
+    table.horz_banding = False
+
+    if col_widths and len(col_widths) == n_cols:
+        total = sum(col_widths)
+        for c, frac in enumerate(col_widths):
+            table.columns[c].width = Emu(int(int(table_w) * frac / total))
+
+    for r, row in enumerate(rows):
+        is_head = r == 0
+        for c in range(n_cols):
+            cell = table.cell(r, c)
+            cell.margin_left = Inches(0.06)
+            cell.margin_right = Inches(0.06)
+            cell.margin_top = Inches(0.03)
+            cell.margin_bottom = Inches(0.03)
+            cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+            cell.fill.solid()
+            if is_head:
+                cell.fill.fore_color.rgb = C_ETH_ACCENT
+            else:
+                cell.fill.fore_color.rgb = C_ETH_ROW_A if r % 2 else C_ETH_ROW_B
+            text = row[c] if c < len(row) else ""
+            tf = cell.text_frame
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.alignment = PP_ALIGN.LEFT
+            run = p.add_run()
+            run.text = text
+            run.font.name = ETH_FONT
+            run.font.size = Pt(10 if n_cols > 3 else 11)
+            run.font.bold = is_head or c == 0
+            run.font.color.rgb = C_ETH_HEAD_FG if is_head else C_ETH_INK
+
+    if notes:
+        slide.notes_slide.notes_text_frame.text = notes
+
+
+def _fit_picture(path: Path, area_x, area_y, area_w, area_h):
+    px_w, px_h = _png_size(path)
+    aspect = px_w / px_h if px_h else 16 / 9
+    w = area_w
+    h = Emu(int(w / aspect))
+    if h > area_h:
+        h = area_h
+        w = Emu(int(h * aspect))
+    x = Emu(int(area_x + (area_w - w) / 2))
+    y = Emu(int(area_y + (area_h - h) / 2))
+    return x, y, w, h
+
+
+def _add_eth_title_slide(prs: Presentation, deck_title: str, deck_subtitle: str) -> None:
+    layout = _find_layout(prs, LAYOUT_TITLE)
+    slide = prs.slides.add_slide(layout)
+    title = deck_title
+    if deck_subtitle:
+        title = f"{deck_title}\n{deck_subtitle}"
+    slide.shapes.title.text = title
+    try:
+        slide.placeholders[1].text = (
+            "Cédric Grieder\nMSc Mechanical Engineering Student ETHZ\n06. July 2026"
+        )
+    except KeyError:
+        pass
+
+
+def _add_eth_content_slide(
+    prs: Presentation,
+    title: str,
+    bullets: list[str],
+    *,
+    notes: str = "",
+    image_path: Path | None = None,
+    video_path: Path | None = None,
+    poster_path: Path | None = None,
+) -> None:
+    layout = _find_layout(prs, LAYOUT_CONTENT)
+    slide = prs.slides.add_slide(layout)
+    slide.shapes.title.text = title
+
+    split = image_path is not None or video_path is not None
+    if split:
+        box = slide.shapes.add_textbox(
+            ETH_COL_LEFT_X, ETH_CONTENT_Y, ETH_COL_LEFT_W, ETH_CONTENT_H
+        )
+        _fill_bullets(box.text_frame, bullets)
+        area_x, area_w = ETH_COL_RIGHT_X, ETH_COL_RIGHT_W
+    elif bullets:
+        _fill_bullets(slide.placeholders[1].text_frame, bullets)
+        area_x, area_w = Inches(0.52), Inches(12.2)
+    else:
+        area_x, area_w = Inches(0.52), Inches(12.2)
+
+    area_y, area_h = ETH_CONTENT_Y, ETH_CONTENT_H
+
+    if image_path:
+        x, y, w, h = _fit_picture(image_path, area_x, area_y, area_w, area_h)
+        slide.shapes.add_picture(str(image_path), x, y, width=w, height=h)
+    elif video_path:
+        aspect = 16 / 9
+        if poster_path and poster_path.is_file():
+            pw, ph = _png_size(poster_path)
+            aspect = pw / ph if ph else aspect
+        w = area_w
+        h = Emu(int(w / aspect))
+        if h > area_h:
+            h = area_h
+            w = Emu(int(h * aspect))
+        x = Emu(int(area_x + (area_w - w) / 2))
+        y = Emu(int(area_y + (area_h - h) / 2))
+        poster = str(poster_path) if poster_path and poster_path.is_file() else None
+        try:
+            slide.shapes.add_movie(
+                str(video_path), x, y, w, h,
+                poster_frame_image=poster, mime_type="video/mp4",
+            )
+        except Exception:
+            if poster:
+                slide.shapes.add_picture(poster, x, y, width=w, height=h)
+
+    if notes:
+        slide.notes_slide.notes_text_frame.text = notes
+
+
+def build_pptx_from_template(
+    manifest_path: Path | str,
+    output_path: Path | str,
+    template_path: Path | str,
+) -> Path:
+    manifest_path = Path(manifest_path)
+    output_path = Path(output_path)
+    template_path = Path(template_path)
+    if not template_path.is_file():
+        raise FileNotFoundError(f"Template not found: {template_path}")
+
+    data = _load_manifest(manifest_path)
+    slides = assert_manifest_healthy(manifest_path)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(template_path, output_path)
+    prs = Presentation(str(output_path))
+    _clear_slides(prs)
+
+    deck_title = data.get("deck_title", "Presentation")
+    deck_subtitle = data.get("deck_subtitle", "")
+    _add_eth_title_slide(prs, deck_title, deck_subtitle)
+
+    for slide in slides:
+        title = slide["title"]
+        notes = slide.get("notes", "")
+        status = slide.get("status", "draft")
+        bullets = list(slide["bullets"])
+        if status == "placeholder" and bullets and bullets[-1] != "[YOUR CONTENT]":
+            bullets.append("[YOUR CONTENT]")
+
+        if slide.get("kind") == "section":
+            subtitle = bullets[0] if bullets else ""
+            section_bullets = [subtitle] if subtitle else []
+            _add_eth_content_slide(prs, title, section_bullets, notes=notes)
+            continue
+
+        table_rows = slide.get("table")
+        if table_rows:
+            intro = slide["bullets"][0] if slide.get("bullets") else None
+            _add_eth_table_slide(
+                prs, title, table_rows, notes=notes, intro=intro,
+                col_widths=slide.get("col_widths"),
+            )
+            continue
+
+        video_rel = slide.get("video")
+        if video_rel:
+            video_path = _resolve(manifest_path, video_rel)
+            poster_rel = slide.get("poster")
+            poster_path = _resolve(manifest_path, poster_rel) if poster_rel else None
+            if video_path.is_file():
+                _add_eth_content_slide(
+                    prs, title, bullets, notes=notes,
+                    video_path=video_path, poster_path=poster_path,
+                )
+            elif poster_path and poster_path.is_file():
+                # ponytail: MP4s often live outside git; poster + operator embed in PowerPoint UI
+                hint = bullets + [f"▶ {video_path.name} — click-to-play (embed in PowerPoint)"]
+                _add_eth_content_slide(prs, title, hint, notes=notes, image_path=poster_path)
+            else:
+                missing = bullets + [f"[video missing: {video_rel}]"]
+                _add_eth_content_slide(prs, title, missing, notes=notes)
+            continue
+
+        image_rel = slide.get("image")
+        if image_rel:
+            image_path = _resolve(manifest_path, image_rel)
+            if not image_path.is_file():
+                raise FileNotFoundError(
+                    f"Slide {slide['id']}: image not found: {image_path} "
+                    f"(run: python .cursor/tools/presentation/presentation_pptx.py diagrams)"
+                )
+            _add_eth_content_slide(prs, title, bullets, notes=notes, image_path=image_path)
+            continue
+
+        _add_eth_content_slide(prs, title, bullets, notes=notes)
+
+    prs.save(str(output_path))
+    return output_path
+
+
+def _build_pptx_legacy(manifest_path: Path | str, output_path: Path | str) -> Path:
     manifest_path = Path(manifest_path)
     output_path = Path(output_path)
     data = _load_manifest(manifest_path)
@@ -493,6 +794,21 @@ def build_pptx(manifest_path: Path | str, output_path: Path | str) -> Path:
     return output_path
 
 
+def build_pptx(
+    manifest_path: Path | str,
+    output_path: Path | str,
+    *,
+    template_path: Path | str | None = None,
+    legacy: bool = False,
+) -> Path:
+    if legacy:
+        return _build_pptx_legacy(manifest_path, output_path)
+    template_path = Path(template_path) if template_path else DEFAULT_TEMPLATE
+    if template_path.is_file():
+        return build_pptx_from_template(manifest_path, output_path, template_path)
+    return _build_pptx_legacy(manifest_path, output_path)
+
+
 def _print_slides(slides: list[dict[str, Any]]) -> None:
     sections: dict[str, int] = {}
     for slide in slides:
@@ -534,7 +850,12 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("check")
     sub.add_parser("list")
-    sub.add_parser("build")
+    build_p = sub.add_parser("build")
+    build_p.add_argument(
+        "--legacy",
+        action="store_true",
+        help="Use programmatic dark-theme deck (ignore ETH template)",
+    )
 
     diag_p = sub.add_parser("diagrams", help="Render flowchart PNGs from presentation_diagrams.py")
 
@@ -557,6 +878,8 @@ def main(argv: list[str] | None = None) -> int:
     append_p.add_argument("--bullets", required=True, help="Pipe-separated bullet lines")
 
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE,
+                        help="ETH layout reference deck (READ); build uses when template-aware")
     parser.add_argument("--output", type=Path, default=DEFAULT_PPTX)
 
     args = parser.parse_args(argv)
@@ -577,7 +900,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "build":
-        out = build_pptx(manifest, args.output)
+        out = build_pptx(
+            manifest,
+            args.output,
+            template_path=args.template,
+            legacy=getattr(args, "legacy", False),
+        )
         print(f"Wrote {out}")
         return 0
 

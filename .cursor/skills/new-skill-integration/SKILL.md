@@ -9,7 +9,10 @@ When a new skill lands, the rules and dev-process docs that previously carried t
 
 ## Phase 1 — Confirm scope and aggressiveness
 
-**Before authoring:** glob `.cursor/skills/**/SKILL.md` and `.cursor/commands/` — if a matching skill or command exists, extend it instead of creating a duplicate (see `learnings.md` → `check-existing-before-create-skill`).
+**Before authoring:**
+
+1. **Ask skill location** — user (`~/.cursor/skills/`) vs project (`.cursor/skills/`) unless the user already stated (see `learnings.md` → `ask-skill-location-before-create`).
+2. Glob **both** skill trees and project `.cursor/commands/` — if a matching skill or command exists, extend it instead of creating a duplicate (see `check-existing-before-create-skill`).
 
 Ask the user two narrow scoping questions before doing any work:
 

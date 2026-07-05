@@ -26,7 +26,7 @@ JSON/YAML beside user-facing output (`.pptx`, `.xlsx`):
 
 | Manifest | Output |
 |----------|--------|
-| `slides_manifest.json` | `work_review_with_cursor.pptx` |
+| `slides_manifest.json` | `WRITE_Final_presentation.pptx` (layout ref: `READ_Final_presentation.pptx`) |
 | `backlog.xlsx` rows | (workbook is both) |
 
 Agent edits manifest via CLI; `build` regenerates binary formats.

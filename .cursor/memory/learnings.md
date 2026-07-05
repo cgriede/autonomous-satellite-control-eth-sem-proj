@@ -260,3 +260,13 @@ Invoke **`/learn-skill`** (see [`.cursor/commands/learn-skill.md`](../commands/l
 - **Evidence:** Exp 14: `profile.json` has `export_episode_reward_plots: true`, `train_episode_videos: 3`; overnight `--screen` + `--full` ran with `trim_artifacts: true` → only `warmup_preview` PNG on disk; user expected same reward plots/MP4s as sibling experiments ("where do I see the plot?").
 - **Applied to:** experiment-knowledge-pipeline, experiment-visual-evidence, long-run-watch, review-experiment-build, hypothesis-experiment-cycle (POINTER), visual-output-verification (POINTER), video-frame-inspect (POINTER), learn-skill (POINTER), all other skills (N/A), all other rules (N/A)
 - **Status:** applied
+
+---
+
+### 2026-07-04 — ask-skill-location-before-create
+
+- **Type:** anti-pattern
+- **Learning:** Before creating a new skill, **AskQuestion where it should live** — user personal (`~/.cursor/skills/`, e.g. `dev-skills/{name}/`) vs project (`.cursor/skills/{name}/`) — unless the user already stated; never default to project without asking.
+- **Evidence:** `log-answered-questions` was created under project `.cursor/skills/`; user corrected it should be a user skill and had to be moved to `~/.cursor/skills/dev-skills/`.
+- **Applied to:** learn-skill, new-skill-integration, all other project skills (N/A), all rules (N/A)
+- **Status:** applied

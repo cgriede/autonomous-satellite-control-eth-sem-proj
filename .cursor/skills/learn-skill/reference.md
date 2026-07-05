@@ -63,8 +63,8 @@ Learning `backlog-xlsx-preflight` in `learnings.md` — anti-pattern: silent `ba
 | pm-briefing | UPDATE | Mandatory preflight + forbidden backlog.md |
 | pm-backlog-review | UPDATE | Source-of-truth table + missing workbook ask |
 | minimal-feature-cycle | UPDATE | Phase 1 preflight; Phase 5 status=done |
-| learn-skill | UPDATE | Step 0: glob before duplicate skill |
-| new-skill-integration | UPDATE | Phase 1 pre-create glob |
+| learn-skill | UPDATE | Step 0: ask user vs project location; glob both trees before duplicate skill |
+| new-skill-integration | UPDATE | Phase 1: ask location, then pre-create glob |
 | minimal-feature-review | POINTER | learn-skill + pm-backlog-review after review |
 | debug-workflow | N/A | No backlog surface |
 | render-is-view-only | N/A | No backlog surface |
