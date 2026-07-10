@@ -7,9 +7,9 @@ from matplotlib.colors import to_rgba
 from environment_definition.constants import RENDER, ureg
 
 if __package__:
-    from ._orbit_plane_static import draw_shaded_earth_disk, draw_star_field
+    from ._earth_photo import draw_orbit_plane_earth, draw_orbit_plane_stars
 else:
-    from render._orbit_plane_static import draw_shaded_earth_disk, draw_star_field
+    from render._earth_photo import draw_orbit_plane_earth, draw_orbit_plane_stars
 
 
 def _target_arc_world_xy(R_earth: float, phi_lo_deg: float, phi_hi_deg: float) -> tuple[np.ndarray, np.ndarray]:
@@ -97,8 +97,8 @@ def build_closeup_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         fontsize=RENDER.plot_title_fontsize, fontweight="bold", va="top", ha="left",
     )
 
-    draw_star_field(ax)
-    draw_shaded_earth_disk(ax, R_earth)
+    draw_orbit_plane_stars(ax)
+    draw_orbit_plane_earth(ax, R_earth)
 
     artists["target_bands"] = []
     for phi_lo_deg, phi_hi_deg in target_regions_deg:

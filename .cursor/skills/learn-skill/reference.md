@@ -22,10 +22,13 @@ When in doubt, **POINTER** at minimum: `See [learn-skill](../learn-skill/SKILL.m
 | Skill | Typical learning domains |
 |-------|---------------------------|
 | `architecture-planning` | boundaries, APIs, vertical slices |
-| `bulk-change-triage-commit` | git hygiene, unrelated WIP |
+| `bulk-change-triage-commit` | git hygiene, unrelated WIP, **no dump-commit of experiment trees for report** |
+| `create-update-presentation` | deck evidence; align with curated report figures |
 | `debug-workflow` | probes, logs, root-cause loop |
+| `document-research` | persistence layers; report archive curation |
+| `generate-research-report` | report prose; **figure freeze into `figures/`** |
 | `hypothesis-experiment-cycle` | experiment harness, promotion |
-| `experiment-knowledge-pipeline` | phases 0–4, closeout before promote, **atomic one-hypothesis-per-slug**, Nike vs plan implement gate |
+| `experiment-knowledge-pipeline` | phases 0–4, closeout before promote, **atomic one-hypothesis-per-slug**, Nike vs plan implement gate, Phase 4.3 report archive |
 | `long-run-watch` | overnight monitoring, **charter scope audit at closeout**, **visual artifact gap audit** |
 | `implementation-discipline` | scope, constants, terminology |
 | `isolated-notebook-hypotheses` | notebook-only logic, reload |
@@ -40,7 +43,8 @@ When in doubt, **POINTER** at minimum: `See [learn-skill](../learn-skill/SKILL.m
 | `pm-briefing` | backlog.xlsx, sprint readout |
 | `python-runtime-environment` | conda ASC, PYTHONPATH |
 | `targeted-cleanup-pass` | focused refactors |
-| `visual-output-verification` | MP4/plot human gates |
+| `video-frame-inspect` | MP4 → PNG; report figure freeze after inspect |
+| `visual-output-verification` | MP4/plot human gates; report figure freeze |
 
 Re-scan the glob on each run; add new skills to this table when they appear.
 
@@ -53,6 +57,7 @@ Re-scan the glob on each run; add new skills to this table when they appear.
 | `render-is-view-only.mdc` | sim in render |
 | `math-physics-technical-docs.mdc` | presentation doc updates |
 | `python-runtime-environment.mdc` | ASC env |
+| `experiment-visual-evidence.mdc` | video/plot evidence; **report figure curate-not-dump** |
 
 ## Canonical example (backlog-xlsx-preflight)
 

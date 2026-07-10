@@ -34,6 +34,8 @@ When working a numbered pipeline experiment ([`experiment-knowledge-pipeline`](.
 | **3** | **Required** before qualitative claims in Phase **3.2** / verdict table |
 | **4** | **Required** for report-archive artifacts in Phase **4.3** — user sign-off before `/close-experiment-step` |
 
+**Report figure freeze:** After verify, copy only selected assets into `docs/report/semester-project/figures/` and tag section/status in `FIGURES_TODO.md` — do not treat the full run dump as the report archive (learnings.md `report-figure-curate-not-dump`; [`generate-research-report`](../generate-research-report/SKILL.md) figure freeze).
+
 **Chat / run review:** When discussing pipeline results before closeout, list full MP4 paths per arm (eval first) — see experiment-knowledge-pipeline SKILL.md § Discussing run results; learnings.md `pipeline-discuss-runs-include-video-paths`.
 
 Pair with [`video-frame-inspect`](../video-frame-inspect/SKILL.md) for `.mp4`. Full map: [`skill-chain.md`](../experiment-knowledge-pipeline/skill-chain.md).

@@ -17,6 +17,7 @@ Agents cannot read `.mp4` binaries directly. Use this tool to export PNGs, then 
 - Any task where `visual-output-verification` applies but the artifact is video
 - **Pipeline Phase 2–4:** eval/train MP4 under `backend/autonomous_control/runs/<run_id>/videos/` — cite manifest in pipeline doc §2.3 / §4.3 ([`skill-chain.md`](../experiment-knowledge-pipeline/skill-chain.md)). Rule: [experiment-visual-evidence](../../rules/experiment-visual-evidence.mdc).
 - **Pipeline chat review:** user watches MP4; agent lists full paths per [`experiment-knowledge-pipeline`](../experiment-knowledge-pipeline/SKILL.md) § Discussing run results — frame inspect is agent pre-check only.
+- **Report figure freeze:** after inspect, curate selected frames into `docs/report/semester-project/figures/` — do not commit the full run dump (learnings.md `report-figure-curate-not-dump`).
 
 ## Workflow
 

@@ -1,0 +1,659 @@
+{
+  "run_at_utc": "2026-07-10T13:29:01.741184+00:00",
+  "experiment_id": "ml_mpo_episode_seed_diversity",
+  "phase": "full",
+  "completed_utc": "2026-07-10T13:29:01.741151+00:00",
+  "arm_id": "hp_explore",
+  "reward_mode": "exp14_capture_only",
+  "reward_mode_contract": {
+    "mode": "exp14_capture_only",
+    "capture_credit": "enabled",
+    "torque_effort_penalty": "disabled",
+    "budget_exhausted_shutter_penalty": "disabled",
+    "composite_alpha_beta_gamma_delta": "not_implemented"
+  },
+  "train_episodes": 50,
+  "warmup_episodes": 5,
+  "pair_baseline_train": true,
+  "wall_s": 2118.227783700044,
+  "train_returns": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "train_rows": [
+    {
+      "episode_index": 0,
+      "mission_seed": 118497308,
+      "cloud_seed": 3180523683,
+      "baseline_score": 4.2581954631763335,
+      "agent_score": 0.0,
+      "delta_score": -4.2581954631763335,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 1,
+      "mission_seed": 4192782505,
+      "cloud_seed": 2894949833,
+      "baseline_score": 1.5835812429312754,
+      "agent_score": 0.0,
+      "delta_score": -1.5835812429312754,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 2,
+      "mission_seed": 1385072640,
+      "cloud_seed": 1260526332,
+      "baseline_score": 2.8095756555466957,
+      "agent_score": 0.0,
+      "delta_score": -2.8095756555466957,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 3,
+      "mission_seed": 920895842,
+      "cloud_seed": 756018547,
+      "baseline_score": 2.6084603746320614,
+      "agent_score": 0.0,
+      "delta_score": -2.6084603746320614,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 4,
+      "mission_seed": 644223584,
+      "cloud_seed": 378251482,
+      "baseline_score": 2.857119821613843,
+      "agent_score": 0.0,
+      "delta_score": -2.857119821613843,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 5,
+      "mission_seed": 4020675321,
+      "cloud_seed": 597886298,
+      "baseline_score": 2.8444254512663636,
+      "agent_score": 0.0,
+      "delta_score": -2.8444254512663636,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 6,
+      "mission_seed": 164743256,
+      "cloud_seed": 3816470185,
+      "baseline_score": 4.493363536072027,
+      "agent_score": 0.0,
+      "delta_score": -4.493363536072027,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 7,
+      "mission_seed": 3598943317,
+      "cloud_seed": 3904333394,
+      "baseline_score": 3.3676893321435504,
+      "agent_score": 0.0,
+      "delta_score": -3.3676893321435504,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 8,
+      "mission_seed": 1578448431,
+      "cloud_seed": 2635515479,
+      "baseline_score": 4.185577820658612,
+      "agent_score": 0.0,
+      "delta_score": -4.185577820658612,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 9,
+      "mission_seed": 2191108425,
+      "cloud_seed": 4012469036,
+      "baseline_score": 3.9617746033347387,
+      "agent_score": 0.0,
+      "delta_score": -3.9617746033347387,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 10,
+      "mission_seed": 3665172434,
+      "cloud_seed": 2219455692,
+      "baseline_score": 2.669565651406437,
+      "agent_score": 0.0,
+      "delta_score": -2.669565651406437,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 11,
+      "mission_seed": 1953925512,
+      "cloud_seed": 458087235,
+      "baseline_score": 3.128503867723199,
+      "agent_score": 0.0,
+      "delta_score": -3.128503867723199,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 12,
+      "mission_seed": 3207607723,
+      "cloud_seed": 3874629461,
+      "baseline_score": 5.130665341950576,
+      "agent_score": 0.0,
+      "delta_score": -5.130665341950576,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 13,
+      "mission_seed": 4027622506,
+      "cloud_seed": 2198128410,
+      "baseline_score": 3.772643720748603,
+      "agent_score": 0.0,
+      "delta_score": -3.772643720748603,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 14,
+      "mission_seed": 1061029812,
+      "cloud_seed": 506614711,
+      "baseline_score": 2.9690803264752965,
+      "agent_score": 0.0,
+      "delta_score": -2.9690803264752965,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 15,
+      "mission_seed": 3006960932,
+      "cloud_seed": 2204848784,
+      "baseline_score": 4.295017001346512,
+      "agent_score": 0.0,
+      "delta_score": -4.295017001346512,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 16,
+      "mission_seed": 2984540993,
+      "cloud_seed": 2055306872,
+      "baseline_score": 3.360158801449323,
+      "agent_score": 0.0,
+      "delta_score": -3.360158801449323,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 17,
+      "mission_seed": 2884561212,
+      "cloud_seed": 2448975176,
+      "baseline_score": 2.2869138960722912,
+      "agent_score": 0.0,
+      "delta_score": -2.2869138960722912,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 18,
+      "mission_seed": 1714189667,
+      "cloud_seed": 3505077286,
+      "baseline_score": 4.111467238943877,
+      "agent_score": 0.0,
+      "delta_score": -4.111467238943877,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 19,
+      "mission_seed": 1494234781,
+      "cloud_seed": 1554791976,
+      "baseline_score": 2.7522080892370573,
+      "agent_score": 0.0,
+      "delta_score": -2.7522080892370573,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 20,
+      "mission_seed": 4119180143,
+      "cloud_seed": 2111181990,
+      "baseline_score": 2.721115358311709,
+      "agent_score": 0.0,
+      "delta_score": -2.721115358311709,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 21,
+      "mission_seed": 2082874588,
+      "cloud_seed": 2319861398,
+      "baseline_score": 3.7453465428299637,
+      "agent_score": 0.0,
+      "delta_score": -3.7453465428299637,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 22,
+      "mission_seed": 2747738769,
+      "cloud_seed": 3648613190,
+      "baseline_score": 4.5536691639597215,
+      "agent_score": 0.0,
+      "delta_score": -4.5536691639597215,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 23,
+      "mission_seed": 385938951,
+      "cloud_seed": 2031459235,
+      "baseline_score": 3.882076341856525,
+      "agent_score": 0.0,
+      "delta_score": -3.882076341856525,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 24,
+      "mission_seed": 2016149418,
+      "cloud_seed": 1470047386,
+      "baseline_score": 3.7632526703130327,
+      "agent_score": 0.0,
+      "delta_score": -3.7632526703130327,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 25,
+      "mission_seed": 3452197122,
+      "cloud_seed": 21403751,
+      "baseline_score": 2.5775133875629015,
+      "agent_score": 0.0,
+      "delta_score": -2.5775133875629015,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 26,
+      "mission_seed": 3881309358,
+      "cloud_seed": 2585804008,
+      "baseline_score": 5.070160901719246,
+      "agent_score": 0.0,
+      "delta_score": -5.070160901719246,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 27,
+      "mission_seed": 1960599299,
+      "cloud_seed": 2967499267,
+      "baseline_score": 4.219654407519412,
+      "agent_score": 0.0,
+      "delta_score": -4.219654407519412,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 28,
+      "mission_seed": 411644771,
+      "cloud_seed": 135246398,
+      "baseline_score": 3.905936932109631,
+      "agent_score": 0.0,
+      "delta_score": -3.905936932109631,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 29,
+      "mission_seed": 3509014362,
+      "cloud_seed": 517254243,
+      "baseline_score": 2.1824261755568504,
+      "agent_score": 0.0,
+      "delta_score": -2.1824261755568504,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 30,
+      "mission_seed": 826968459,
+      "cloud_seed": 2481790327,
+      "baseline_score": 3.130219826496028,
+      "agent_score": 0.0,
+      "delta_score": -3.130219826496028,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 31,
+      "mission_seed": 2014093322,
+      "cloud_seed": 2314640927,
+      "baseline_score": 5.192888625371773,
+      "agent_score": 0.0,
+      "delta_score": -5.192888625371773,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 32,
+      "mission_seed": 1347850835,
+      "cloud_seed": 3328002057,
+      "baseline_score": 4.843477046133158,
+      "agent_score": 0.0,
+      "delta_score": -4.843477046133158,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 33,
+      "mission_seed": 852114755,
+      "cloud_seed": 3958681217,
+      "baseline_score": 5.150370984101657,
+      "agent_score": 0.0,
+      "delta_score": -5.150370984101657,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 34,
+      "mission_seed": 457255701,
+      "cloud_seed": 2845782050,
+      "baseline_score": 3.237294060346808,
+      "agent_score": 0.0,
+      "delta_score": -3.237294060346808,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 35,
+      "mission_seed": 1996594251,
+      "cloud_seed": 3928545026,
+      "baseline_score": 3.6076555001906354,
+      "agent_score": 0.0,
+      "delta_score": -3.6076555001906354,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 36,
+      "mission_seed": 419657018,
+      "cloud_seed": 1814066285,
+      "baseline_score": 3.4801434567291416,
+      "agent_score": 0.0,
+      "delta_score": -3.4801434567291416,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 37,
+      "mission_seed": 1105025219,
+      "cloud_seed": 3315007104,
+      "baseline_score": 2.685307136719147,
+      "agent_score": 0.0,
+      "delta_score": -2.685307136719147,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 38,
+      "mission_seed": 876865218,
+      "cloud_seed": 2919682973,
+      "baseline_score": 3.7968469461045284,
+      "agent_score": 0.0,
+      "delta_score": -3.7968469461045284,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 39,
+      "mission_seed": 2034970916,
+      "cloud_seed": 1410059273,
+      "baseline_score": 2.987139995146162,
+      "agent_score": 0.0,
+      "delta_score": -2.987139995146162,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 40,
+      "mission_seed": 2352209835,
+      "cloud_seed": 2522357000,
+      "baseline_score": 5.351365156330872,
+      "agent_score": 0.0,
+      "delta_score": -5.351365156330872,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 41,
+      "mission_seed": 1787897543,
+      "cloud_seed": 2486177126,
+      "baseline_score": 3.7568862228732782,
+      "agent_score": 0.0,
+      "delta_score": -3.7568862228732782,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 42,
+      "mission_seed": 2643290776,
+      "cloud_seed": 941141821,
+      "baseline_score": 1.5436185358648804,
+      "agent_score": 0.0,
+      "delta_score": -1.5436185358648804,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 43,
+      "mission_seed": 32875382,
+      "cloud_seed": 1371310431,
+      "baseline_score": 3.436452823169006,
+      "agent_score": 0.0,
+      "delta_score": -3.436452823169006,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 44,
+      "mission_seed": 1680865818,
+      "cloud_seed": 3068918853,
+      "baseline_score": 4.586049809946785,
+      "agent_score": 0.0,
+      "delta_score": -4.586049809946785,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 45,
+      "mission_seed": 1566082042,
+      "cloud_seed": 2390785310,
+      "baseline_score": 3.3025834386450814,
+      "agent_score": 0.0,
+      "delta_score": -3.3025834386450814,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 46,
+      "mission_seed": 1909193884,
+      "cloud_seed": 1124442807,
+      "baseline_score": 2.7919786141436393,
+      "agent_score": 0.0,
+      "delta_score": -2.7919786141436393,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 47,
+      "mission_seed": 2034887234,
+      "cloud_seed": 3167077036,
+      "baseline_score": 5.121848555430735,
+      "agent_score": 0.0,
+      "delta_score": -5.121848555430735,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 48,
+      "mission_seed": 3088359898,
+      "cloud_seed": 2252461932,
+      "baseline_score": 2.296216752048209,
+      "agent_score": 0.0,
+      "delta_score": -2.296216752048209,
+      "agent_return": 0.0
+    },
+    {
+      "episode_index": 49,
+      "mission_seed": 753109871,
+      "cloud_seed": 1575962048,
+      "baseline_score": 3.5141938734683835,
+      "agent_score": 0.0,
+      "delta_score": -3.5141938734683835,
+      "agent_return": 0.0
+    }
+  ],
+  "train_delta_score_mean": -3.5575935295545515,
+  "eval": {
+    "experiment_id": "ml_mpo_episode_seed_diversity",
+    "cohort": "paired",
+    "score_mean_baseline": 4.162839827042141,
+    "score_mean_treatment": 0.3572488440073104,
+    "delta_score_mean": -3.8055909830348313,
+    "score_std_baseline": 0.7839331637569384,
+    "score_std_treatment": 0.0673418926654016,
+    "eval_return_mean": 35.72488440073104,
+    "per_seed": [
+      {
+        "eval_index": 0,
+        "mission_seed": 446458589,
+        "cloud_seed": 2603118482,
+        "baseline_score": 3.8894878692819894,
+        "treatment_score": 0.42680293983888795,
+        "delta_score": -3.4626849294431015,
+        "eval_return": 42.680293983888795
+      },
+      {
+        "eval_index": 1,
+        "mission_seed": 1429027873,
+        "cloud_seed": 271097940,
+        "baseline_score": 4.341681371932424,
+        "treatment_score": 0.2937647776097117,
+        "delta_score": -4.047916594322712,
+        "eval_return": 29.37647776097117
+      },
+      {
+        "eval_index": 2,
+        "mission_seed": 2628821745,
+        "cloud_seed": 3353516853,
+        "baseline_score": 2.7938960163395627,
+        "treatment_score": 0.34727282219664535,
+        "delta_score": -2.4466231941429175,
+        "eval_return": 34.72728221966454
+      },
+      {
+        "eval_index": 3,
+        "mission_seed": 444345863,
+        "cloud_seed": 622931742,
+        "baseline_score": 4.791624852943025,
+        "treatment_score": 0.4419650693680315,
+        "delta_score": -4.349659783574994,
+        "eval_return": 44.196506936803154
+      },
+      {
+        "eval_index": 4,
+        "mission_seed": 83808030,
+        "cloud_seed": 2280731783,
+        "baseline_score": 4.997509024713705,
+        "treatment_score": 0.2764386110232755,
+        "delta_score": -4.72107041369043,
+        "eval_return": 27.643861102327552
+      }
+    ],
+    "baseline": {
+      "cohort": "baseline",
+      "score_mean": 4.162839827042141,
+      "score_std": 0.7839331637569384,
+      "score_min": 2.7938960163395627,
+      "score_max": 4.997509024713705,
+      "score_ep": [
+        3.8894878692819894,
+        4.341681371932424,
+        2.7938960163395627,
+        4.791624852943025,
+        4.997509024713705
+      ],
+      "per_seed": [
+        {
+          "eval_index": 0,
+          "score_ep": 3.8894878692819894
+        },
+        {
+          "eval_index": 1,
+          "score_ep": 4.341681371932424
+        },
+        {
+          "eval_index": 2,
+          "score_ep": 2.7938960163395627
+        },
+        {
+          "eval_index": 3,
+          "score_ep": 4.791624852943025
+        },
+        {
+          "eval_index": 4,
+          "score_ep": 4.997509024713705
+        }
+      ]
+    },
+    "treatment": {
+      "cohort": "treatment",
+      "score_mean": 0.3572488440073104,
+      "score_std": 0.0673418926654016,
+      "score_min": 0.2764386110232755,
+      "score_max": 0.4419650693680315,
+      "score_ep": [
+        0.42680293983888795,
+        0.2937647776097117,
+        0.34727282219664535,
+        0.4419650693680315,
+        0.2764386110232755
+      ],
+      "per_seed": [
+        {
+          "eval_index": 0,
+          "score_ep": 0.42680293983888795,
+          "eval_return": 42.680293983888795
+        },
+        {
+          "eval_index": 1,
+          "score_ep": 0.2937647776097117,
+          "eval_return": 29.37647776097117
+        },
+        {
+          "eval_index": 2,
+          "score_ep": 0.34727282219664535,
+          "eval_return": 34.72728221966454
+        },
+        {
+          "eval_index": 3,
+          "score_ep": 0.4419650693680315,
+          "eval_return": 44.196506936803154
+        },
+        {
+          "eval_index": 4,
+          "score_ep": 0.2764386110232755,
+          "eval_return": 27.643861102327552
+        }
+      ]
+    }
+  },
+  "checkpoint_path": "C:\\Users\\cedri\\work\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_mpo_episode_seed_diversity\\results\\checkpoints\\hp_explore\\episode_seed_final.pt"
+}

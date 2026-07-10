@@ -41,6 +41,13 @@ class RenderConstants:
     earth_outline_color         : str
     earth_outline_linewidth     : float
     earth_outline_alpha         : float
+    earth_photo_enabled         : bool
+    earth_photo_calibration_path: str
+    earth_photo_show_stars      : bool
+    earth_photo_render_width_px : int
+    earth_crust_color           : str
+    earth_crust_linewidth       : float
+    earth_crust_alpha           : float
     target_band_color           : str
     target_captured_main_color  : str
     target_pending_cam_rgb      : tuple[float, float, float]
@@ -213,6 +220,13 @@ RENDER = RenderConstants(
     earth_outline_color          = "royalblue",
     earth_outline_linewidth      = 2.0,
     earth_outline_alpha          = 0.9,
+    earth_photo_enabled          = True,
+    earth_photo_calibration_path = "data/earth_image/earth_photo_calibration.json",
+    earth_photo_show_stars       = False,
+    earth_photo_render_width_px  = 1600,
+    earth_crust_color            = "royalblue",
+    earth_crust_linewidth        = 0.9,
+    earth_crust_alpha            = 0.95,
 
     target_band_color            = "red",
     target_captured_main_color   = "#2ecc71",

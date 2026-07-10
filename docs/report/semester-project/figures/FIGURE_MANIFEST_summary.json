@@ -1,0 +1,15 @@
+{
+  "generated_utc": "2026-07-10T12:33:09Z",
+  "n_candidates": 186,
+  "by_theme": {
+    "trend-learning-curve": 51,
+    "trend-returns": 51,
+    "episode-diagnostics-eval": 18,
+    "static-target-placement": 12,
+    "dynamic-cloud-generation": 17,
+    "dynamic-safety-maneuver": 25,
+    "behaviour-selective-shutter": 12
+  },
+  "manifest_md": "docs/report/semester-project/figures/FIGURE_MANIFEST.md",
+  "manifest_csv": "docs/report/semester-project/figures/FIGURE_MANIFEST.csv"
+}

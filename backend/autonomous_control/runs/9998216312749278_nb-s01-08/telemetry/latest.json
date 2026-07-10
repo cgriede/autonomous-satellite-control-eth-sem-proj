@@ -1,0 +1,6 @@
+{
+  "event":"run_started",
+  "timestamp_utc":"2026-07-10T12:40:50.949534+00:00",
+  "run_dir":"C:\\Users\\cedri\\work\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998216312749278_nb-s01-08",
+  "workflow":"s01_notebook_08"
+}

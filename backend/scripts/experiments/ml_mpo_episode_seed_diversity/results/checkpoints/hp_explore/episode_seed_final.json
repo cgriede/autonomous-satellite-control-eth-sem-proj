@@ -1,0 +1,10 @@
+{
+  "checkpoint_path": "C:\\Users\\cedri\\work\\code\\sem-proj-asc\\backend\\scripts\\experiments\\ml_mpo_episode_seed_diversity\\results\\checkpoints\\hp_explore\\episode_seed_final.pt",
+  "arm_id": "hp_explore",
+  "phase": "full",
+  "tag": "episode_seed_final",
+  "saved_at_utc": "2026-07-10T13:29:01.650100+00:00",
+  "train_episodes": 50,
+  "pair_baseline_train": true,
+  "eval_delta_score_mean": -3.8055909830348313
+}

@@ -1,0 +1,7 @@
+{"event":"run_started","timestamp_utc":"2026-07-10T12:40:50.949534+00:00","run_dir":"C:\\Users\\cedri\\work\\code\\sem-proj-asc\\backend\\autonomous_control\\runs\\9998216312749278_nb-s01-08","workflow":"s01_notebook_08"}
+{"event":"training_log","timestamp_utc":"2026-07-10T12:41:26.721428+00:00","message":"[run_serial] end mode=warmup steps=1935 total_reward=548.227990 avg_reward=0.283322","phase":"warmup","episode_idx":0}
+{"event":"training_log","timestamp_utc":"2026-07-10T12:42:01.821473+00:00","message":"[run_serial] end mode=warmup steps=1935 total_reward=468.678231 avg_reward=0.242211","phase":"warmup","episode_idx":1}
+{"event":"training_log","timestamp_utc":"2026-07-10T12:42:37.045611+00:00","message":"[run_serial] end mode=warmup steps=1935 total_reward=322.465809 avg_reward=0.166649","phase":"warmup","episode_idx":2}
+{"event":"training_log","timestamp_utc":"2026-07-10T12:43:12.908279+00:00","message":"[run_serial] end mode=warmup steps=1935 total_reward=497.389427 avg_reward=0.257049","phase":"warmup","episode_idx":3}
+{"event":"training_log","timestamp_utc":"2026-07-10T12:43:48.714115+00:00","message":"[run_serial] end mode=warmup steps=1935 total_reward=537.202996 avg_reward=0.277624","phase":"warmup","episode_idx":4}
+{"event":"training_log","timestamp_utc":"2026-07-10T12:43:49.489541+00:00","message":"[warmup] 5 episodes, total return=2374.0","phase":"warmup","episode_idx":4}

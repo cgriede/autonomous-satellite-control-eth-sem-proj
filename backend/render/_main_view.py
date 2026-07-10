@@ -10,9 +10,11 @@ from environment_definition.constants.SIMULATION import SIMULATION
 from simulation.camera_optics import pinhole_full_fov_rad
 
 if __package__:
-    from ._orbit_plane_static import draw_shaded_earth_disk, draw_star_field
+    from ._earth_frame import main_panel_axis_limits
+    from ._earth_photo import draw_orbit_plane_earth, draw_orbit_plane_stars
 else:
-    from render._orbit_plane_static import draw_shaded_earth_disk, draw_star_field
+    from render._earth_frame import main_panel_axis_limits
+    from render._earth_photo import draw_orbit_plane_earth, draw_orbit_plane_stars
 
 
 def _target_arc_world_xy(R_earth: float, phi_lo_deg: float, phi_hi_deg: float) -> tuple[np.ndarray, np.ndarray]:
@@ -44,27 +46,9 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
         target_regions_deg = [(tgt_a_deg, tgt_b_deg)]
 
     # framing (orbit-plane cross-section; matches simulation ``camera_2d`` disk XY)
-    theta_window = np.linspace(
-        theta_center + np.deg2rad(start_angle_deg),
-        theta_center + np.deg2rad(end_angle_deg),
-        721,
-    )
-    x_render = R_orbit * np.cos(theta_window)
-    y_render = R_orbit * np.sin(theta_window)
-    x_min_orbit = float(np.min(x_render))
-    x_max_orbit = float(np.max(x_render))
-    x_min_earth = float(np.clip(x_min_orbit, -R_earth, R_earth))
-    x_max_earth = float(np.clip(x_max_orbit, -R_earth, R_earth))
-    earth_cap_y_min = min(
-        np.sqrt(max(R_earth**2 - x_min_earth**2, 0.0)),
-        np.sqrt(max(R_earth**2 - x_max_earth**2, 0.0)),
-    )
-    zoom_pad_x = RENDER.zoom_pad_x.to(ureg.km).magnitude
-    zoom_pad_y_bottom = RENDER.zoom_pad_y_bottom.to(ureg.km).magnitude
-    zoom_pad_y_top = RENDER.zoom_pad_y_top.to(ureg.km).magnitude
-
-    ax.set_xlim(x_min_orbit - zoom_pad_x, x_max_orbit + zoom_pad_x)
-    ax.set_ylim(earth_cap_y_min - zoom_pad_y_bottom, float(np.max(y_render)) + zoom_pad_y_top)
+    x0, x1, y0, y1 = main_panel_axis_limits(scene)
+    ax.set_xlim(x0, x1)
+    ax.set_ylim(y0, y1)
     ax.set_aspect("equal", adjustable="box")
     ax.set_facecolor(RENDER.space_background)
     ax.axis("off")
@@ -104,8 +88,8 @@ def build_main_panel(fig: plt.Figure, scene: dict) -> tuple[dict, dict]:
             transform=ax.transAxes, color=RENDER.info_text_color, fontsize=7,
             ha="left", va="top", zorder=RENDER.zorder_info)
 
-    draw_star_field(ax)
-    draw_shaded_earth_disk(ax, float(R_earth))
+    draw_orbit_plane_stars(ax)
+    draw_orbit_plane_earth(ax, float(R_earth))
 
     # Reward-aligned observation target segments on Earth rim (dynamic color per capture state).
     artists["target_bands"] = []

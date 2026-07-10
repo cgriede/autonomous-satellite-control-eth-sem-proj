@@ -63,7 +63,37 @@ The episode-level learning curves show how the design space was narrowed:
   \item \textbf{Exp~11:} MPO in vector mode reaches $+45.5$, the first positive MPO eval return, after the decoupled-KL dual fix (Exp~8) removed the algorithm-level collapse.
 \end{itemize}
 
-Per-experiment learning curves are available in the run artefact directories.
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_learning_curve_exp1.png}
+    \caption{Exp~1 (not learning)}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_learning_curve_exp9.png}
+    \caption{Exp~9 (learning)}
+  \end{subfigure}
+  \caption{Learning behaviour contrast: flat/collapsed training under Exp~1 shutter-threshold MPO versus rising returns under Exp~9 SAC shutter-split (best supported SAC configuration).}
+  \label{fig:learning-vs-not}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_learning_curve_exp10.png}
+    \caption{Exp~10 (not learning)}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_learning_curve_exp11.png}
+    \caption{Exp~11 (learning)}
+  \end{subfigure}
+  \caption{MPO branch after the Exp~8 dual fix: Exp~10 safe-mode penalty collapses eval return, while Exp~11 vector-mode MPO shows sustained learning.}
+  \label{fig:learning-mpo-contrast}
+\end{figure}
 
 \subsection{Shutter spam and budget efficiency}
 \label{sec:results-shutter}
@@ -98,6 +128,13 @@ The budget-exhausted penalty (Exp~7) was the single most impactful reward change
 a 93\% reduction in shutter commands with a simultaneous increase in eval return.
 Removing the waste penalty (Exp~9) added a further behavioural improvement on top of that configuration.
 Together, these results show that reward structure, not algorithm choice alone, determines whether selective shuttering emerges.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.88\linewidth]{figures/fig_selective_shutter.png}
+  \caption{Eval episode from Exp~9 (SAC shutter-split): representative dashboard frame during selective capture behaviour on the fixed evaluation seed.}
+  \label{fig:selective-shutter}
+\end{figure}
 
 \subsection{Safe-mode and safety overhead}
 \label{sec:results-safemode}

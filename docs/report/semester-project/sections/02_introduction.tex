@@ -34,14 +34,28 @@ The experiments below treat this as a design-space question: which training choi
 \subsection{Deterministic baseline}
 \label{sec:baseline-intro}
 
-\missingfigure[figwidth=\linewidth]{%
-  \textbf{Fig.~0: Baseline overflight, three phases.}
-  Overhead 2D view of one deterministic baseline episode.
-  Phase~1 \textbf{Approach}: satellite enters the target corridor LOS window.
-  Phase~2 \textbf{Point}: OBC PD loop slews toward target bearing; off-nadir angle grows.
-  Phase~3 \textbf{Capture}: boresight error drops below threshold (Table~\ref{tab:baseline-config}), shutter fires.
-  Repeat for each scheduled target regardless of cloud cover.
-}
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_baseline_phase_approach.png}
+    \caption{Approach}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_baseline_phase_point.png}
+    \caption{Point}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_baseline_phase_capture.png}
+    \caption{Capture}
+  \end{subfigure}
+  \caption{Deterministic baseline overflight (orbit-disk dashboard).
+    Left to right: approach into the target corridor, slew toward a scheduled target, and capture near lock.
+    The schedule fires regardless of cloud cover (Table~\ref{tab:baseline-config}).}
+  \label{fig:baseline-overflight-phases}
+\end{figure}
 
 The reference strategy is a pre-scheduled sequential controller used as the comparison anchor throughout the experiments (Section~\ref{sec:baseline}).
 An onboard computer (OBC) runs a proportional--derivative pointing loop: it commands a target body angle (nadir coast or target bearing) and converts the tracking error into a reaction-wheel torque request.

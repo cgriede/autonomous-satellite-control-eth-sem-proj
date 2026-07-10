@@ -37,6 +37,7 @@ Pair with [`isolated-notebook-hypotheses`](../skills/isolated-notebook-hypothese
 - Saying “videos exist” without **full paths** and manifest path.
 - Discussing pipeline run results in chat (review, recap, arm comparison) with **KPI-only** tables and no MP4 paths when videos were exported.
 - Marking a visual/render task done from code inspection only.
+- Committing the full experiment dump as semester-report evidence — curate into `docs/report/semester-project/figures/` with section tags ([`generate-research-report`](../skills/generate-research-report/SKILL.md) figure freeze; learnings.md `report-figure-curate-not-dump`).
 
 ## Platform note
 

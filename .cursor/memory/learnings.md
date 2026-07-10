@@ -310,3 +310,13 @@ Invoke **`/learn-skill`** (see [`.cursor/commands/learn-skill.md`](../commands/l
 - **Evidence:** "shutter budget of ten captures per pass" appeared in §1.2 before any definition; `learning_mode`, `shutter_gym`, `shutter_meaningful_fraction` appeared raw in experiment descriptions; "arm" and "warmup/eval episodes" were used in the master table without prior explanation.
 - **Applied to:** generate-research-report (anti-patterns), update-research-report (anti-patterns), all other skills (N/A), all rules (N/A)
 - **Status:** applied
+
+---
+
+### 2026-07-10 — report-figure-curate-not-dump
+
+- **Type:** anti-pattern
+- **Learning:** Never commit the full experiment dump as report evidence — light-clean, then copy only selected plots/frames into `docs/report/semester-project/figures/` (optional `figures/candidates/` for real alternates), tag section/status in `FIGURES_TODO.md` (or a figure manifest), leave KPI/provenance under experiment `results/`; backups are real alternate artifacts marked `backup`, not synthetic invented data.
+- **Evidence:** Report closeout discussion: user asked select+sort into docs vs commit all data vs clean-then-commit; agreed curated report tree + placement tags; `*.mp4` already gitignored; `FIGURES_TODO.md` already maps figures → sections.
+- **Applied to:** generate-research-report (canonical figure freeze), document-research, bulk-change-triage-commit, visual-output-verification, experiment-knowledge-pipeline/skill-chain (Phase 4.3), create-update-presentation (POINTER), experiment-visual-evidence (Forbidden), learn-skill/reference (table), video-frame-inspect (POINTER), all other skills (N/A), units/simulation-sso/render-view-only/math-physics/python-runtime (N/A)
+- **Status:** applied

@@ -1,0 +1,33 @@
+{
+  "ref_run_id": "exp14_phase1_build",
+  "notes": "Exp 14: factored MPO target select + mission score @ dt 1.5s/1.5s",
+  "workflow": {
+    "train_episodes": 350,
+    "experiment_name": "mpo multienv target select",
+    "warmup_episodes": 5,
+    "eval_episodes": 0,
+    "seed": 7,
+    "train_episode_videos": 3,
+    "eval_episode_videos": 2,
+    "use_warmup_bundle_cache": false,
+    "rebuild_warmup_bundle_cache": false,
+    "train_every_n_steps": 1,
+    "updates_per_step": 1,
+    "warmup_targets_per_episode": 10,
+    "background_artifacts": false,
+    "collect_states": false,
+    "early_stop_on_budget_exhausted": false,
+    "export_episode_reward_plots": true,
+    "attitude_request_mode": "vector"
+  },
+  "mpo": {
+    "learning_rate_pi": 0.00015,
+    "learning_rate_q": 0.00045,
+    "actor_dropout": 0.15,
+    "warmup_episodes": 5,
+    "decoupled_kl": true,
+    "num_samples_q": 80,
+    "num_samples_pi": 40,
+    "max_target_index": 49
+  }
+}

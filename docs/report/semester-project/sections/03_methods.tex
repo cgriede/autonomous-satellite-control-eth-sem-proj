@@ -31,6 +31,13 @@ Fifty observation targets are placed at fixed positions along a ground corridor 
 Their angular positions in the orbit plane are computed once at episode initialisation from the sampled altitude.
 The specific geographic location of the corridor is irrelevant: the agent only ever sees orbit-plane angles, cloud fractions, and attitude state.
 
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.92\linewidth]{figures/fig_env_overview.png}
+  \caption{Environment overview on the orbit-disk dashboard: satellite on the pass arc, target corridor on the Earth limb, and seeded cloud primitives along the track.}
+  \label{fig:env-overview}
+\end{figure}
+
 \paragraph{Episode window.}
 The episode start and end positions along the pass were tuned so that the first target is not yet visible in the secondary wide-angle camera at episode open, with a small margin at both boundaries.
 This trims dead coast time at the corridor edges while keeping the engagement arc inside the pass.
@@ -222,10 +229,40 @@ The quality factor directly enters the capture-credit reward (Eq.~\ref{eq:r-cap}
 giving the agent an incentive to slow the boresight ground motion by pointing toward
 and tracking each target across its observation window.
 
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.72\linewidth]{figures/fig_image_quality_curve.png}
+  \caption{Normalised image quality $q=r/(\delta+r)$ with $r=\SI{0.30}{m}$.
+    Annotated operating points match the nadir-at-rest, half-tracking, and full-tracking regimes above.}
+  \label{fig:image-quality-curve}
+\end{figure}
+
 \paragraph{Cloud model.}
 Cloud primitives are parameterised arcs in the orbit plane.
 For each episode a seeded generator places cloud patches along the target corridor with extent, altitude, and thickness drawn from the ranges in Table~\ref{tab:constants-mission}.
 The cloud-blocked fraction of each camera-ray bin is computed at every timestep and contributed to the per-step observation and reward.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_clouds_t0.png}
+    \caption{$t_0$}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_clouds_t1.png}
+    \caption{$t_1$}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_clouds_t2.png}
+    \caption{$t_2$}
+  \end{subfigure}
+  \caption{Seeded cloud field evolving along a single pass (neighbor frames from one baseline episode).
+    Cloud arcs move relative to the target corridor and modulate the observation-line cloud fraction.}
+  \label{fig:cloud-motion}
+\end{figure}
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Baseline strategy}
@@ -278,6 +315,28 @@ Once safe mode is active the agent torque command is replaced by an onboard reco
 \end{enumerate}
 After LOCKOUT the controller exits safe mode and normal operation resumes.
 All phase thresholds are listed in Table~\ref{tab:safety-thresholds}.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_safety_t0.png}
+    \caption{Entry}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_safety_t1.png}
+    \caption{Recovery}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{figures/fig_safety_t2.png}
+    \caption{Hold}
+  \end{subfigure}
+  \caption{One attitude-safety cycle in torque-mode evaluation (neighbor frames).
+    Aggressive off-nadir motion triggers safe-mode recovery; agent commands are ignored until lockout completes.}
+  \label{fig:safety-maneuver}
+\end{figure}
 
 \begin{table}[htbp]
   \centering

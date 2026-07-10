@@ -122,6 +122,7 @@ Typical sequence: experiment-knowledge-pipeline Phases 0–2 → **document-rese
 - Investigation note without **rejected/deferred** section when scope was discussed
 - Claiming an experiment was not run when JSON/analysis card exists
 - Duplicating full experiment writeups in investigation notes (link JSON + analysis card)
+- Treating “report archive” as a dump of all run artifacts — curate into `docs/report/semester-project/figures/` and tag sections via `FIGURES_TODO.md` ([`generate-research-report`](../generate-research-report/SKILL.md) figure freeze; learnings.md `report-figure-curate-not-dump`)
 
 ## Checklist (closeout)
 

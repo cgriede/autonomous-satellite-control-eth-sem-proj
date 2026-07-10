@@ -9,132 +9,133 @@
 \contentsline {paragraph}{Current operational process.}{7}{section*.7}%
 \contentsline {subsection}{\numberline {1.2}Research question}{8}{subsection.1.2}%
 \contentsline {subsection}{\numberline {1.3}Deterministic baseline}{8}{subsection.1.3}%
-\contentsline {subsection}{\numberline {1.4}Scope and simplifications}{9}{subsection.1.4}%
+\contentsline {subsection}{\numberline {1.4}Scope and simplifications}{8}{subsection.1.4}%
 \contentsline {subsection}{\numberline {1.5}Contributions}{9}{subsection.1.5}%
 \contentsline {subsection}{\numberline {1.6}Report structure}{10}{subsection.1.6}%
 \contentsline {section}{\numberline {2}Methods}{10}{section.2}%
 \contentsline {subsection}{\numberline {2.1}Environment overview}{10}{subsection.2.1}%
-\contentsline {paragraph}{Altitude and orbit.}{10}{section*.9}%
-\contentsline {paragraph}{Target corridor.}{10}{section*.10}%
-\contentsline {paragraph}{Episode window.}{10}{section*.11}%
-\contentsline {paragraph}{Simulation timestep selection (H0 sweep).}{11}{section*.12}%
-\contentsline {subsection}{\numberline {2.2}Simplifications}{11}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Dynamics model}{11}{subsection.2.3}%
-\contentsline {paragraph}{Equations of motion.}{11}{section*.14}%
-\contentsline {paragraph}{Reaction-wheel limits.}{12}{section*.15}%
-\contentsline {paragraph}{Satellite mass.}{12}{section*.16}%
+\contentsline {paragraph}{Altitude and orbit.}{10}{section*.10}%
+\contentsline {paragraph}{Target corridor.}{10}{section*.11}%
+\contentsline {paragraph}{Episode window.}{10}{section*.13}%
+\contentsline {paragraph}{Off-policy learning and replay buffer.}{11}{section*.14}%
+\contentsline {paragraph}{Simulation timestep selection (H0 sweep).}{11}{section*.15}%
+\contentsline {subsection}{\numberline {2.2}Simplifications}{12}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Dynamics model}{12}{subsection.2.3}%
+\contentsline {paragraph}{Equations of motion.}{12}{section*.17}%
+\contentsline {paragraph}{Reaction-wheel limits.}{12}{section*.18}%
+\contentsline {paragraph}{Satellite mass.}{12}{section*.19}%
 \contentsline {subsection}{\numberline {2.4}Overflight and observation model}{12}{subsection.2.4}%
-\contentsline {paragraph}{Camera geometry.}{12}{section*.17}%
-\contentsline {paragraph}{Ray discretisation.}{12}{section*.18}%
-\contentsline {paragraph}{Image quality and motion smear.}{12}{section*.19}%
-\contentsline {subparagraph}{Step 1: Boresight ground speed.}{12}{section*.20}%
-\contentsline {subparagraph}{Step 2: Ground blur during exposure.}{13}{section*.21}%
-\contentsline {subparagraph}{Step 3: Normalised quality score.}{13}{section*.22}%
-\contentsline {subparagraph}{Characteristic regimes.}{13}{section*.23}%
-\contentsline {paragraph}{Cloud model.}{13}{section*.24}%
+\contentsline {paragraph}{Camera geometry.}{12}{section*.20}%
+\contentsline {paragraph}{Ray discretisation.}{12}{section*.21}%
+\contentsline {paragraph}{Image quality and motion smear.}{13}{section*.22}%
+\contentsline {subparagraph}{Step 1: Boresight ground speed.}{13}{section*.23}%
+\contentsline {subparagraph}{Step 2: Ground blur during exposure.}{13}{section*.24}%
+\contentsline {subparagraph}{Step 3: Normalised quality score.}{14}{section*.25}%
+\contentsline {subparagraph}{Characteristic regimes.}{14}{section*.26}%
+\contentsline {paragraph}{Cloud model.}{14}{section*.28}%
 \contentsline {subsection}{\numberline {2.5}Baseline strategy}{14}{subsection.2.5}%
-\contentsline {subsection}{\numberline {2.6}Attitude safety controller}{14}{subsection.2.6}%
-\contentsline {paragraph}{Normal-mode taper.}{14}{section*.25}%
-\contentsline {paragraph}{Safe-mode entry condition.}{14}{section*.26}%
-\contentsline {paragraph}{Safe-mode recovery phases.}{14}{section*.27}%
-\contentsline {subsection}{\numberline {2.7}Reward design}{14}{subsection.2.7}%
-\contentsline {paragraph}{Capture quality term (applied at shutter events).}{15}{section*.29}%
-\contentsline {paragraph}{Budget-exhausted penalty.}{15}{section*.30}%
-\contentsline {paragraph}{Shutter-waste penalty (off by default).}{15}{section*.31}%
-\contentsline {paragraph}{Torque-effort regulariser (torque mode only).}{15}{section*.32}%
-\contentsline {paragraph}{Safe-mode penalty (Exp~10 only, not default).}{15}{section*.33}%
-\contentsline {subsection}{\numberline {2.8}Learning algorithm: MPO}{15}{subsection.2.8}%
-\contentsline {paragraph}{E-step (sample-based policy evaluation).}{15}{section*.34}%
-\contentsline {paragraph}{M-step (policy update with trust region).}{16}{section*.35}%
-\contentsline {paragraph}{Decoupled-KL fix (Exp~8).}{16}{section*.36}%
-\contentsline {paragraph}{Network architecture.}{16}{section*.37}%
-\contentsline {subsection}{\numberline {2.9}Observation and action space}{16}{subsection.2.9}%
-\contentsline {paragraph}{Observations.}{16}{section*.39}%
-\contentsline {paragraph}{Actions.}{17}{section*.40}%
-\contentsline {subsection}{\numberline {2.10}Simulation architecture}{17}{subsection.2.10}%
-\contentsline {section}{\numberline {3}Experiments}{17}{section.3}%
-\contentsline {paragraph}{Experimental protocol.}{17}{section*.41}%
-\contentsline {subsection}{\numberline {3.1}Master comparison table}{18}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Exp~1: Shutter threshold ablation}{18}{subsection.3.2}%
-\contentsline {paragraph}{Motivation.}{18}{section*.43}%
-\contentsline {paragraph}{Config and result.}{18}{section*.44}%
-\contentsline {paragraph}{Verdict.}{19}{section*.45}%
-\contentsline {subsection}{\numberline {3.3}Exp~2: Modular encoder ablation}{19}{subsection.3.3}%
-\contentsline {paragraph}{Motivation.}{19}{section*.46}%
-\contentsline {paragraph}{Config and result.}{19}{section*.47}%
-\contentsline {paragraph}{Verdict.}{19}{section*.48}%
-\contentsline {subsection}{\numberline {3.4}Exp~3: SAC vs.\ MPO algorithm comparison}{19}{subsection.3.4}%
+\contentsline {subsection}{\numberline {2.6}Attitude safety controller}{15}{subsection.2.6}%
+\contentsline {paragraph}{Normal-mode taper.}{15}{section*.30}%
+\contentsline {paragraph}{Safe-mode entry condition.}{15}{section*.31}%
+\contentsline {paragraph}{Safe-mode recovery phases.}{15}{section*.32}%
+\contentsline {subsection}{\numberline {2.7}Reward design}{16}{subsection.2.7}%
+\contentsline {paragraph}{Capture quality term (applied at shutter events).}{16}{section*.35}%
+\contentsline {paragraph}{Budget-exhausted penalty.}{16}{section*.36}%
+\contentsline {paragraph}{Shutter-waste penalty (off by default).}{16}{section*.37}%
+\contentsline {paragraph}{Torque-effort regulariser (torque mode only).}{16}{section*.38}%
+\contentsline {paragraph}{Safe-mode penalty (Exp~10 only, not default).}{17}{section*.39}%
+\contentsline {subsection}{\numberline {2.8}Learning algorithm: MPO}{17}{subsection.2.8}%
+\contentsline {paragraph}{E-step (sample-based policy evaluation).}{17}{section*.40}%
+\contentsline {paragraph}{M-step (policy update with trust region).}{17}{section*.41}%
+\contentsline {paragraph}{Decoupled-KL fix (Exp~8).}{17}{section*.42}%
+\contentsline {paragraph}{Network architecture.}{17}{section*.43}%
+\contentsline {subsection}{\numberline {2.9}Observation and action space}{17}{subsection.2.9}%
+\contentsline {paragraph}{Observations.}{17}{section*.45}%
+\contentsline {paragraph}{Actions.}{17}{section*.46}%
+\contentsline {subsection}{\numberline {2.10}Simulation architecture}{18}{subsection.2.10}%
+\contentsline {section}{\numberline {3}Experiments}{18}{section.3}%
+\contentsline {paragraph}{Experimental protocol.}{19}{section*.47}%
+\contentsline {subsection}{\numberline {3.1}Master comparison table}{19}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Exp~1: Shutter threshold ablation}{19}{subsection.3.2}%
 \contentsline {paragraph}{Motivation.}{19}{section*.49}%
 \contentsline {paragraph}{Config and result.}{19}{section*.50}%
 \contentsline {paragraph}{Verdict.}{19}{section*.51}%
-\contentsline {subsection}{\numberline {3.5}Exp~4: Vector pointing mode}{19}{subsection.3.5}%
-\contentsline {paragraph}{Motivation.}{19}{section*.52}%
-\contentsline {paragraph}{Config and result.}{19}{section*.53}%
-\contentsline {paragraph}{Verdict.}{20}{section*.54}%
-\contentsline {subsection}{\numberline {3.6}Exp~5: MPO network width ablation}{20}{subsection.3.6}%
-\contentsline {paragraph}{Motivation.}{20}{section*.55}%
-\contentsline {paragraph}{Config and result.}{20}{section*.56}%
-\contentsline {paragraph}{Verdict.}{20}{section*.57}%
-\contentsline {subsection}{\numberline {3.7}Exp~7: SAC vector + budget-exhausted shutter penalty}{20}{subsection.3.7}%
-\contentsline {paragraph}{Motivation.}{20}{section*.58}%
-\contentsline {paragraph}{Config and result.}{20}{section*.59}%
-\contentsline {paragraph}{Verdict.}{20}{section*.60}%
-\contentsline {subsection}{\numberline {3.8}Exp~8: MPO decoupled-KL dual fix (torque mode)}{20}{subsection.3.8}%
-\contentsline {paragraph}{Motivation.}{20}{section*.61}%
-\contentsline {paragraph}{Config and result.}{20}{section*.62}%
-\contentsline {paragraph}{Verdict.}{20}{section*.63}%
-\contentsline {subsection}{\numberline {3.9}Exp~9: SAC shutter reward split (waste penalty off)}{21}{subsection.3.9}%
-\contentsline {paragraph}{Motivation.}{21}{section*.64}%
-\contentsline {paragraph}{Config and result.}{21}{section*.65}%
-\contentsline {paragraph}{Verdict.}{21}{section*.66}%
-\contentsline {subsection}{\numberline {3.10}Exp~10: MPO safe-mode penalty}{21}{subsection.3.10}%
-\contentsline {paragraph}{Motivation.}{21}{section*.67}%
-\contentsline {paragraph}{Config and result.}{21}{section*.68}%
-\contentsline {paragraph}{Verdict.}{21}{section*.69}%
-\contentsline {subsection}{\numberline {3.11}Exp~11: MPO fixed dual, vector mode}{21}{subsection.3.11}%
-\contentsline {paragraph}{Motivation.}{21}{section*.70}%
-\contentsline {paragraph}{Config and result.}{21}{section*.71}%
-\contentsline {paragraph}{Verdict.}{21}{section*.72}%
-\contentsline {subsection}{\numberline {3.12}Exp~12: MPO vector + torque-effort penalty ablation}{22}{subsection.3.12}%
-\contentsline {paragraph}{Motivation.}{22}{section*.73}%
-\contentsline {paragraph}{Config and result.}{22}{section*.74}%
-\contentsline {paragraph}{Verdict.}{22}{section*.75}%
-\contentsline {subsection}{\numberline {3.13}Exp~13: MPO learning-cadence sweep}{22}{subsection.3.13}%
-\contentsline {paragraph}{Motivation.}{22}{section*.76}%
-\contentsline {paragraph}{Config and result (partial).}{22}{section*.77}%
-\contentsline {paragraph}{Verdict.}{22}{section*.78}%
-\contentsline {subsection}{\numberline {3.14}Exp~14: MPO multi-environment target selection}{22}{subsection.3.14}%
-\contentsline {paragraph}{Motivation.}{22}{section*.79}%
-\contentsline {paragraph}{Config and result.}{22}{section*.80}%
-\contentsline {paragraph}{Verdict.}{22}{section*.81}%
-\contentsline {section}{\numberline {4}Results}{22}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Aggregate performance comparison}{23}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Learning progression}{23}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Shutter spam and budget efficiency}{24}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}Safe-mode and safety overhead}{24}{subsection.4.4}%
-\contentsline {subsection}{\numberline {4.5}Algorithm comparison: SAC vs.\ MPO}{25}{subsection.4.5}%
-\contentsline {section}{\numberline {5}Discussion}{25}{section.5}%
-\contentsline {subsection}{\numberline {5.1}What the experiment sequence taught}{25}{subsection.5.1}%
-\contentsline {paragraph}{1.\ Reward structure before algorithm.}{25}{section*.84}%
-\contentsline {paragraph}{2.\ Action-space design before reward fine-tuning.}{25}{section*.85}%
-\contentsline {paragraph}{3.\ Algorithm stability as a prerequisite.}{25}{section*.86}%
-\contentsline {subsection}{\numberline {5.2}Answer to the research question}{25}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Control hierarchy and action interface}{26}{subsection.5.3}%
-\contentsline {paragraph}{From torque to safety arbitration.}{26}{section*.87}%
-\contentsline {paragraph}{Action modes tested.}{26}{section*.88}%
-\contentsline {paragraph}{Segregation of control layers.}{26}{section*.89}%
-\contentsline {paragraph}{Intended end state.}{26}{section*.90}%
-\contentsline {subsection}{\numberline {5.4}Rejected paths}{26}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}Limitations}{27}{subsection.5.5}%
-\contentsline {paragraph}{Two-dimensional simulation.}{27}{section*.92}%
-\contentsline {paragraph}{Single-pass, single-orbit mission.}{27}{section*.93}%
-\contentsline {paragraph}{Simulation-only evaluation.}{27}{section*.94}%
-\contentsline {paragraph}{Fixed-seed evaluation.}{27}{section*.95}%
-\contentsline {paragraph}{Budget and episode length.}{27}{section*.96}%
-\contentsline {subsection}{\numberline {5.6}Deferred extensions}{28}{subsection.5.6}%
-\contentsline {section}{\numberline {6}Conclusion}{28}{section.6}%
-\contentsline {section}{\numberline {A}Supplementary material}{28}{appendix.A}%
-\contentsline {subsection}{\numberline {A.1}Repository}{28}{subsection.A.1}%
-\contentsline {subsection}{\numberline {A.2}Source index}{29}{subsection.A.2}%
-\contentsline {subsection}{\numberline {A.3}Live parameter record}{29}{subsection.A.3}%
-\contentsline {subsection}{\numberline {A.4}Artifact paths}{29}{subsection.A.4}%
+\contentsline {subsection}{\numberline {3.3}Exp~2: Modular encoder ablation}{21}{subsection.3.3}%
+\contentsline {paragraph}{Motivation.}{21}{section*.52}%
+\contentsline {paragraph}{Config and result.}{21}{section*.53}%
+\contentsline {paragraph}{Verdict.}{21}{section*.54}%
+\contentsline {subsection}{\numberline {3.4}Exp~3: SAC vs.\ MPO algorithm comparison}{21}{subsection.3.4}%
+\contentsline {paragraph}{Motivation.}{21}{section*.55}%
+\contentsline {paragraph}{Config and result.}{21}{section*.56}%
+\contentsline {paragraph}{Verdict.}{21}{section*.57}%
+\contentsline {subsection}{\numberline {3.5}Exp~4: Vector pointing mode}{21}{subsection.3.5}%
+\contentsline {paragraph}{Motivation.}{21}{section*.58}%
+\contentsline {paragraph}{Config and result.}{21}{section*.59}%
+\contentsline {paragraph}{Verdict.}{21}{section*.60}%
+\contentsline {subsection}{\numberline {3.6}Exp~5: MPO network width ablation}{22}{subsection.3.6}%
+\contentsline {paragraph}{Motivation.}{22}{section*.61}%
+\contentsline {paragraph}{Config and result.}{22}{section*.62}%
+\contentsline {paragraph}{Verdict.}{22}{section*.63}%
+\contentsline {subsection}{\numberline {3.7}Exp~7: SAC vector + budget-exhausted shutter penalty}{22}{subsection.3.7}%
+\contentsline {paragraph}{Motivation.}{22}{section*.64}%
+\contentsline {paragraph}{Config and result.}{22}{section*.65}%
+\contentsline {paragraph}{Verdict.}{22}{section*.66}%
+\contentsline {subsection}{\numberline {3.8}Exp~8: MPO decoupled-KL dual fix (torque mode)}{22}{subsection.3.8}%
+\contentsline {paragraph}{Motivation.}{22}{section*.67}%
+\contentsline {paragraph}{Config and result.}{22}{section*.68}%
+\contentsline {paragraph}{Verdict.}{22}{section*.69}%
+\contentsline {subsection}{\numberline {3.9}Exp~9: SAC shutter reward split (waste penalty off)}{22}{subsection.3.9}%
+\contentsline {paragraph}{Motivation.}{22}{section*.70}%
+\contentsline {paragraph}{Config and result.}{23}{section*.71}%
+\contentsline {paragraph}{Verdict.}{23}{section*.72}%
+\contentsline {subsection}{\numberline {3.10}Exp~10: MPO safe-mode penalty}{23}{subsection.3.10}%
+\contentsline {paragraph}{Motivation.}{23}{section*.73}%
+\contentsline {paragraph}{Config and result.}{23}{section*.74}%
+\contentsline {paragraph}{Verdict.}{23}{section*.75}%
+\contentsline {subsection}{\numberline {3.11}Exp~11: MPO fixed dual, vector mode}{23}{subsection.3.11}%
+\contentsline {paragraph}{Motivation.}{23}{section*.76}%
+\contentsline {paragraph}{Config and result.}{23}{section*.77}%
+\contentsline {paragraph}{Verdict.}{23}{section*.78}%
+\contentsline {subsection}{\numberline {3.12}Exp~12: MPO vector + torque-effort penalty ablation}{23}{subsection.3.12}%
+\contentsline {paragraph}{Motivation.}{23}{section*.79}%
+\contentsline {paragraph}{Config and result.}{24}{section*.80}%
+\contentsline {paragraph}{Verdict.}{24}{section*.81}%
+\contentsline {subsection}{\numberline {3.13}Exp~13: MPO learning-cadence sweep}{24}{subsection.3.13}%
+\contentsline {paragraph}{Motivation.}{24}{section*.82}%
+\contentsline {paragraph}{Config and result (partial).}{24}{section*.83}%
+\contentsline {paragraph}{Verdict.}{24}{section*.84}%
+\contentsline {subsection}{\numberline {3.14}Exp~14: MPO multi-environment target selection}{24}{subsection.3.14}%
+\contentsline {paragraph}{Motivation.}{24}{section*.85}%
+\contentsline {paragraph}{Config and result.}{24}{section*.86}%
+\contentsline {paragraph}{Verdict.}{24}{section*.87}%
+\contentsline {section}{\numberline {4}Results}{24}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Aggregate performance comparison}{25}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Learning progression}{25}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Shutter spam and budget efficiency}{26}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Safe-mode and safety overhead}{28}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Algorithm comparison: SAC vs.\ MPO}{28}{subsection.4.5}%
+\contentsline {section}{\numberline {5}Discussion}{28}{section.5}%
+\contentsline {subsection}{\numberline {5.1}What the experiment sequence taught}{28}{subsection.5.1}%
+\contentsline {paragraph}{1.\ Reward structure before algorithm.}{28}{section*.93}%
+\contentsline {paragraph}{2.\ Action-space design before reward fine-tuning.}{28}{section*.94}%
+\contentsline {paragraph}{3.\ Algorithm stability as a prerequisite.}{29}{section*.95}%
+\contentsline {subsection}{\numberline {5.2}Answer to the research question}{29}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Control hierarchy and action interface}{29}{subsection.5.3}%
+\contentsline {paragraph}{From torque to safety arbitration.}{29}{section*.96}%
+\contentsline {paragraph}{Action modes tested.}{29}{section*.97}%
+\contentsline {paragraph}{Segregation of control layers.}{29}{section*.98}%
+\contentsline {paragraph}{Intended end state (working hypothesis).}{30}{section*.99}%
+\contentsline {subsection}{\numberline {5.4}Rejected paths}{30}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Limitations}{30}{subsection.5.5}%
+\contentsline {paragraph}{Two-dimensional simulation.}{30}{section*.101}%
+\contentsline {paragraph}{Single-pass, single-orbit mission.}{31}{section*.102}%
+\contentsline {paragraph}{Simulation-only evaluation.}{31}{section*.103}%
+\contentsline {paragraph}{Fixed-seed evaluation.}{31}{section*.104}%
+\contentsline {paragraph}{Budget and episode length.}{31}{section*.105}%
+\contentsline {subsection}{\numberline {5.6}Deferred extensions}{31}{subsection.5.6}%
+\contentsline {section}{\numberline {6}Conclusion}{31}{section.6}%
+\contentsline {section}{\numberline {A}Supplementary material}{32}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}Repository}{32}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}Source index}{32}{subsection.A.2}%
+\contentsline {subsection}{\numberline {A.3}Live parameter record}{32}{subsection.A.3}%
+\contentsline {subsection}{\numberline {A.4}Artifact paths}{33}{subsection.A.4}%

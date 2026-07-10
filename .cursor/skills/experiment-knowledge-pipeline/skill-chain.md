@@ -104,7 +104,7 @@ Then [`document-research`](../document-research/SKILL.md) may draft investigatio
 | Decisions | `docs/research/DECISIONS.md` |
 | STATUS | `docs/ml/experiments/STATUS_*.md` |
 | Fork analysis | `backend/scripts/experiments/<slug>/*_analysis.md` |
-| Report archive | Curated videos/plots for semester report — list **full paths** (e.g. `run_dir/videos/eval_best.mp4`, `results/plots/`) |
+| Report archive | **Curated** videos/plots for the semester report — copy selected assets into `docs/report/semester-project/figures/` and tag sections in `FIGURES_TODO.md`; list provenance paths (e.g. `run_dir/videos/eval_best.mp4`, `results/plots/`). Do **not** dump the full experiment tree into the report folder (learnings.md `report-figure-curate-not-dump`) |
 | Visual gate | `visual-output-verification` on report-facing frames; `video-frame-inspect` manifest paths in 4.3 |
 | Human sign-off | User confirms artifacts before calling experiment closed ([`minimal-feature-review`](../minimal-feature-review/SKILL.md)) |
 

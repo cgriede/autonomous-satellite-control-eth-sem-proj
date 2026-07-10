@@ -47,6 +47,7 @@ Each phase block uses **What / Why / How** subsections (see skill `reference.md`
 | 12 | `ml_mpo_vector_torque_effort` | [12-mpo-vector-torque-effort.md](3-evaluation/12-mpo-vector-torque-effort.md) | `backend/scripts/experiments/ml_mpo_vector_torque_effort/` | **3** | pending | — |
 | 13 | `ml_mpo_learn_cadence_hparams` | [13-mpo-learn-cadence-hparams.md](2-run/13-mpo-learn-cadence-hparams.md) | `backend/scripts/experiments/ml_mpo_learn_cadence_hparams/` | 2 | pending | — |
 | 14 | `ml_mpo_multienv_target_select` | [14-mpo-multienv-target-select.md](2-run/14-mpo-multienv-target-select.md) | `backend/scripts/experiments/ml_mpo_multienv_target_select/` | **2** | pending | — |
+| 15 | `ml_mpo_episode_seed_diversity` | [15-mpo-episode-seed-diversity.md](3-evaluation/15-mpo-episode-seed-diversity.md) | `backend/scripts/experiments/ml_mpo_episode_seed_diversity/` | **3** | pending | — |
 
 ## Shared knobs (all pipeline experiments)
 
@@ -104,6 +105,7 @@ All training outputs live under **`backend/autonomous_control/runs/`**. Folder n
 | `ml_mpo_vector_torque_effort_` | **Exp 12** | `ml_mpo_vector_torque_effort` | `scripts/experiments/ml_mpo_vector_torque_effort/` |
 | `ml_shutter_` | **Exp 1** | `ml_shutter_threshold` | `scripts/experiments/ml_shutter_threshold/` |
 | `ml_mpo_multienv_target_` | **Exp 14** | `ml_mpo_multienv_target_select` | `scripts/experiments/ml_mpo_multienv_target_select/` |
+| `ml_mpo_episode_seed_` | **Exp 15** | `ml_mpo_episode_seed_diversity` | `scripts/experiments/ml_mpo_episode_seed_diversity/` |
 | `ml_overnight_` | *(legacy)* | H0–H6 overnight campaign | `scripts/experiments/ml_algo_overnight/` |
 | `train_timing_` | *(not pipeline)* | Timing profiler only | `scripts/experiments/train_timing/` |
 
