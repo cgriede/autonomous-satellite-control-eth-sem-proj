@@ -1,0 +1,28 @@
+{
+  "source": "Camera ground track speed.one (OneNote, not directly renderable)",
+  "title": "Camera bore ground-track speed derivation",
+  "transcribed_at": "2026-07-06",
+  "note": "OneNote .one format; derivation reconstructed from canonical source code (image_quality.py, camera_optics.py, camera_image.py, SATELLITE.py).",
+  "pages": [
+    {
+      "page": 1,
+      "typed_captions": [],
+      "handwriting": [
+        "Camera bore ground speed derivation — referenced from image_quality.py::analytic_bore_ground_velocity_disk_m_s",
+        "Satellite position: s = r_orb * [cos(theta_orb), sin(theta_orb)]",
+        "Boresight unit: d_hat = [cos(phi), sin(phi)], phi_dot = omega_body",
+        "Ray-ellipsoid: A t^2 + B t + C = 0, t* = positive root",
+        "t_dot = -(A_dot * t*^2 + B_dot * t* + C_dot) / (2 A t* + B)",
+        "g_dot = s_dot + t_dot * d_hat + t* * d_dot",
+        "v_bore = |g_dot|",
+        "blur_m = v_bore * t_exp, t_exp = 100 us",
+        "quality = r / (blur_m + r), r = 0.30 m"
+      ],
+      "figure_annotations": [
+        "Sketch of orbit disk with satellite position, boresight ray, and WGS84 ellipse intersection.",
+        "Annotations show orbit velocity vector, body rotation omega_body, and ground hit displacement during exposure."
+      ]
+    }
+  ],
+  "summary": "The camera bore ground-track speed is computed analytically via implicit differentiation of the ray-ellipsoid intersection (WGS84) with respect to time. Inputs: satellite orbital angle + rate, body angle + rate, boresight direction. Output: v_bore [m/s] -> ground blur delta = v_bore * t_exp [m] -> quality q = r/(delta+r), r=0.30m, t_exp=100us. Nadir at 540 km gives q~0.28; perfect target tracking gives q~1.0."
+}

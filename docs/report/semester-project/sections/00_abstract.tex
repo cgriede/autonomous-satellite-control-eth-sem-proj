@@ -1,0 +1,18 @@
+Satellite imaging of tropical rainforests is limited by persistent cloud cover.
+Conventional controllers image every target on a fixed pointing schedule, regardless of cloud conditions.
+Shutter budget and downlink capacity are wasted on cloud-obscured frames scientists cannot use.
+An autonomous pointing and scheduling policy that reacts to onboard camera observations would use those resources more efficiently.
+
+Because that idea appears straightforward, this work asks a narrower question:
+what reward shaping and action-space design are required to train such a policy in simulation?
+We build a reproducible platform for that investigation: single-axis attitude dynamics, ray-tracing cameras, parameterised cloud primitives, and a multi-phase safety controller.
+A deterministic sequential-target overflight policy serves as the comparison baseline.
+Two off-policy reinforcement-learning algorithms are trained and evaluated: Soft Actor-Critic and Maximum a Posteriori Policy Optimisation.
+
+The experiments show that the problem is not trivial in practice.
+Reward structure, how the agent commands attitude, and correct algorithm implementation each had to be resolved before useful behaviour emerged.
+Both algorithms eventually develop selective shuttering absent in the deterministic baseline, but reliable mission-level gains over that baseline were not established within the semester scope.
+
+The study is limited to a 2D single-pass orbital model.
+Attitude safety constraints are enforced throughout.
+Flight hardware, multi-orbit planning, and three-dimensional operations are out of scope.

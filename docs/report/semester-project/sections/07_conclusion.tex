@@ -1,0 +1,15 @@
+\label{sec:conclusion}
+
+We set out to answer a question that looks simple from the outside:
+if cloud-aware autonomous scheduling is obviously better than a fixed capture plan, what reward shaping and action-space design are needed to train such a policy in simulation?
+The semester work shows that the answer is not trivial.
+
+A reproducible simulation and training platform was built to investigate that question systematically.
+Fourteen experiments varied reward structure, action representation, and learning algorithm under matched baseline conditions.
+Three design levers dominated the outcome: reward information at the action clock, delegating rate control to a pointing controller rather than raw torque commands, and correct implementation of the MPO trust-region update.
+Once those were in place, both SAC and MPO developed selective shuttering behaviour absent in the deterministic baseline.
+Reliable quantitative outperformance of that baseline on mission return was not established within the semester scope; the main contribution is a mapped design space and an experimental protocol for continuing the search.
+
+\textbf{Outlook.}
+Near-term work: extend evaluation beyond aggregate return, tighten the protocol for longer training runs, and migrate control authority toward mission-level intent while keeping a single canonical episode artifact for train, eval, and render.
+Logical extensions beyond this semester include three-dimensional attitude and orbit propagation, richer terrain and real imagery ingestion, and multi-orbit scheduling.

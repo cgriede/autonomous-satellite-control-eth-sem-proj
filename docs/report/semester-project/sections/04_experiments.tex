@@ -1,0 +1,370 @@
+\label{sec:experiments}
+
+Fourteen experiments were conducted between 2026-06-28 and 2026-07-02 to map the reward and action-space design required for cloud-aware autonomous pointing.
+Each run tests one concrete design choice; the sequence is cumulative rather than a search for a single winning configuration.
+The arc divides into three phases: (i) diagnosing why naive training setups fail (Exps~1--5),
+(ii) reward shaping and action-space design (Exps~4--9), and
+(iii) MPO-specific stabilisation and further ablations (Exps~8--12), followed by scale and cadence probes (Exps~13--14).
+Experiment~6 (modular encoder rerun) was deferred and is not included.
+
+\paragraph{Experimental protocol.}
+\label{sec:exp-protocol}
+A fixed random seed (7) ensures identical altitude draws, cloud layouts, and target positions across all compared runs.
+All experiments share the canonical simulation architecture described in Section~\ref{sec:arch}.
+
+Before training begins, \emph{warmup episodes} pre-fill the replay buffer (Section~\ref{sec:replay-buffer}) using the deterministic baseline policy.
+This was not the initial choice: early attempts using random torque commands or a zero-torque coast strategy yielded no reward signal, because neither strategy ever issues capture commands that earn positive credit.
+The baseline policy, by contrast, reliably captures targets on clear passes.
+Even so, only around ten capture actions fall within a 516-step episode ($\approx 2\%$ of all transitions), so the buffer is extremely sparse in rewarded transitions.
+The warmup data therefore serves a dual purpose: it bootstraps the replay buffer with at least some positive-credit transitions, and the episode return it achieves is the KPI comparison anchor used throughout.
+
+\emph{Evaluation episodes} run the current learned policy without gradient updates; eval return is the primary metric.
+A run is said to show a \emph{learning signal} if its per-episode training return trends upward over training, indicating the policy has discovered the reward structure.
+Concretely, this requires at least one training episode to substantially exceed the warmup return and for the trend to be sustained rather than a single outlier.
+Runs without a learning signal converge to a flat return plateau from episode~1 onward, regardless of the number of training episodes, and are reported as \emph{not supported}.
+In the verdict column, \emph{supported} means the design choice under test produced the expected learning or behavioural change (for example selective shuttering or a stable upward return trend); it does not by itself claim mission-ready outperformance of the baseline.
+Results are archived as JSON files per experiment; key metrics are cited directly below.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Master comparison table}
+\label{sec:exp-table}
+
+Table~\ref{tab:exp-comparison} lists the full configuration and primary KPI for every run.
+The \textbf{baseline anchor} row is the deterministic baseline evaluated at matched seeds (mean eval return $-38.6$; anchored in Exp~13).
+
+\begin{table}[htbp]
+  \centering
+  \caption{Master experiment comparison. Algorithm: SAC = Soft Actor--Critic; MPO = Maximum a Posteriori Policy Optimisation.
+    Action: T = torque (direct RW), V = vector pointing (nadir-relative offset).
+    Reward flags: B = budget-exhausted shutter penalty; W = within-budget waste penalty; E = torque effort;
+    S = safe-mode per-step penalty.
+    Seeds: fixed 7 for all ML experiments; env draws are seeded per warmup fingerprint.
+    Eval return is mean over 2 evaluation episodes unless otherwise noted.
+    $\Delta$ is relative to the immediate predecessor configuration.}
+  \label{tab:exp-comparison}
+  \scriptsize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lllllccccc}
+    \toprule
+    Exp & Config & Alg & Act & Reward flags & Warmup & Train & Eval eps & Eval return & Verdict \\
+    \midrule
+    nb07      & baseline           & ---  & V  & ---        & ---  & ---  & 2 & $-38.6$   & --- \\
+    \midrule
+    1         & mpo\_t05           & MPO  & T  & ---        & 5    & 7    & 2 & $-101.6$  & not\_supported \\
+    1         & mpo\_t09           & MPO  & T  & ---        & 5    & 7    & 2 & $-101.6$  & not\_supported \\
+    2         & sac\_a0            & SAC  & T  & ---        & 5    & 7    & 2 & $-78.9$   & not\_supported \\
+    2         & sac\_a1            & SAC  & T  & ---        & 5    & 7    & 2 & $-86.5$   & not\_supported \\
+    3         & compare\_sac       & SAC  & T  & ---        & 5    & 37$^\dagger$  & 2 & $-22.2$   & supported \\
+    3         & compare\_mpo       & MPO  & T  & dense      & 5    & 22$^\dagger$  & 2 & $-51.6$   & not\_supported \\
+    4         & ref0 (torque)      & SAC  & T  & ---        & 5    & 50   & 2 & $-11.1$   & partial \\
+    4         & ref1 (vector)      & SAC  & V  & ---        & 5    & 50   & 2 & $-24.1$   & partial \\
+    5         & mpo\_s (90/140)    & MPO  & T  & sparse     & 5    & 50   & 2 & $-51.6$   & not\_supported \\
+    5         & mpo\_m (140/256)   & MPO  & T  & sparse     & 5    & 50   & 2 & $-51.6$   & not\_supported \\
+    5         & mpo\_l (256/512)   & MPO  & T  & sparse     & 5    & 50   & 2 & $-51.6$   & not\_supported \\
+    7         & penalty\_on        & SAC  & V  & B          & 5    & 50   & 2 & $+10.6$   & supported \\
+    8         & torque\_sparse     & MPO* & T  & ---        & 5    & 50   & 2 & $-81.1$   & partial \\
+    9         & waste\_off\_budget\_on & SAC & V & B (W off)& 5    & 50   & 2 & $+106.4$  & supported \\
+    10        & safe\_mode\_on     & MPO* & T  & S($k$=2.0) & 5    & 50   & 2 & $-510.4$  & not\_supported \\
+    11        & vector\_sparse     & MPO* & V  & ---        & 5    & 50   & 2 & $+45.5$   & supported \\
+    12        & vector\_effort     & MPO* & V  & E($k$=0.1) & 5    & 50   & 2 & $+25.3$   & not\_supported \\
+    13        & baseline\_1\_1\_1  & nb07 & V  & ---        & ---  & ---  & 2 & $-38.6$   & --- \\
+    13        & cadence\_1\_1\_10  & MPO* & V  & ---        & 5    & 50   & 2 & $-46.4$   & not\_supported \\
+    13        & cadence\_1\_1\_50  & MPO* & V  & ---        & 5    & 50   & 2 & $-15.4$   & partial \\
+    14        & multienv           & MPO* & V  & ---        & 5    & 350  & 2 & n/a$^\ddagger$ & not\_supported \\
+    \bottomrule
+    \multicolumn{10}{l}{$^\dagger$ Early abort (patience 20 eps). \quad *MPO with decoupled-KL dual fix (Exp~8). \quad $^\ddagger$ Run crashed (OSError).} \\
+  \end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~1: Shutter threshold ablation}
+\label{sec:exp1}
+
+\paragraph{Motivation.}
+Preliminary runs showed the MPO agent emitting $\sim$968 shutter commands per episode, far exceeding the budget of ten and firing the shutter on nearly every controller step.
+The hypothesis was that raising the continuous action threshold (above which a shutter command is issued) from 0.5 to 0.9 would mechanically reduce this saturation
+and, combined with a 15\,s credit window around each accepted capture, create a learnable reward gradient.
+
+\paragraph{Config and result.}
+Two configurations (shutter threshold 0.5 and threshold 0.9) were run for 7 training episodes at $\Delta t=1.5$\,s.
+Both produced an identical eval return of $-101.6$ with $\sim$516 shutter commands per episode.
+The policy's shutter action was saturated near its maximum value (mean $\approx 0.999$) at both thresholds.
+It fired the shutter on almost every step regardless of threshold setting.
+Neither showed a learning signal; every shutter command produced zero useful capture credit.
+
+\paragraph{Verdict.}
+\textbf{Not supported.}
+Threshold tuning is not an effective lever while the policy saturates the action dimension.
+The credit window creates latent mid-episode reward bursts but does not fix credit assignment.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~2: Modular encoder ablation}
+\label{sec:exp2}
+
+\paragraph{Motivation.}
+The controller observation is 105-dimensional with 50+50 structured bearing/mask fields.
+Flattening these into a single MLP may be sample-inefficient compared to a group-compressor
+\citep{gorishniy2022revisiting}.
+Variant A1 replaced the flat concat with a $\mathrm{Linear}(50 \to 8)$ compressor on each field group.
+
+\paragraph{Config and result.}
+SAC sparse, 7 training episodes.
+A0 (flat): eval $-78.9$, 223 shutters/ep.
+A1 (compress): eval $-86.5$, 98 shutters/ep.
+Neither variant showed a learning signal; both produced zero meaningful captures.
+A1's critic loss diverged (3190 vs A0's 1420 at episode~7), indicating training instability in the compressed branch.
+
+\paragraph{Verdict.}
+\textbf{Not supported.}
+The structured observation encoder shows no benefit in the 7-episode non-learnable slice.
+The encoder is deferred for a rerun once a stable learning configuration exists (deferred Exp~6).
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~3: SAC vs.\ MPO algorithm comparison}
+\label{sec:exp3}
+
+\paragraph{Motivation.}
+Exps~1--2 both used MPO; learning failure could be algorithm-specific.
+Exp~3 runs SAC (sparse reward) and MPO (dense reward) under matched protocol to isolate the
+algorithm--reward interaction \citep{haarnoja2018sac,abdolmaleki2018mpo}.
+
+\paragraph{Config and result.}
+Early-abort patience of 20 episodes.
+SAC sparse (early-abort at ep~37): eval $-22.2$, clear learning signal, best training return $+5.3$.
+MPO dense (early-abort at ep~22): eval $-51.6$, no learning signal, KL divergence $\approx 3.8\times10^5$.
+SAC clearly separated from MPO: the SAC policy converged while MPO's policy update blew up.
+
+\paragraph{Verdict.}
+\textbf{Supported.}
+SAC learns under sparse reward; MPO dense fails in this configuration.
+Algorithm choice matters; MPO's failure traced to an unconstrained M-step dual, motivating the fix in Exp~8.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~4: Vector pointing mode}
+\label{sec:exp4}
+
+\paragraph{Motivation.}
+Outputting a direct reaction-wheel torque conflates two problems: target scheduling and rate control.
+The vector pointing interface delegates rate control to a proportional--derivative loop
+and exposes a nadir-relative offset to the policy, reducing the action space the learner must shape for scheduling.
+
+\paragraph{Config and result.}
+SAC sparse, 50 training episodes.
+Ref0 (torque): eval $-11.1$, clear learning signal, best training return $+8.4$.
+Ref1 (vector): eval $-24.1$, clear learning signal, best training return $+95.8$.
+Ref1's eval was worse, but video of training episode~11 (+95.8) showed deliberate off-nadir scheduling
+and sparse mid-orbit shutter firings.
+This showed a qualitatively different and promising behaviour.
+End-of-episode shutter spam after budget exhaustion remained apparent in Ref1.
+
+\paragraph{Verdict.}
+\textbf{Partial.}
+Vector mode is valid and both variants learn, but the eval gap between them is unexplained.
+The shutter-budget ignorance motivates Exp~7.
+Vector pointing mode is retained as the preferred action interface for subsequent experiments.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~5: MPO network width ablation}
+\label{sec:exp5}
+
+\paragraph{Motivation.}
+Before investigating the MPO dual, the hypothesis that a 90/140-unit head was capacity-limited
+was tested with three widths: S (90/140), M (140/256), L (256/512).
+This was gated after the encoder experiment following \citet{bruin2018irl} suggestions
+on structure-before-capacity.
+
+\paragraph{Config and result.}
+MPO sparse, 50 training episodes.
+All three widths produced identical eval $-51.6$ and identical KL freeze/explosion patterns.
+Post-episode-1 returns were flat; every shutter command produced zero useful capture credit across all three width variants.
+
+\paragraph{Verdict.}
+\textbf{Not supported.}
+Network width is not the bottleneck; the shared collapse pattern points to the learning algorithm.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~7: SAC vector + budget-exhausted shutter penalty}
+\label{sec:exp7}
+
+\paragraph{Motivation.}
+Exp~4 video (Ref1 ep~11) showed mid-orbit sparse shuttering but persistent shutter spam after the
+10-capture budget was exhausted.
+The budget-exhausted penalty adds $-k_\text{waste}$ to the step reward whenever the agent commands a
+shutter with zero remaining budget (Section~\ref{sec:reward}).
+Torque-path SAC with a static threshold (Exp~1) failed to stop spam; a direct negative reward on
+the offending action is the minimal correct lever.
+
+\paragraph{Config and result.}
+SAC sparse + vector + budget penalty, 50 training episodes.
+Eval $+10.6$ (vs Ref1 baseline $-24.1$, $\Delta=+34.7$).
+Train shutter commands: 478/ep vs 7071/ep Ref1 ($-93\%$).
+Train meaningful shutter fraction: 0.220 vs 0.015 Ref1 ($15\times$).
+Post-peak return std: 17.5 vs 28.4 ($-38\%$).
+
+\paragraph{Verdict.}
+\textbf{Supported.}
+Budget-exhausted penalty is an effective design lever: shutter spam drops sharply and selective scheduling emerges.
+This reward term is kept for all subsequent experiments.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~8: MPO decoupled-KL dual fix (torque mode)}
+\label{sec:exp8}
+
+\paragraph{Motivation.}
+Exps~3 and~5 both showed MPO freezing or exploding at KL $\approx 3.8\times10^5$ or $\approx 0$.
+Investigation identified the root cause: the M-step used a single coupled Lagrange multiplier
+for both mean and variance KL constraints, instead of the two independent multipliers specified
+in \citet{abdolmaleki2018mpo}.
+Exp~8 validates the corrected decoupled-KL dual in torque mode against the Exps~3/5 comparators.
+
+\paragraph{Config and result.}
+MPO (fixed dual) sparse torque, 50 training episodes, seed~7.
+Clear learning signal; eval $-81.1$ vs pre-fix floor $-51.6$.
+Best train $+8.7$ (ep~28).
+KL converged to 0.021; temperature dual settled at 0.788.
+Train torque saturation fraction: 0.951 (vs $\approx 0.998$ pre-fix).
+No meaningful eval captures.
+
+\paragraph{Verdict.}
+\textbf{Partial.}
+The algorithm fix is confirmed: bounded KL and rising train returns.
+Eval return remains below the baseline anchor; torque mode still saturates and safe-mode activates frequently, motivating Exps~10 and~11.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~9: SAC shutter reward split (waste penalty off)}
+\label{sec:exp9}
+
+\paragraph{Motivation.}
+Exp~7 had both the budget-exhausted penalty and the within-budget waste penalty active.
+Since applied-capture credit already scales with image quality and cloud fraction (Eq.~\ref{eq:r-cap}),
+a second explicit waste penalty on the same action may over-constrain shutter exploration.
+Exp~9 tests turning off the waste penalty while keeping the budget-exhausted term.
+
+\paragraph{Config and result.}
+SAC sparse + vector + budget penalty ($W$ off), 50 training episodes.
+Eval $+106.4$ (vs Exp~7 $+10.6$, $\Delta=+95.8$).
+Best train $+169.9$ (ep~36).
+Train meaningful fraction: 0.286 vs 0.220 (Exp~7).
+Eval meaningful fraction: 0.667 vs 0.400.
+Post-budget shutter commands: 75 (penalty still active).
+
+\paragraph{Verdict.}
+\textbf{Supported.}
+Relaxing the over-constraining within-budget waste penalty yields a large eval improvement.
+This is the best SAC configuration in the series and defines the reward stack used as the reference for later MPO comparisons.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~10: MPO safe-mode penalty}
+\label{sec:exp10}
+
+\paragraph{Motivation.}
+Exp~8 showed safe-mode activating 5--6 times per episode in torque mode with no reward signal.
+A per-step penalty during safe-mode recovery intervals ($k=2.0$) was hypothesised to reduce activations
+and improve applied torque credit assignment.
+
+\paragraph{Config and result.}
+MPO (fixed dual) sparse torque + safe-mode penalty ($k=2.0$), 50 training episodes.
+Eval $-510.4$ (vs Exp~8 $-81.1$, catastrophic regression).
+Training return improved from $-1168$ (ep~0) to $\approx-350$ (ep~23) but stagnated.
+Train shutter commands dropped from 153 (ep~0) to 2--7 (eps~30--49).
+
+\paragraph{Verdict.}
+\textbf{Not supported.}
+The penalty taught the agent to avoid all aggressive torque (including captures) rather than
+only avoiding safe-mode entry.
+Safe-mode activations co-occur with off-nadir pointing required for capture; the penalty suppressed both.
+Per-step safe-mode penalty at this coefficient is ruled out for torque-mode MPO.
+Vector mode (Exp~11) provides a structurally cleaner solution.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~11: MPO fixed dual, vector mode}
+\label{sec:exp11}
+
+\paragraph{Motivation.}
+Exp~10 ruled out reward-based safe-mode mitigation in torque mode.
+Exp~8 confirmed the dual fix; the natural next step is MPO in vector pointing mode,
+mirroring the Exp~4 SAC comparison but now with a working MPO agent.
+Vector mode avoids the safe-mode interference seen in torque mode.
+
+\paragraph{Config and result.}
+MPO (fixed dual) sparse vector, 50 training episodes, seed~7.
+Eval $+45.5$ (vs Exp~8 $-81.1$, $\Delta=+126.6$).
+Best train $+82.3$ (ep~42).
+Positive returns from episode~7 onward; monotonic improvement from ep~5.
+KL: 0.014; $\eta$: 0.014 (vs 0.788 in torque mode).
+Shutter commands: 148 (ep~0) $\to$ 8--10 (eps~30--49).
+The policy learned selective shuttering.
+
+\paragraph{Verdict.}
+\textbf{Supported.}
+Vector mode resolves the torque-mode MPO stagnation: the first MPO configuration with positive eval return.
+The temperature dual settles much lower in vector mode, reflecting a tighter value distribution in the simplified action space.
+Vector pointing mode is retained for subsequent MPO experiments.
+The remaining gap to SAC Exp~9 (+106.4) suggests the MPO branch has not yet been tested with the same reward stack as Exp~9.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~12: MPO vector + torque-effort penalty ablation}
+\label{sec:exp12}
+
+\paragraph{Motivation.}
+The training workflow disables the torque-effort regulariser in vector mode by default.
+Exp~12 re-enables effort ($k=0.1$) while keeping all other Exp~11 settings.
+
+\paragraph{Config and result.}
+MPO (fixed dual) sparse vector + torque effort ($k=0.1$), 50 training episodes.
+Eval $+25.3$ (vs Exp~11 $+45.5$, $\Delta=-20.2$).
+Best train $+75.6$ (ep~20).
+Four consecutive zero-return episodes at eps~36, 41, 42, 43.
+KL: 0.013; $\eta$: 0.027.
+
+\paragraph{Verdict.}
+\textbf{Not supported.}
+Torque effort in vector mode hurts performance: the effort penalty targets the pointing-controller wheel command,
+not the policy's pointing offset, creating a conflicting gradient that discourages off-nadir pointing
+irrespective of imaging context.
+Effort regularisation should remain disabled in vector mode.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~13: MPO learning-cadence sweep}
+\label{sec:exp13}
+
+\paragraph{Motivation.}
+The MPO agent performs one gradient update per environment step by default.
+If the agent learns faster than the environment provides signal, or if gradient noise from a partially
+filled replay buffer impedes early learning, a different cadence may help.
+Exp~13 evaluates three cadence profiles: update every step, every 10 steps, and every 50 steps.
+
+\paragraph{Config and result (partial).}
+MPO (fixed dual) vector sparse, 50 training episodes per configuration, 2 eval episodes.
+The deterministic baseline (comparison anchor): eval $-38.6$.
+Update every 10 steps: eval $-46.4$ (worse than baseline).
+Update every 50 steps: eval $-15.4$ (best in sweep; still below Exp~11 $+45.5$).
+
+\paragraph{Verdict.}
+\textbf{Partial / incomplete.}
+Sparser gradient updates (every 50 steps) marginally outperform the per-step default in this short slice,
+but results remain below Exp~11 and the every-10-steps configuration falls below the comparison anchor ($-38.6$).
+The full cadence sweep was still in progress at report cutoff; a longer training slice is needed for a definitive conclusion.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~14: MPO multi-environment target selection}
+\label{sec:exp14}
+
+\paragraph{Motivation.}
+All prior experiments use a single environment seed (7) with a fixed target corridor.
+Generalisation to diverse orbital configurations, altitudes, and cloud draws requires
+training across multiple environment draws.
+Exp~14 attempted to run 350-episode multi-environment MPO to test this scaling hypothesis.
+
+\paragraph{Config and result.}
+MPO (fixed dual) vector sparse, 350 training episodes, multi-seed draws.
+The run crashed during Stage~C with a filesystem error
+(likely a path-length limit on Windows for long run-directory names).
+Stage~B partial training metrics were available (mean score 0.228) but are not directly comparable
+to the episodic eval return metric used in the rest of the series.
+
+\paragraph{Verdict.}
+\textbf{Not supported} (run failure; results inconclusive).
+Multi-environment training remains an open direction.
+Recommended follow-up: shorten run directory names, increase episode budget, and match the evaluation
+metric to the rest of the series.

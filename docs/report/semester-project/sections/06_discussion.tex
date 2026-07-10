@@ -1,0 +1,167 @@
+\label{sec:discussion}
+
+\subsection{What the experiment sequence taught}
+\label{sec:discussion-arc}
+
+The motivating idea, use onboard vision to shutter only on clear targets, is simple to state but hard to train.
+The fourteen experiments were not a single attempt to beat the baseline; they were a structured search for reward and action-space configurations that make learning possible.
+Three lessons emerged.
+
+\paragraph{1.\ Reward structure before algorithm.}
+Exps~1--5 showed that neither threshold tuning, encoder architecture, algorithm choice, nor network
+width were sufficient on their own.
+The break came in Exp~3 (SAC learns under sparse reward) and was exploited in Exps~7 and~9, where
+budget-exhausted penalty and waste-penalty removal each unlocked further learning.
+Reward engineering, specifically what information is available at the action clock,
+was the dominant design lever.
+
+\paragraph{2.\ Action-space design before reward fine-tuning.}
+The comparison between torque and vector pointing modes (Exps~4, 8, 11) shows that delegating
+rate control to the onboard pointing controller is structurally important.
+Vector mode removes safe-mode lockouts in the experiment runs (Section~\ref{sec:results-safemode}),
+resolving a credit-assignment problem that no reward penalty could fix cleanly (Exp~10).
+This is a design result: the agent should command a pointing offset, not raw wheel torque, for cloud-aware scheduling in this environment (Section~\ref{sec:discussion-architecture}).
+
+\paragraph{3.\ Algorithm stability as a prerequisite.}
+MPO's KL blow-up (Exps~3, 5) blocked all progress on the MPO branch until the root cause
+(an unconstrained M-step multiplier) was identified and corrected (Exp~8).
+The fix unlocked learning in vector mode (Exp~11) without any other design change.
+Implementation correctness can masquerade as algorithm failure across multiple experiments.
+That lesson applies before comparing reward or action-space variants.
+
+\subsection{Answer to the research question}
+\label{sec:discussion-answer}
+
+Cloud-aware autonomous scheduling is not trivial to train in this simulation.
+A minimal viable training stack requires at least:
+\begin{itemize}
+  \item a sparse capture-credit reward with a budget-exhausted shutter penalty;
+  \item vector pointing mode (nadir-relative offset) rather than direct torque commands;
+  \item a correctly implemented MPO trust-region update, or SAC as the more forgiving default;
+  \item baseline-policy warmup to seed the replay buffer with rare positive-credit transitions.
+\end{itemize}
+With that stack, both SAC and MPO learn selective shuttering absent in the deterministic baseline.
+Several configurations that looked reasonable (threshold tuning, network width, safe-mode penalties, torque effort in vector mode) failed to produce learning or made it worse.
+Eval return on seed~7 exceeded the baseline anchor for the best SAC and MPO configurations, but the evaluation protocol is too narrow to claim robust mission superiority; the durable output of the semester is the mapped design space and the list of rejected shortcuts.
+
+\subsection{Control hierarchy and action interface}
+\label{sec:discussion-architecture}
+
+Development did not begin with the interface the experiments ultimately recommend.
+
+\paragraph{From torque to safety arbitration.}
+The first experimental interface exposed raw reaction-wheel torque to the learning agent.
+Unconstrained policies could command aggressive slews; in simulation this produced sustained rotation that would be unacceptable on flight hardware.
+Review with system engineers motivated treating attitude safety as non-negotiable: every agent command, whether torque or pointing request, passes through a safety controller that can taper, reject, or replace commands with a safe-mode recovery sequence (Section~\ref{sec:safety}).
+That stack is shared by the deterministic baseline and all learned policies.
+
+\paragraph{Action modes tested.}
+Three action interfaces were explored:
+\begin{itemize}
+  \item \textbf{Torque mode:} the policy commands wheel torque directly (Exps~1--5, 8, 10).
+  \item \textbf{Vector mode:} the policy commands a nadir-relative pointing offset; the OBC converts it to PD torque (Exps~4, 7, 9, 11--13).
+  \item \textbf{Target selection:} a higher-level discrete choice of which target to engage (Exp~14).
+    Started as a hypothesised next simplification after torque and vector; the run did not complete, so whether this interface is easier to train remains open.
+\end{itemize}
+
+\paragraph{Segregation of control layers.}
+The experiment arc supports separating what the agent should learn from what the OBC should execute.
+Learning precise torque profiles or continuous pointing offsets is not the primary scheduling problem in this environment: the agent must decide \emph{when} to expose the shutter given cloud feedback, while rate control and maneuver execution belong downstream.
+Vector mode reflects that split and improved learning in practice (Exps~4, 11).
+A torque-trained agent might in principle discover rich low-level strategies, for example multiple captures within one forward-motion-compensation maneuver.
+It is a further \emph{hypothesis}, not a result of this report, that raising the action interface to explicit target selection (plus shutter timing) would simplify credit assignment further; Exp~14 was begun on that conviction but time ran out before it could be validated, and implementation or gradient issues in that branch have not been ruled out.
+Energy-optimal wheel commands remain a distinct optimisation problem; they should be trained or tuned in a separate low-level loop rather than entangled with cloud-aware target scheduling.
+
+\paragraph{Intended end state (working hypothesis).}
+A plausible long-term stack is three levels: mission intent from the ground or onboard planner, a vision-driven scheduling policy (target and shutter decisions), and OBC execution with PD pointing and hard safety limits.
+Vector mode is the highest-level interface validated here; target selection is the candidate next step named above.
+This semester maps the scheduling layer under vector actions in a simplified 2D simulator; the lowest layer is modelled but not co-trained for efficiency.
+
+\subsection{Rejected paths}
+\label{sec:discussion-rejected}
+
+Table~\ref{tab:rejected} summarises design choices that were tested and ruled out.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Rejected experimental directions with rationale.}
+  \label{tab:rejected}
+  \begin{tabular}{p{0.22\linewidth}p{0.34\linewidth}p{0.36\linewidth}}
+    \toprule
+    Experiment & Design choice tested & Why rejected \\
+    \midrule
+    --- & MPC pointing controller & Superseded by onboard PD pointing; lower scope and comparable results \\
+    --- & Latent-only dense reward & Dense reward tested at $10\times$ applied scale; did not unblock MPO \\
+    Exp~1 & Shutter threshold 0.5 $\to$ 0.9 & Policy saturates shutter output regardless of threshold \\
+    --- & 15\,s capture credit window & Latent bursts visible; applied capture remains zero \\
+    Exp~5 & MPO network width ablation & Identical collapse at all widths; capacity not the bottleneck \\
+    Exp~9 & Within-budget waste penalty (on) & Redundant with apply-credit sparsity; penalising same failure mode twice \\
+    Exp~10 & Safe-mode penalty & Correlation with aggressive pointing suppresses useful captures \\
+    Exp~12 & Torque effort in vector mode & Pointing-controller torque $\neq$ policy action; conflicting gradient \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Limitations}
+\label{sec:limitations}
+
+\paragraph{Two-dimensional simulation.}
+The entire dynamics model, camera model, and reward signal operate in a single orbit plane.
+Real three-axis attitude control involves cross-coupling between roll, pitch, and yaw;
+disturbance torques from solar pressure, magnetic field, and gravity gradient; and
+three-dimensional off-nadir imaging geometry.
+The 2D model provides a tractable learning environment but the policies are not directly
+transferable to hardware.
+
+\paragraph{Single-pass, single-orbit mission.}
+Each episode models one overflight of a fixed 50-target corridor.
+Revisit scheduling, downlink windows, and multi-orbit memory are not represented.
+The learned policy has no access to observations from prior passes.
+
+\paragraph{Simulation-only evaluation.}
+No hardware-in-the-loop or software-in-the-loop tests were conducted.
+The camera model is a geometric ray tracer with an analytic smear formula; radiometric calibration,
+MTF, and sensor noise are absent.
+Generalisation from this environment to a real EO instrument is an open question.
+
+\paragraph{Fixed-seed evaluation.}
+All primary eval returns are computed on two episodes at seed~7.
+The train-to-eval gap visible in several experiments (e.g.\ Exp~9 train $+169.9$ vs eval $+106.4$)
+may partially reflect evaluation seed dependence.
+A robust evaluation across $\ge$10 seeds is recommended before citing the best numbers as
+reliable performance estimates.
+
+\paragraph{Budget and episode length.}
+The 10-capture budget over 516 steps is an engineered constraint that simplifies mission planning
+but may not represent realistic EO tasking where capture rate, data volume, and ground station contact
+are coupled objectives.
+
+\subsection{Deferred extensions}
+\label{sec:discussion-deferred}
+
+The following directions are documented as promising but were not completed within the project:
+
+\begin{itemize}
+  \item \textbf{Modular encoder rerun (deferred Exp~6).}
+    Once learning is established, the vector-compressor encoder variant from Exp~2 should be retested.
+    The high-dimensional observation with structured bearing and mask fields is
+    a candidate for entity-based architectures \citep{gorishniy2022revisiting}.
+
+  \item \textbf{MPO with Exp~9 reward config.}
+    Exp~11 reached $+45.5$ without the waste-penalty-off configuration used in Exp~9.
+    A direct MPO run at Exp~9 reward settings would quantify the algorithm gap more cleanly.
+
+  \item \textbf{Target-selection interface (Exp~14 rerun).}
+    Hypothesis: discrete target choice plus shutter timing delegates pointing entirely to the OBC and may simplify learning relative to vector mode.
+    Exp~14 began testing this idea but crashed before a conclusive result; a rerun must also rule out implementation or gradient bugs in that branch, not only extend training time.
+
+  \item \textbf{Three-axis attitude extension.}
+    Moving from 2D to 3D dynamics is the prerequisite for any hardware-facing transfer.
+    The simulation architecture supports this extension via replacement of the single-axis
+    RW model with a 3-wheel assembly and attitude quaternion propagation.
+
+  \item \textbf{Real imagery and radiometric reward.}
+    Replacing the geometric smear quality metric with a model-based image quality score
+    derived from sensor noise and scene contrast would couple the reward more directly
+    to downstream science value.
+\end{itemize}

@@ -1,0 +1,51 @@
+\label{sec:appendix}
+
+\subsection{Repository}
+The full source code, experiment scripts, and run artifacts are available at:
+\begin{center}
+  \url{https://github.com/cgriede/autonomous-satellite-control-eth-sem-proj}
+\end{center}
+
+\subsection{Source index}
+Table~\ref{tab:source-index} lists the high-level entry points for the components described in this report.
+All paths are relative to the repository root.
+
+\begin{table}[htbp]
+  \centering
+  \renewcommand{\arraystretch}{1.3}
+  \caption{High-level source index.}
+  \label{tab:source-index}
+  \small
+  \begin{tabular}{p{0.36\linewidth}p{0.56\linewidth}}
+    \toprule
+    Component & Entry point \\
+    \midrule
+    Earth \& geodetic constants & \texttt{backend/environment\_definition/constants/EARTH.py} \\
+    Mission profile (altitude, targets) & \texttt{backend/environment\_definition/constants/MISSION.py} \\
+    Satellite inertia \& camera optics & \texttt{backend/environment\_definition/constants/SATELLITE.py} \\
+    Attitude safety thresholds & \texttt{backend/environment\_definition/constants/ATTITUDE\_SAFETY.py} \\
+    Simulation timing & \texttt{backend/environment\_definition/constants/SIMULATION.py} \\
+    Reward weights & \texttt{backend/environment\_definition/constants/AUTONOMOUS\_CONTROL\_REWARD.py} \\
+    Canonical simulation entry point & \texttt{backend/simulation/run\_simulation.py} \\
+    Camera image quality model & \texttt{backend/simulation/image\_quality.py} \\
+    Attitude safety controller & \texttt{backend/simulation/attitude\_controller.py} \\
+    Deterministic baseline policy & \texttt{backend/s01\_utils/baseline\_overflight.py} \\
+    RL agent (MPO / SAC) & \texttt{backend/autonomous\_control/controller\_agent.py} \\
+    Training workflow & \texttt{backend/autonomous\_control/training\_workflow.py} \\
+    Experiment scripts & \texttt{backend/scripts/experiments/} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Live parameter record}
+Hyperparameters and constants are maintained in:
+\begin{itemize}
+  \item \texttt{docs/presentation/environment-hyperparameters.md}
+  \item \texttt{docs/presentation/machine-learning.md}
+  \item \texttt{docs/presentation/technical-constants.md}
+  \item \texttt{docs/presentation/physical-reference.md}
+\end{itemize}
+
+\subsection{Artifact paths}
+Training outputs: \texttt{backend/autonomous\_control/runs/<run-id>/}.
+Experiment results: \texttt{backend/scripts/experiments/<slug>/results/}.

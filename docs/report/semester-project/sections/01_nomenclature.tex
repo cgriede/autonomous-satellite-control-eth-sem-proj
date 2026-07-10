@@ -1,6 +1,5 @@
 % Physical constants and notation used in simulation and learning experiments.
-% Numeric values match backend/environment_definition/constants/ at report revision;
-% see docs/presentation/ for the live parameter record.
+% Numeric values match the implementation at report revision; source locations are in the Appendix.
 
 \subsection{Abbreviations}
 \begin{tabular}{@{}p{0.12\linewidth}p{0.80\linewidth}@{}}
@@ -14,6 +13,7 @@
   LLA & Latitude, longitude, altitude (geodetic coordinates) \\
   LOS & Line of sight \\
   MLP & Multilayer perceptron (scalar observation branch) \\
+  SAC & Soft Actor-Critic \\
   MPO & Maximum \emph{a posteriori} policy optimization \\
   OBC & On-board computer \\
   PD & Proportional--derivative (pointing controller) \\
@@ -33,7 +33,7 @@
   $h$ & Orbit altitude above mean Earth radius \\
   $I_{\mathrm{sat}}$ & Spacecraft moment of inertia (2D model: $I_{zz}$) \\
   $\boldsymbol{\tau}$ & Reaction-wheel torque command [N\,m] (scalar in the 2D kernel) \\
-  $\theta_{\mathrm{orb}}$ & Orbit-plane angle of the subsatellite track \\
+  $\theta_{\mathrm{orb}}$ & True anomaly of the satellite (= orbit-plane angle in circular orbit) \\
   $\theta_{\mathrm{body}}$ & Body $z$-axis angle in the orbit disk \\
   $\omega_{\mathrm{sat}}$, $\omega_{\mathrm{w}}$ & Spacecraft body rate and wheel speed \\
   $f_{\mathrm{cloud}}$ & Primary-camera cloud-blocked fraction along the sensor strip \\
@@ -45,10 +45,11 @@ Unless noted, values are fixed inputs; $h$ and cloud layouts are randomized per 
 
 \begin{table}[htbp]
   \centering
+  \renewcommand{\arraystretch}{1.3}
   \caption{Earth, orbit, and spacecraft parameters.}
   \label{tab:constants-earth-spacecraft}
   \small
-  \begin{tabular}{@{}llS[table-format=4.4]l@{}}
+  \begin{tabular}{llS[table-format=4.4]l}
     \toprule
     {Quantity} & {Symbol} & {Value} & {Unit / note} \\
     \midrule
@@ -65,16 +66,15 @@ Unless noted, values are fixed inputs; $h$ and cloud layouts are randomized per 
     Off-nadir hard limit & --- & 45 & \si{\degree} \\
     \bottomrule
   \end{tabular}
-  \\[0.4em]
-  {\footnotesize Sources: \texttt{constants/EARTH.py}, \texttt{constants/MISSION.py}, \texttt{constants/SATELLITE.py}, \texttt{constants/ATTITUDE\_SAFETY.py}.}
 \end{table}
 
 \begin{table}[htbp]
   \centering
+  \renewcommand{\arraystretch}{1.3}
   \caption{Camera, simulation timing, and sensing discretization.}
   \label{tab:constants-camera-sim}
   \small
-  \begin{tabular}{@{}llS[table-format=4.0]l@{}}
+  \begin{tabular}{llS[table-format=4.0]l}
     \toprule
     {Quantity} & {Symbol} & {Value} & {Unit / note} \\
     \midrule
@@ -82,27 +82,32 @@ Unless noted, values are fixed inputs; $h$ and cloud layouts are randomized per 
     Pixel pitch & --- & 3.2 & \si{\micro\meter} \\
     Focal length & $f$ & 1067 & \si{\milli\meter} \\
     Exposure time & $t_{\mathrm{exp}}$ & 100 & \si{\micro\second} \\
-    Strip ray samples & --- & 96 & per primary-camera frame \\
-    Observation-line bins (primary) & --- & 100 & vertical FOV discretization \\
-    Simulation step & $\Delta t$ & 0.4 & \si{\second} \\
-    Episode step cap & --- & 1000 & steps (\texttt{max\_episode\_steps}) \\
-    Max captures per orbit & --- & 10 & OBC memory / downlink budget \\
+    Observation-line bins & --- & 101 & along-track discretisation \\
+    Simulation step & $\Delta t$ & 1.5 & \si{\second} \\
+    Episode step cap & --- & 1000 & steps \\
+    Max captures per orbit & --- & 10 & shutter budget (resource proxy) \\
+    \midrule
+    \multicolumn{4}{l}{\textit{Secondary wide-angle camera}} \\
+    Sensor resolution & --- & \multicolumn{2}{l}{5312 $\times$ 2988 pixels} \\
+    Pixel pitch & --- & 1.55 & \si{\micro\meter} \\
+    Vertical FOV & --- & 70 & \si{\degree} \\
+    Boresight tilt from nadir & --- & 25 & \si{\degree} \\
+    Observation-line bins & --- & 200 & along-track discretisation \\
   \bottomrule
   \end{tabular}
-  \\[0.4em]
-  {\footnotesize Sources: \texttt{constants/SATELLITE.py}, \texttt{constants/SIMULATION.py}.}
 \end{table}
 
 \begin{table}[htbp]
   \centering
-  \caption{Mission profile and reward scales (notebook~07 / 08 defaults).}
+  \renewcommand{\arraystretch}{1.3}
+  \caption{Mission profile and reward scales (default training configuration).}
   \label{tab:constants-mission}
   \small
-  \begin{tabular}{@{}p{0.36\linewidth}p{0.54\linewidth}@{}}
+  \begin{tabular}{p{0.40\linewidth}p{0.52\linewidth}}
     \toprule
     Quantity & Value / range \\
     \midrule
-    Target grid (baseline) & 50 areas, \SI{15}{\kilo\meter} extent, \SI{40}{\kilo\meter} spacing along meridian \\
+    Target grid & 50 areas, \SI{15}{\kilo\meter} extent, \SI{40}{\kilo\meter} spacing along corridor \\
     Target anchor latitude & \SI{80.0}{\degree}N (grid start) \\
     Cloud patches per episode & uniform integer in $[15,\,30]$ along corridor \\
     Cloud horizontal extent & \SIrange{1}{80}{\kilo\meter} \\
@@ -113,6 +118,4 @@ Unless noted, values are fixed inputs; $h$ and cloud layouts are randomized per 
     Viewing-distance outer gate & \SI{2500}{\kilo\meter} \\
     \bottomrule
   \end{tabular}
-  \\[0.4em]
-  {\footnotesize Sources: \texttt{s01\_utils/baseline\_overflight.py}, \texttt{constants/AUTONOMOUS\_CONTROL\_REWARD.py}, \texttt{constants/MISSION.py}.}
 \end{table}

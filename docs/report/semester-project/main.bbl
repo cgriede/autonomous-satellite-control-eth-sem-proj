@@ -1,0 +1,47 @@
+\begin{thebibliography}{5}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Abdolmaleki et~al.(2018)Abdolmaleki, Springenberg, Degrave, Bohez,
+  Tassa, Belov, Heess, and Riedmiller]{abdolmaleki2018mpo}
+Abbas Abdolmaleki, Jost~Tobias Springenberg, Jonas Degrave, Steven Bohez, Yuval
+  Tassa, Daniele Belov, Nicolas Heess, and Martin Riedmiller.
+\newblock Maximum a posteriori policy optimisation.
+\newblock \emph{arXiv preprint arXiv:1806.06920}, 2018.
+
+\bibitem[de~Bruin et~al.(2018)de~Bruin, Kober, Tuyls, and
+  Babuska]{bruin2018irl}
+Tim de~Bruin, Jens Kober, Karl Tuyls, and Robert Babuska.
+\newblock Integrating state representation learning into deep reinforcement
+  learning.
+\newblock \emph{IEEE Robotics and Automation Letters}, 3\penalty0 (3):\penalty0
+  1394--1401, 2018.
+
+\bibitem[Ferrari et~al.(2024)Ferrari, Cordeau, Delorme, Iori, and
+  Orosei]{ferrari2024ssp}
+Benedetta Ferrari, Jean-Fran{\c{c}}ois Cordeau, Maxence Delorme, Manuel Iori,
+  and Roberto Orosei.
+\newblock Satellite scheduling problems: {A} survey of applications in {E}arth
+  and outer space observation.
+\newblock \emph{Computers \& Operations Research}, 171:\penalty0 106875, 2024.
+\newblock \doi{10.1016/j.cor.2024.106875}.
+
+\bibitem[Gorishniy et~al.(2022)Gorishniy, Rubachev, Khrulkov, and
+  Babenko]{gorishniy2022revisiting}
+Yury Gorishniy, Ivan Rubachev, Valentin Khrulkov, and Artem Babenko.
+\newblock On embeddings for numerical features in tabular deep learning.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2022.
+
+\bibitem[Haarnoja et~al.(2018)Haarnoja, Zhou, Abbeel, and
+  Levine]{haarnoja2018sac}
+Tuomas Haarnoja, Aurick Zhou, Pieter Abbeel, and Sergey Levine.
+\newblock Soft actor-critic: Off-policy maximum entropy deep reinforcement
+  learning with a stochastic actor.
+\newblock In \emph{Proceedings of the 35th International Conference on Machine
+  Learning (ICML)}, 2018.
+
+\end{thebibliography}
