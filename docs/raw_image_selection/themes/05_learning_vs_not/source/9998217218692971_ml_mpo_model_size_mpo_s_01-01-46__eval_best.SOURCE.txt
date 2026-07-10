@@ -1,0 +1,4 @@
+repo_path: backend/autonomous_control/runs/9998217218692971_ml_mpo_model_size_mpo_s_01-01-46/videos/eval_best.mp4
+absolute: C:/Users/cedri/work/code/sem-proj-asc/backend/autonomous_control/runs/9998217218692971_ml_mpo_model_size_mpo_s_01-01-46/videos/eval_best.mp4
+link_mode: hardlink
+notes: Exp5 MPO width collapse

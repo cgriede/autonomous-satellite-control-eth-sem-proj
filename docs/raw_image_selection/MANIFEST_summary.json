@@ -1,0 +1,25 @@
+{
+  "generated_utc": "2026-07-10T12:52:17Z",
+  "n_entries": 261,
+  "by_kind": {
+    "plot": 126,
+    "source_video": 13,
+    "frame": 122
+  },
+  "by_theme": {
+    "trend-learning-curve": 51,
+    "trend-returns": 51,
+    "episode-diagnostics-eval": 18,
+    "static-target-placement": 13,
+    "dynamic-cloud-generation": 24,
+    "dynamic-safety-maneuver": 28,
+    "behaviour-selective-shutter": 13,
+    "learning-vs-not": 63
+  },
+  "by_learning_label": {
+    "na": 132,
+    "learning": 52,
+    "not_learning": 77
+  },
+  "out": "docs/raw_image_selection"
+}

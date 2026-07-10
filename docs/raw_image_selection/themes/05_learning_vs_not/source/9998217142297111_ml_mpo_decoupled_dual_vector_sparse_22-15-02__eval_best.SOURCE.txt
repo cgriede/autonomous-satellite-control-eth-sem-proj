@@ -1,0 +1,4 @@
+repo_path: backend/autonomous_control/runs/9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02/videos/eval_best.mp4
+absolute: C:/Users/cedri/work/code/sem-proj-asc/backend/autonomous_control/runs/9998217142297111_ml_mpo_decoupled_dual_vector_sparse_22-15-02/videos/eval_best.mp4
+link_mode: hardlink
+notes: Exp11 MPO vector (eval +45.5)

@@ -1,0 +1,4 @@
+repo_path: backend/autonomous_control/runs/9998217254656575_ml_shutter_mpo_t09_15-02-22/videos/eval_best.mp4
+absolute: C:/Users/cedri/work/code/sem-proj-asc/backend/autonomous_control/runs/9998217254656575_ml_shutter_mpo_t09_15-02-22/videos/eval_best.mp4
+link_mode: hardlink
+notes: Exp1 MPO shutter threshold (flat fail)

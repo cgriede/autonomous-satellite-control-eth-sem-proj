@@ -1,0 +1,4 @@
+repo_path: backend/autonomous_control/runs/9998217164480175_ml_mpo_decoupled_dual_torque_sparse_16-05-19/videos/eval_best.mp4
+absolute: C:/Users/cedri/work/code/sem-proj-asc/backend/autonomous_control/runs/9998217164480175_ml_mpo_decoupled_dual_torque_sparse_16-05-19/videos/eval_best.mp4
+link_mode: hardlink
+notes: safety scout mpo-torque

@@ -1,0 +1,4 @@
+repo_path: backend/autonomous_control/runs/9998217183842846_ml_ref_ref0_torque_10-42-36/videos/eval_best.mp4
+absolute: C:/Users/cedri/work/code/sem-proj-asc/backend/autonomous_control/runs/9998217183842846_ml_ref_ref0_torque_10-42-36/videos/eval_best.mp4
+link_mode: hardlink
+notes: safety scout ref0

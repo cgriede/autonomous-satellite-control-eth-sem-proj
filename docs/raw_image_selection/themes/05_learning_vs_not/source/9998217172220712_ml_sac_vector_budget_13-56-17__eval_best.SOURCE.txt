@@ -1,0 +1,4 @@
+repo_path: backend/autonomous_control/runs/9998217172220712_ml_sac_vector_budget_13-56-17/videos/eval_best.mp4
+absolute: C:/Users/cedri/work/code/sem-proj-asc/backend/autonomous_control/runs/9998217172220712_ml_sac_vector_budget_13-56-17/videos/eval_best.mp4
+link_mode: hardlink
+notes: Exp7 SAC vector budget (first positive)
