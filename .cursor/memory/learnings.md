@@ -270,3 +270,43 @@ Invoke **`/learn-skill`** (see [`.cursor/commands/learn-skill.md`](../commands/l
 - **Evidence:** `log-answered-questions` was created under project `.cursor/skills/`; user corrected it should be a user skill and had to be moved to `~/.cursor/skills/dev-skills/`.
 - **Applied to:** learn-skill, new-skill-integration, all other project skills (N/A), all rules (N/A)
 - **Status:** applied
+
+---
+
+### 2026-07-07 — report-constants-verify-source
+
+- **Type:** anti-pattern
+- **Learning:** Before writing any constant value into a nomenclature or parameter table, verify it against the canonical source file — never copy from a benchmark run config or an earlier draft; implementation-detail constants (internal discretization params such as sensor ray sample counts and observation-line bin counts) must be omitted from the reader-facing parameter tables because they are invisible to the reader and change with performance tuning.
+- **Evidence:** Nomenclature table listed `strip ray samples = 96` (benchmark value from `sensor_ray_batch` experiment, not the canonical default) and `observation-line bins = 100` (actual value is `DEFAULT_CAMERA_OBSERVATION_LINE_N_BINS = 101` in `SIMULATION.py`); both were removed as implementation details after user correction.
+- **Applied to:** generate-research-report (anti-patterns section), update-research-report (verify-before-editing + what-belongs-in-tables), all other skills (N/A), all rules (N/A)
+- **Status:** applied
+
+---
+
+### 2026-07-07 — report-reader-frame-no-lla
+
+- **Type:** anti-pattern
+- **Learning:** Never expose LLA-specific geodetic details (longitude, latitude band, meridian labels) in reader-facing prose — the reader cares about orbit geometry (altitude, pass arc, target count), not internal coordinate bookkeeping; state instead that the specific ground track is arbitrary and results transfer to any equivalent pass.
+- **Evidence:** "meridian ground stripe (longitude 0°, latitude 89.65°–90°N)" was confusing to the user; replaced with "ground corridor directly below the orbit plane" and a note that geographic location is irrelevant since the agent only sees orbit-plane angles.
+- **Applied to:** generate-research-report (anti-patterns), update-research-report (new reader-frame section + anti-patterns), all other skills (N/A — orbit/LLA specifics out of scope), all rules (N/A)
+- **Status:** applied
+
+---
+
+### 2026-07-07 — report-no-internal-code-refs-in-prose
+
+- **Type:** anti-pattern
+- **Learning:** Never reference internal notebook names, script paths, or code artefacts (e.g. "notebook~07 overflight") in reader-facing prose — the reader does not have the repo open; replace with a plain description of the behaviour or system, and use `\missingfigure{}` from the `todonotes` package as a visible placeholder when a figure is the right substitute.
+- **Evidence:** "notebook~07 overflight" appeared twice in the introduction as the name for the deterministic baseline; user flagged this as opaque; replaced with "deterministic pre-scheduled baseline" and added `\missingfigure` for the overflight phases diagram.
+- **Applied to:** generate-research-report (anti-patterns), update-research-report (anti-patterns), all other skills (N/A), all rules (N/A)
+- **Status:** applied
+
+---
+
+### 2026-07-07 — report-define-project-terms-at-first-use
+
+- **Type:** anti-pattern
+- **Learning:** Define every project-specific abstraction at its first use in the text — never assume the reader knows terms like "shutter budget", "arm", "warmup/eval episodes", or any internal variable name (`learning_mode`, `shutter_gym`, etc.); replace code-internal variable names with plain English descriptions throughout reader-facing prose.
+- **Evidence:** "shutter budget of ten captures per pass" appeared in §1.2 before any definition; `learning_mode`, `shutter_gym`, `shutter_meaningful_fraction` appeared raw in experiment descriptions; "arm" and "warmup/eval episodes" were used in the master table without prior explanation.
+- **Applied to:** generate-research-report (anti-patterns), update-research-report (anti-patterns), all other skills (N/A), all rules (N/A)
+- **Status:** applied
