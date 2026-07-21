@@ -10,6 +10,12 @@
 \RequirePackage[english]{babel}
 \RequirePackage{csquotes}
 \RequirePackage{amsmath,amssymb}
+% Times-like text/math (Type 1). Default Computer Modern often ships as Type 3
+% bitmaps that Chrome's PDF viewer renders as thin/odd strokes.
+\RequirePackage{newtxtext}
+\RequirePackage{newtxmath}
+% newtx mono (t1xtt) is missing on some MiKTeX installs; Courier for \texttt/\path.
+\renewcommand{\ttdefault}{pcr}
 \RequirePackage{graphicx}
 \RequirePackage{booktabs}
 \RequirePackage{siunitx}
