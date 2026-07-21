@@ -16,7 +16,7 @@ for path in (BACKEND_DIR, S01_DIR, EXPERIMENT_ROOT):
 
 from _runner_common import RESULTS_DIR, evaluate_increasing_signal, write_analysis_card, write_hypothesis_result  # noqa: E402
 
-_DEBUG_LOG = EXPERIMENT_ROOT.parents[3] / ".cursor" / "debug_logs" / "ml_learning_signal_fundamental.log"
+_DEBUG_LOG = RESULTS_DIR / "ml_learning_signal_fundamental.ndjson"
 MODELS = BACKEND_DIR / "autonomous_control" / "models"
 
 

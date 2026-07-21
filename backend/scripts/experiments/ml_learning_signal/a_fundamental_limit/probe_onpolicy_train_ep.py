@@ -23,8 +23,7 @@ from autonomous_control.notebook_warmup_bundle_cache import preload_warmup_buffe
 from s01_utils.training_workflow import build_training_workflow_setup, load_or_build_s01_training_warmup_episodes  # noqa: E402
 from _frozen_baseline import frozen_training_config  # noqa: E402
 
-_REPO_ROOT = EXPERIMENT_ROOT.parents[3]
-_DEBUG_LOG = _REPO_ROOT / ".cursor" / "debug_logs" / "ml_learning_signal_fundamental.log"
+_DEBUG_LOG = EXPERIMENT_ROOT / "results" / "ml_learning_signal_fundamental.ndjson"
 
 
 def main() -> None:

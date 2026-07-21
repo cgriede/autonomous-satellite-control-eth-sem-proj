@@ -1,5 +1,3 @@
-import json
-import time
 from pathlib import Path
 from typing import Self
 
@@ -887,107 +885,6 @@ def _maximize_interactive_window() -> None:
         pass
 
 
-_DEBUG_LAYOUT_LOG = Path(__file__).resolve().parents[2] / "debug-b36892.log"
-
-
-def _rect_overlap_area(a: tuple[float, ...], b: tuple[float, ...]) -> float:
-    ax0, ay0, aw, ah = a
-    bx0, by0, bw, bh = b
-    ix0 = max(ax0, bx0)
-    iy0 = max(ay0, by0)
-    ix1 = min(ax0 + aw, bx0 + bw)
-    iy1 = min(ay0 + ah, by0 + bh)
-    if ix1 <= ix0 or iy1 <= iy0:
-        return 0.0
-    return float((ix1 - ix0) * (iy1 - iy0))
-
-
-def _audit_dashboard_layout(*, run_id: str = "layout") -> None:
-    """Log figure-axis bounds and pairwise overlaps (debug session b36892)."""
-    if FIG is None:
-        return
-    gutter = float(RENDER.figure_inset_gutter_frac)
-
-    def _collect_declared_rects() -> list[dict[str, object]]:
-        declared: list[dict[str, object]] = []
-        specs = [
-            ("telemetry", RENDER.telemetry_axes_rect),
-            ("reward", RENDER.reward_axes_rect),
-            ("torque", RENDER.torque_axes_rect),
-            ("main", RENDER.main_axes_rect),
-            ("closeup", RENDER.closeup_axes_rect),
-            ("pointing", RENDER.pointing_axes_rect),
-            ("capture", RENDER.capture_axes_rect),
-            ("transport", RENDER.transport_bar_rect),
-        ]
-        for name, rect in specs:
-            declared.append({"name": name, "bounds": list(rect)})
-        for name, rect in (
-            ("sat_view_1d", RENDER.sat_view_1d_axes_rect),
-            ("sat_view_1d_secondary", RENDER.sat_view_1d_secondary_axes_rect),
-        ):
-            l, b, w, h = rect
-            title_frac = 0.26
-            h_strip = h * (1.0 - title_frac)
-            declared.append({"name": f"{name}_strip", "bounds": [l, b, w, h_strip]})
-            declared.append({"name": f"{name}_title", "bounds": [l, b + h_strip, w, h * title_frac]})
-        return declared
-
-    def _find_overlaps(entries: list[dict[str, object]]) -> list[dict[str, object]]:
-        out: list[dict[str, object]] = []
-        for i, a in enumerate(entries):
-            for j, b in enumerate(entries):
-                if j <= i:
-                    continue
-                area = _rect_overlap_area(tuple(a["bounds"]), tuple(b["bounds"]))
-                if area <= 1e-9:
-                    continue
-                out.append(
-                    {
-                        "a": a["name"],
-                        "b": b["name"],
-                        "overlap_area": area,
-                        "a_bounds": a["bounds"],
-                        "b_bounds": b["bounds"],
-                    }
-                )
-        return out
-
-    entries: list[dict[str, object]] = []
-    for ax in FIG.axes:
-        name = getattr(ax, "get_label", lambda: "")() or repr(ax)
-        l, b, w, h = ax.get_position().bounds
-        entries.append({"name": name, "bounds": [l, b, w, h]})
-
-    declared = _collect_declared_rects()
-    overlaps_actual = _find_overlaps(entries)
-    overlaps_declared = _find_overlaps(declared)
-
-  #region agent log
-    payload = {
-        "sessionId": "b36892",
-        "runId": run_id,
-        "hypothesisId": "layout-overlap",
-        "location": "render_main.py:_audit_dashboard_layout",
-        "message": "dashboard panel bounds and overlaps",
-        "data": {
-            "gutter_frac": gutter,
-            "n_axes": len(entries),
-            "overlaps_actual": overlaps_actual,
-            "overlaps_declared": overlaps_declared,
-            "panels_actual": entries,
-            "panels_declared": declared,
-        },
-        "timestamp": int(time.time() * 1000),
-    }
-    try:
-        with _DEBUG_LAYOUT_LOG.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload) + "\n")
-    except OSError:
-        pass
-  #endregion
-
-
 def _build_panels() -> None:
     sim_series = _require_runtime()
     if FIG is None:
@@ -1063,7 +960,6 @@ def _build_panels() -> None:
             title="Secondary Camera",
         )
         PANELS["1d_sat_view_secondary"] = {"axes": axes, "artists": artists}
-    _audit_dashboard_layout(run_id="post-build")
 
 
 def render_from_series(

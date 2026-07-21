@@ -26,8 +26,7 @@ from _runner_common import (  # noqa: E402
     write_hypothesis_result,
 )
 
-_REPO_ROOT = EXPERIMENT_ROOT.parents[3]
-_DEBUG_LOG = _REPO_ROOT / ".cursor" / "debug_logs" / "ml_learning_signal_fundamental.log"
+_DEBUG_LOG = RESULTS_DIR / "ml_learning_signal_fundamental.ndjson"
 
 
 def _probe_shutter_exploration(setup, *, n_samples: int = 5000) -> dict:

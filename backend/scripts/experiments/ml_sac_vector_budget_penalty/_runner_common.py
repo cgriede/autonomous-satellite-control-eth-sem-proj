@@ -106,33 +106,6 @@ def count_post_budget_shutter_cmds(train_results: list[Any]) -> dict[str, int]:
         meta = series.metadata
         cmd_steps = list(getattr(meta, "take_picture_cmd_steps", ()) or ())
         post = max(0, len(cmd_steps) - budget)
-        # #region agent log
-        try:
-            import json as _json
-            from time import time as _time
-
-            with open("debug-0b39b8.log", "a", encoding="utf-8") as _fh:
-                _fh.write(
-                    _json.dumps(
-                        {
-                            "sessionId": "0b39b8",
-                            "hypothesisId": "A",
-                            "location": "_runner_common.py:count_post_budget_shutter_cmds",
-                            "message": "shutter budget count",
-                            "data": {
-                                "episode_idx": episode_idx,
-                                "cmd_count": len(cmd_steps),
-                                "post_budget": post,
-                                "budget": budget,
-                            },
-                            "timestamp": int(_time() * 1000),
-                        }
-                    )
-                    + "\n"
-                )
-        except Exception:
-            pass
-        # #endregion
         per_ep[str(episode_idx)] = post
         total += post
     return {"total": total, "per_episode": per_ep, "budget_per_episode": budget}

@@ -60,36 +60,6 @@ def resolve_target_anchor_xy_km(
         )
         rows.append(np.asarray(xy, dtype=np.float64).reshape(2))
     anchors = np.stack(rows, axis=0)
-    # #region agent log
-    try:
-        import json
-        import time
-        from pathlib import Path
-
-        _log = (
-            Path(__file__).resolve().parents[2]
-            / "debug-0e4792.log"
-        )
-        _log.open("a", encoding="utf-8").write(
-            json.dumps(
-                {
-                    "sessionId": "0e4792",
-                    "hypothesisId": "A",
-                    "location": "controller_observation.py:resolve_target_anchor_xy_km",
-                    "message": "per-target anchors resolved",
-                    "data": {
-                        "n_target_areas": len(target_areas),
-                        "anchors_shape": list(anchors.shape),
-                    },
-                    "timestamp": int(time.time() * 1000),
-                    "runId": "post-fix",
-                }
-            )
-            + "\n"
-        )
-    except Exception:
-        pass
-    # #endregion
     return anchors
 
 
@@ -256,34 +226,6 @@ def build_controller_observation_from_timestep(
             scalars.append(float(mission_values[key]))
             continue
         if key not in selected:
-            # #region agent log
-            try:
-                import json
-                import time
-                from pathlib import Path
-
-                _log = Path(__file__).resolve().parents[2] / "debug-0e4792.log"
-                _log.open("a", encoding="utf-8").write(
-                    json.dumps(
-                        {
-                            "sessionId": "0e4792",
-                            "hypothesisId": "C",
-                            "location": "controller_observation.py:build_controller_observation_from_timestep",
-                            "message": "scalar key missing from timestep and mission_values",
-                            "data": {
-                                "key": key,
-                                "mission_value_keys": sorted(mission_values.keys())[:6],
-                                "n_mission_values": len(mission_values),
-                                "n_scalar_keys": len(layout.scalar_keys),
-                            },
-                            "timestamp": int(time.time() * 1000),
-                        }
-                    )
-                    + "\n"
-                )
-            except Exception:
-                pass
-            # #endregion
             raise KeyError(
                 f"Scalar feature '{key}' is not on SimulationTimestepState "
                 "and was not computed as a mission scalar."

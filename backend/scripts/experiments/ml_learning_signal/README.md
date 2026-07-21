@@ -45,4 +45,4 @@ conda activate auto-sat; python backend/scripts/experiments/ml_learning_signal/c
 
 Shared baseline JSON: `results/baseline.json`.
 
-Debug logs: `.cursor/debug_logs/ml_learning_signal*.log` only.
+Probe NDJSON (optional): `results/ml_learning_signal_fundamental.ndjson`.

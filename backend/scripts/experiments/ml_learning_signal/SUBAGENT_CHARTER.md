@@ -35,4 +35,4 @@
 
 ## Debug workflow
 
-Probe logs under `.cursor/debug_logs/` only (topic prefix `ml_learning_signal`).
+Probe NDJSON under `results/ml_learning_signal_fundamental.ndjson` only.

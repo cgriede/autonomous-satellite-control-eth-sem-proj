@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import json
-import time
-from pathlib import Path
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -13,7 +10,6 @@ from matplotlib.patches import Circle
 
 from environment_definition.constants import RENDER
 
-_DEBUG_LOG_PATH = Path(__file__).resolve().parents[2] / "debug-0bc7ae.log"
 _ISLAND_BLOB_ATTRS = (
     "island_blob_along_scale",
     "island_blob_along_pad_km",
@@ -22,61 +18,15 @@ _ISLAND_BLOB_ATTRS = (
 )
 
 
-def _debug_log(*, hypothesis_id: str, location: str, message: str, data: dict, run_id: str = "pre-fix") -> None:
-    # region agent log
-    payload = {
-        "sessionId": "0bc7ae",
-        "runId": run_id,
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    try:
-        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload) + "\n")
-    except OSError:
-        pass
-    # endregion
-
-
 def _resolve_render_constants():
     """Return live ``RENDER``; reload constants module if a long-lived kernel cached a stale instance."""
     rc = RENDER
     missing = [name for name in _ISLAND_BLOB_ATTRS if not hasattr(rc, name)]
-    # region agent log
-    _debug_log(
-        hypothesis_id="H1",
-        location="_orbit_plane_static._resolve_render_constants",
-        message="render constants probe",
-        data={
-            "render_id": id(rc),
-            "missing_island_attrs": missing,
-            "has_island_blob_along_scale": hasattr(rc, "island_blob_along_scale"),
-        },
-    )
-    # endregion
     if not missing:
         return rc
     render_constants_mod = importlib.import_module("environment_definition.constants.RENDER")
     importlib.reload(render_constants_mod)
-    rc = render_constants_mod.RENDER
-    # region agent log
-    _debug_log(
-        hypothesis_id="H1",
-        location="_orbit_plane_static._resolve_render_constants",
-        message="render constants reloaded",
-        data={
-            "render_id": id(rc),
-            "missing_island_attrs_after": [
-                name for name in _ISLAND_BLOB_ATTRS if not hasattr(rc, name)
-            ],
-            "island_blob_along_scale": getattr(rc, "island_blob_along_scale", None),
-        },
-    )
-    # endregion
-    return rc
+    return render_constants_mod.RENDER
 
 
 def _shaded_sphere_rgb(
