@@ -4,7 +4,7 @@ Mission operators today often rely on deterministic strategies with fixed nadir 
 When clouds occlude the line of sight, those strategies still consume onboard memory and downlink budget on low-value frames, while scientists lose observations that may not be recoverable on the next pass.
 The cost is therefore threefold: reduced science yield, wasted capture capacity, and unnecessary actuator activity from indiscriminate pointing and slewing.
 
-Autonomous onboard decision-making is motivated by latency: ground-in-the-loop replanning cannot react quickly enough as cloud fields evolve during overflight.
+Autonomous onboard decision-making is motivated by latency: ground-in-the-loop replanning cannot react to the cloud layout actually present during the pass.
 Both \emph{when} to expose the shutter and \emph{how} to orient the spacecraft for maximal image quality therefore matter, and they must respect attitude safety limits on reaction-wheel use and pointing envelopes.
 From the outside, the required behaviour looks straightforward: use onboard camera feedback to skip cloud-occluded targets and capture only when the view is clear.
 This report treats that apparent simplicity as the starting point and asks what training design is actually required to reach it.
@@ -31,6 +31,27 @@ Capture decisions are sequential and uncertain.
 Cloud occlusion, attitude dynamics, and discrete shutter events interact over a single pass, so the design of the learning interface matters as much as the algorithm choice.
 The experiments below treat this as a design-space question: which training choices make selective shuttering learnable, and which do not.
 
+\subsection{Related work}
+\label{sec:related-work}
+
+Earth-observation satellite scheduling is a well-studied operations-research domain.
+Surveys of satellite scheduling problems document how limited onboard storage, downlink, and energy constrain capture opportunities, and how waste of those resources reduces science yield \citep{ferrari2024ssp}.
+Much of that literature addresses ground-segment planning over multi-orbit horizons.
+The present work instead asks how a single-pass, onboard policy should decide pointing and shuttering when cloud cover is revealed only during the overflight.
+
+Continuous-control reinforcement learning provides candidate algorithms for that onboard layer.
+Soft Actor-Critic (SAC) combines off-policy sample reuse with a maximum-entropy objective, which tends to stabilise stochastic continuous control relative to brittle deterministic off-policy methods \citep{haarnoja2018sac}.
+Maximum a Posteriori Policy Optimisation (MPO) frames improvement as relative-entropy-constrained policy iteration with separate trust regions on the policy mean and covariance \citep{abdolmaleki2018mpo}.
+Both algorithms are used in the experiments below as interchangeable learners over a shared environment and observation stack.
+
+Beyond the policy update, observation structure matters when sensors are heterogeneous.
+Integrating state representation learning into deep RL shows that reward alone may not shape a usable embedding when modalities must be fused, and that structured encoders improve sample efficiency and generalisation \citep{bruin2018irl}.
+For tabular and numeric inputs specifically, embedding numerical features before mixing outperforms feeding raw scalars through a shallow multilayer perceptron \citep{gorishniy2022revisiting}; that motivation underlies encoder variants that compress structured bearing and mask fields before fusion with vision features.
+
+Prior work therefore covers Earth-observation resource scheduling, stable continuous-control RL, and structured observation encoders.
+It does not, however, map which reward shaping and action-space designs are sufficient for cloud-aware shuttering under hard attitude-safety constraints in this simplified Earth-observation setting.
+That mapping is the focus of the present report.
+
 \subsection{Deterministic baseline}
 \label{sec:baseline-intro}
 
@@ -52,45 +73,14 @@ The experiments below treat this as a design-space question: which training choi
     \caption{Capture}
   \end{subfigure}
   \caption{Deterministic baseline overflight (orbit-disk dashboard).
-    Left to right: approach into the target corridor, slew toward a scheduled target, and capture near lock.
+    Left to right: (a)~Approach: nadir coast into the target corridor before the first lock;
+    (b)~Point: large off-nadir slew toward the scheduled target bearing;
+    (c)~Capture: return to nadir after the first shutter, with high image quality and the reward spike still visible.
     The schedule fires regardless of cloud cover (Table~\ref{tab:baseline-config}).}
   \label{fig:baseline-overflight-phases}
 \end{figure}
 
-The reference strategy is a pre-scheduled sequential controller used as the comparison anchor throughout the experiments (Section~\ref{sec:baseline}).
-An onboard computer (OBC) runs a proportional--derivative pointing loop: it commands a target body angle (nadir coast or target bearing) and converts the tracking error into a reaction-wheel torque request.
-The same attitude-safety stack and simulation kernel as the learned policy apply; safety overrides are not disabled.
-
-Table~\ref{tab:baseline-config} summarises the baseline scheduling and tuning.
-The policy has no access to cloud information and cannot adapt its capture list.
-
-\begin{table}[htbp]
-  \centering
-  \renewcommand{\arraystretch}{1.3}
-  \caption{Deterministic baseline configuration (comparison anchor).}
-  \label{tab:baseline-config}
-  \small
-  \begin{tabular}{p{0.32\linewidth}p{0.62\linewidth}}
-    \toprule
-    Aspect & Setting \\
-    \midrule
-    Scheduling logic &
-      Strided target list: 10 captures per pass from a 50-target corridor (indices 0, 5, 10, \ldots, 45 on the evaluation seed).
-      Nadir coast between engages; slew to target bearing when the orbit-angle window opens. \\
-    OBC pointing &
-      PD loop on body-angle tracking error; gains $k_p \approx \SI{1.15}{N.m/rad}$, $k_d \approx \SI{12.0}{N.m.s/rad}$
-      derived from $\tau_\text{max}=\SI{0.1}{N.m}$, $I_\text{sat}=\SI{31.2}{kg.m^2}$, and a \SI{5}{\degree} deceleration band. \\
-    Boresight lock threshold &
-      $\SI{15}{\degree}$ between body boresight and target bearing (shutter fires once locked, or if image quality $\ge 0.25$ while the target is in the sensor strip). \\
-    Lead margin &
-      \SI{20}{\degree} orbit-angle margin before target engage window opens. \\
-    Shutter commands &
-      10 per episode (one per scheduled target; matches the episode shutter budget below). \\
-    Cloud awareness &
-      None (captures on schedule regardless of occlusion). \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+The reference strategy is a pre-scheduled sequential controller used as the comparison anchor throughout the experiments (Section~\ref{sec:baseline}): an OBC proportional--derivative loop commands target body angles (nadir coast or target bearing) under the same attitude-safety stack as the learned policy, with no cloud awareness and no adaptive capture list (see Table~\ref{tab:baseline-config}).
 
 A real mission is additionally constrained by onboard memory, downlink bandwidth, and energy \citep{ferrari2024ssp}.
 We model this resource limit with a \emph{shutter budget}: a hard cap of ten capture actions per episode.
@@ -111,22 +101,21 @@ Section~\ref{sec:methods} describes how the question was investigated and lists 
 \textbf{Long-term context.}
 The intended onboard stack is hierarchical: a mission planner sets observation intent, a learned policy decides when and what to image, and an OBC executes maneuvers through PD pointing under hard attitude-safety limits.
 This report maps the learning interface for that scheduling layer, not the full flight stack.
-Development began with direct reaction-wheel torque commands; review with system engineers after aggressive simulated slewing motivated modelling an attitude-safety arbitrator on every agent action (Section~\ref{sec:safety}).
-The experiment sequence compares torque and nadir-relative pointing (\emph{vector}) modes; vector mode delegates rate control to the OBC and became the default from Exp~11 onward.
-Section~\ref{sec:discussion-architecture} expands the rationale for segregating scheduling from low-level control.
+Section~\ref{sec:discussion-architecture} details the control hierarchy and the torque-to-vector action-interface path explored in the experiments.
 
 \subsection{Contributions}
 This report documents:
 \begin{itemize}
-  \item \textbf{Platform.} A reproducible simulation-and-learning pipeline with seeded mission randomization, canonical episode rollouts, matched baseline replay, and view-only rendering so that reward and action-space variants can be compared under identical cloud and target draws.
+  \item \textbf{Platform.} A simulation-and-learning pipeline with seeded mission randomisation and matched baseline comparison, so that reward and action-space variants are tested under identical cloud and target draws.
   \item \textbf{Design-space study.} A sequence of fourteen experiments that maps which reward terms, action representations, and algorithm choices enable cloud-aware shuttering behaviour, and which do not.
-  \item \textbf{Evaluation protocol.} Warmup, training, and evaluation conventions with a fixed environment seed and a deterministic baseline as the comparison anchor.
-  \item \textbf{Evidence.} Qualitative and quantitative artefacts from frozen runs, including selective-shuttering behaviour in late-training episodes where learning succeeded.
+  \item \textbf{Evaluation protocol.} Training and evaluation conventions with a fixed environment seed, baseline-policy buffer seeding, and a deterministic baseline as the comparison anchor.
+  \item \textbf{Evidence.} Qualitative and quantitative artefacts from frozen runs, including selective shuttering behaviour in late-training episodes where learning succeeded.
 \end{itemize}
 
 The engineering platform and the experimental map are the primary deliverables; mission-level outperformance of the baseline was not established within the semester scope (Section~\ref{sec:discussion}).
 
 \subsection{Report structure}
+Section~\ref{sec:related-work} situates the work against Earth-observation scheduling surveys and continuous-control reinforcement learning.
 Section~\ref{sec:methods} describes the research approach, simulation environment, and learning method.
 Section~\ref{sec:experiments} documents the design-space search: which reward and action-space choices were tested and what each revealed.
 Section~\ref{sec:results} aggregates the behavioural and return outcomes.

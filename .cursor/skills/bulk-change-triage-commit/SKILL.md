@@ -12,7 +12,7 @@ For each file in `git status`, output `filename: y/n`.
 
 - **n** (bundle): configs, docs, `__init__.py`, deleted files, notebooks, scripts, tests accompanying a logic change
 - **y** (review): API routes, DB services, trading/financial logic, core extraction/pipeline modules
-- **y** (or exclude): large uncurated experiment dumps (`results/artifacts/`, run trees, bulk PNG/MP4) when the intent is report evidence — report assets belong under `docs/report/semester-project/figures/` with `FIGURES_TODO.md` tags (learnings.md `report-figure-curate-not-dump`); never `git add -A` an entire experiment tree as the report figure set
+- **y** (or exclude): large uncurated experiment dumps (`results/artifacts/`, run trees, bulk PNG/MP4) when the intent is report evidence — report assets belong under `docs/report/semester-project/figures/` with `FIGURES_TODO.md` tags (learnings.md `report-figure-curate-not-dump`); never `git add -A` an entire experiment tree as the report figure set; also refuse committing known-bad duplicates / wrong-plot “learning curves” without fix (learnings.md `report-figure-artifact-integrity`)
 
 Group by bucket and summarize: "X can bundle, Y need review."
 

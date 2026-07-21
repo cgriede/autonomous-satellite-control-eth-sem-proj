@@ -140,4 +140,4 @@ If you need the same mutation repeatedly (e.g. `set-row` for backlog), extend `.
 - CLI detail: [reference.md](reference.md)
 - Video evidence: [video-frame-inspect](../video-frame-inspect/SKILL.md)
 - Visual claims: [experiment-visual-evidence](../../rules/experiment-visual-evidence.mdc)
-- Thesis figure freeze (curate, don’t dump): [generate-research-report](../generate-research-report/SKILL.md) · learnings.md `report-figure-curate-not-dump`
+- Thesis figure freeze (curate, don’t dump): [generate-research-report](../generate-research-report/SKILL.md) · learnings.md `report-figure-curate-not-dump` · also `report-figure-caption-process-match` / `report-figure-artifact-integrity` when reusing report panels

@@ -63,9 +63,15 @@ When selecting visuals for the thesis PDF (learnings.md `report-figure-curate-no
 
 1. **Light-clean** obvious junk/duplicates; do not rewrite experiment history.
 2. **Curate** only chosen plots/frames into [`docs/report/semester-project/figures/`](../../../docs/report/semester-project/figures/) (optional `figures/candidates/` for real alternates).
-3. **Tag placement** in [`FIGURES_TODO.md`](../../../docs/report/semester-project/FIGURES_TODO.md) (or a figure manifest): section, label, status (`primary` / `backup` / `layout-stub`), provenance path under experiment `results/` or run dirs.
+3. **Tag placement** in [`FIGURES_TODO.md`](../../../docs/report/semester-project/FIGURES_TODO.md) (or a figure manifest / `figures/PRIMARY.md`): section, label, status (`primary` / `backup` / `layout-stub`), provenance path under experiment `results/` or run dirs.
 4. **Commit the curated tree + manifest** — not the full experiment dump. Keep KPI JSON under `backend/scripts/experiments/*/results/` as provenance.
 5. **Backups** = real alternate artifacts marked `backup`; never invent synthetic data to fill the report. `layout-stub` is OK only when clearly non-final.
+
+**Preflight before wiring `\includegraphics` (mandatory):**
+
+- **Caption ↔ process match** (learnings.md `report-figure-caption-process-match`): for each panel, Read the PNG (or video-frame-inspect telem crop) and confirm it shows the intended process — e.g. high-torque reject, CRUISE mid-slew, LOCKOUT nadir hold; Approach / Point / Capture; selective shutter with take-picture. Reject time-neighbor frames that look similar but are the wrong phase.
+- **Phase vocabulary:** subcaptions must use the same names as Methods prose (BRAKE / CRUISE / SETTLE / LOCKOUT). Never invent parallel labels (Entry / Recovery / Hold).
+- **Artifact integrity** (learnings.md `report-figure-artifact-integrity`): MD5/hash-check promoted `fig_*.png` for byte-identical duplicates under different names; for learning-vs-not claims use `returns_by_episode` from the named run — never loss-diagnostic grids, algorithm-mismatched titles, or empty metric panels.
 
 Wire `\includegraphics` only for `primary` assets under `figures/`.
 
@@ -99,6 +105,10 @@ Problem (direction-log) → literature (highlights) → hypotheses (hypothesis.m
 - Omitting nb07 baseline comparison framing from direction-log
 - Committing the full experiment dump (or `git add -A` over run trees) as “report evidence” instead of a curated `figures/` set — see `report-figure-curate-not-dump`
 - Filling the report with synthetic/random plots presented as real results
+- Putting report-writing meta into reader prose (e.g. “human-readable rather than internal flag names”, “engineering-only fixes are omitted”, agent/process notes) — see learnings.md `report-no-meta-process-prose`
+- Wiring figure panels without vision preflight against the caption process — see `report-figure-caption-process-match`
+- Parallel phase names in subcaptions vs Methods (Entry/Recovery/Hold vs BRAKE/CRUISE/LOCKOUT)
+- Byte-identical `fig_*.png` under different names, or loss-diagnostic plots labeled as learning/return curves — see `report-figure-artifact-integrity`
 
 ## Checklist
 
@@ -108,11 +118,14 @@ Problem (direction-log) → literature (highlights) → hypotheses (hypothesis.m
 - [ ] Results only from JSON/analysis cards; TBD where frozen
 - [ ] Discussion includes decision trail (accepted/rejected/deferred)
 - [ ] Gaps explicit
-- [ ] Report figures curated under figures/ with FIGURES_TODO section tags (if freezing visuals)
+- [ ] Report figures curated under figures/ with FIGURES_TODO / PRIMARY section tags (if freezing visuals)
+- [ ] Each panel vision-checked vs caption process; phase names match Methods
+- [ ] No duplicate fig hashes; learning curves are returns (not loss grids) for the named exp
 ```
 
 ## Related
 
+- Prose + PDF layout QA (personal): `~/.cursor/skills/dev-skills/review-research-report/SKILL.md` — `/review-research-report` (checklist **I** / `report-layout-visual-pdf-review`: render PDF pages + vision, not LaTeX alone); after findings, that skill **suggests** sequential `update-research-report` Task subagents (one item + parent verify) — see learnings.md `report-review-suggest-subagent-queue`
 - Code README: [`generate-code-readme`](../generate-code-readme/SKILL.md)
 - Maintain layers: [`document-research`](../document-research/SKILL.md)
 - Visual pre-check before figure freeze: [`visual-output-verification`](../visual-output-verification/SKILL.md)

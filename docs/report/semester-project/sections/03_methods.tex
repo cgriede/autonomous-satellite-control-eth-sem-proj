@@ -5,13 +5,6 @@ We built a simulation platform and ran a sequence of controlled experiments that
 Each configuration was evaluated against the deterministic baseline (Section~\ref{sec:baseline-intro}) under matched environment draws: same altitude, cloud layout, and target positions per episode.
 Success is measured by whether the agent learns a stable policy that uses vision feedback to shutter selectively rather than on every step.
 
-Alongside the design-space map, the work pursued three practical deliverables:
-\begin{itemize}
-  \item a reproducible train--eval pipeline with seeded missions and matched baseline comparison;
-  \item documentation of which reward and action-space choices enable learning and which do not;
-  \item demonstration exports (baseline versus trained-policy videos, learning curves, and comparison plots) for behavioural assessment.
-\end{itemize}
-
 The subsections below document every modelling choice, constant, and algorithm in sufficient detail to reproduce the experiment results.
 Numeric values appear in the Nomenclature and in the tables below; repository source locations are listed in the Appendix.
 
@@ -34,7 +27,7 @@ The specific geographic location of the corridor is irrelevant: the agent only e
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.92\linewidth]{figures/fig_env_overview.png}
-  \caption{Environment overview on the orbit-disk dashboard: satellite on the pass arc, target corridor on the Earth limb, and seeded cloud primitives along the track.}
+  \caption{Environment overview on the orbit-disk dashboard early in the pass: satellite on the arc, target corridor markers on the Earth limb ahead of the boresight, before the first scheduled slew.}
   \label{fig:env-overview}
 \end{figure}
 
@@ -45,12 +38,12 @@ At the canonical simulation timestep of $\Delta t = \SI{1.5}{\second}$ this yiel
 
 \paragraph{Off-policy learning and replay buffer.}
 \label{sec:replay-buffer}
-Training uses two off-policy algorithms, SAC and MPO (Section~\ref{sec:mpo}): the policy is improved from stored past experience, not only from the latest rollout.
+Training uses two off-policy algorithms, SAC (Section~\ref{sec:sac}) and MPO (Section~\ref{sec:mpo}): the policy is improved from stored past experience, not only from the latest rollout.
 After each simulation step the transition (observation, action, reward, next observation) is appended to a \emph{replay buffer}, a fixed-capacity store of recent steps.
 Gradient updates draw random mini-batches from this buffer, so a rare rewarded event (a successful capture) can contribute to many parameter updates.
-Capture credit is sparse in this environment, so both the simulation timestep below and the warmup protocol in Section~\ref{sec:experiments} affect whether the buffer contains enough useful transitions to learn from.
+\emph{Capture credit} (the reward applied when a shutter yields a useful first-time observation of a target) is sparse in this environment, so both the simulation timestep below and the warmup protocol in Section~\ref{sec:experiments} affect whether the buffer contains enough useful transitions to learn from.
 
-\paragraph{Simulation timestep selection (H0 sweep).}
+\paragraph{Simulation timestep selection.}
 Choosing $\Delta t$ requires balancing three competing constraints:
 \begin{enumerate}
   \item \textbf{Controller authority:} $\Delta t$ must be small enough that the low-level attitude controller can still respond to the reaction-wheel dynamics within one step.
@@ -58,11 +51,11 @@ Choosing $\Delta t$ requires balancing three competing constraints:
   \item \textbf{Reward signal fidelity:} capture credit arrives only at shutter events on clear targets, so most steps carry little or no reward.
     If $\Delta t$ is too large, target encounters fall between steps and fewer rewarded transitions are stored per episode, leaving the replay buffer (Section~\ref{sec:replay-buffer}) with too little signal for off-policy learning.
 \end{enumerate}
-To find the largest $\Delta t$ satisfying these constraints we ran a parity sweep (Exp.~0, Phase H0) over four candidates:
+To find the largest $\Delta t$ satisfying these constraints we ran a timestep parity sweep over four candidates:
 $\Delta t \in \{0.4,\,0.8,\,1.0,\,1.5\}\,\si{s}$, with controller update interval matched to $\Delta t$.
-Each candidate ran one baseline warmup episode and had to satisfy: $n_\text{shutter} > 0$ and episode return $\ge 50\%$ of the $\SI{0.4}{s}$ reference.
+Each candidate ran one baseline warmup episode and had to satisfy: at least one shutter and episode return $\ge 50\%$ of the $\SI{0.4}{s}$ reference.
 All four candidates passed.
-$\Delta t = \SI{1.5}{\second}$ was selected as the largest parity-passing timestep, reducing the per-episode integration cost from $\sim 1935$ integration states to $\sim 516$ controller steps and proportionally increasing training throughput.
+$\Delta t = \SI{1.5}{\second}$ was selected as the largest parity-passing timestep, cutting the episode from $\sim 1935$ to $\sim 516$ controller steps and proportionally increasing training throughput.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Simplifications}
@@ -74,7 +67,9 @@ Table~\ref{tab:simplifications} summarises which subsystems are modelled and whi
   \centering
   \caption{Modelled vs.\ not-modelled subsystems.}
   \label{tab:simplifications}
-  \begin{tabular}{lll}
+  \renewcommand{\arraystretch}{1.3}
+  \small
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.22\linewidth}>{\raggedright\arraybackslash}p{0.36\linewidth}>{\raggedright\arraybackslash}p{0.34\linewidth}@{}}
     \toprule
     Subsystem & Modelled & Not modelled \\
     \midrule
@@ -124,10 +119,9 @@ The primary nadir-looking camera parameters are listed in Table~\ref{tab:constan
 The vertical field of view and ground-sampling distance (GSD) are computed analytically from sampled altitude using a pinhole model.
 At $\SI{540}{km}$ the nominal GSD is approximately $\SI{1.6}{m}$.
 
-\paragraph{Ray discretisation.}
-At each simulation timestep the camera boresight is cast as 101 uniform rays spanning the vertical FOV along the primary observation line.
-A secondary wide-angle camera (Table~\ref{tab:constants-camera-sim}) provides an additional 200-bin observation line.
-Both lines are evaluated with the same ray-intersection kernel each step.
+\paragraph{Camera observation lines.}
+At each simulation timestep the primary and secondary cameras are evaluated as one-dimensional observation lines spanning their vertical fields of view (Table~\ref{tab:constants-camera-sim}).
+Each line reports target coverage and cloud occlusion along the boresight strip; both use the same ray-intersection kernel.
 
 \paragraph{Image quality and motion smear.}
 Capturing a useful image requires the boresight ground footprint to remain nearly stationary during
@@ -240,48 +234,47 @@ and tracking each target across its observation window.
 \paragraph{Cloud model.}
 Cloud primitives are parameterised arcs in the orbit plane.
 For each episode a seeded generator places cloud patches along the target corridor with extent, altitude, and thickness drawn from the ranges in Table~\ref{tab:constants-mission}.
-The cloud-blocked fraction of each camera-ray bin is computed at every timestep and contributed to the per-step observation and reward.
-
-\begin{figure}[htbp]
-  \centering
-  \begin{subfigure}[t]{0.32\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{figures/fig_clouds_t0.png}
-    \caption{$t_0$}
-  \end{subfigure}\hfill
-  \begin{subfigure}[t]{0.32\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{figures/fig_clouds_t1.png}
-    \caption{$t_1$}
-  \end{subfigure}\hfill
-  \begin{subfigure}[t]{0.32\linewidth}
-    \centering
-    \includegraphics[width=\linewidth]{figures/fig_clouds_t2.png}
-    \caption{$t_2$}
-  \end{subfigure}
-  \caption{Seeded cloud field evolving along a single pass (neighbor frames from one baseline episode).
-    Cloud arcs move relative to the target corridor and modulate the observation-line cloud fraction.}
-  \label{fig:cloud-motion}
-\end{figure}
+Over a single pass the clouds are effectively fixed relative to the ground corridor (any advective drift is negligible on the episode timescale); occlusion changes mainly because the satellite and camera rays move through that layout.
+The cloud-blocked fraction along each camera observation line is computed at every timestep and contributed to the per-step observation and reward.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Baseline strategy}
 \label{sec:baseline}
 
-The reference controller is a deterministic sequential-target overflight policy (Table~\ref{tab:baseline-config}).
-It issues a pre-planned sequence of pointing requests: for each target in orbital order the controller
-slews to the target bearing when the satellite enters the engagement window
-(projected off-nadir at the target boresight plus braking distance $\le \SI{45}{\degree}$)
-and fires the shutter once the boresight error is below the \SI{15}{\degree} lock threshold (Table~\ref{tab:baseline-config}).
-The baseline uses the same attitude-safety stack and simulation kernel as the learned policy:
-safety overrides are not disabled and the shutter budget of ten captures per episode is enforced.
+The reference controller is a deterministic sequential-target overflight policy.
+Figure~\ref{fig:baseline-overflight-phases} shows the approach, point, and capture phases of a typical pass; Table~\ref{tab:baseline-config} lists the scheduling logic, OBC PD gains, lock threshold, lead margin, shutter commands, and cloud awareness.
+The baseline uses the same attitude-safety stack and simulation kernel as the learned policy: safety overrides are not disabled.
 
-The baseline \emph{cannot} observe cloud content: it schedules captures regardless of whether the target is occluded.
-Its deterministic fixed-cadence shuttering consumes the capture budget equally across clear and cloud-obscured targets,
-resulting in a fraction of scientifically useless frames.
-Under the experiment environment this yields a mean evaluation episode return of approximately $-38.6$
-(matched seeds, two evaluation episodes).
-This value serves as the comparison anchor throughout the design-space study; it is not the quantity the experiments set out to maximise, but the reference against which each reward and action-space variant is measured.
+\begin{table}[htbp]
+  \centering
+  \renewcommand{\arraystretch}{1.3}
+  \caption{Deterministic baseline configuration (comparison anchor).}
+  \label{tab:baseline-config}
+  \small
+  \begin{tabular}{p{0.32\linewidth}p{0.62\linewidth}}
+    \toprule
+    Aspect & Setting \\
+    \midrule
+    Scheduling logic &
+      Strided target list: 10 captures per pass from a 50-target corridor (indices 0, 5, 10, \ldots, 45 on the evaluation seed).
+      Nadir coast between engages; slew to target bearing when the orbit-angle window opens. \\
+    OBC pointing &
+      PD loop on body-angle tracking error; gains $k_p \approx \SI{1.15}{N.m/rad}$, $k_d \approx \SI{12.0}{N.m.s/rad}$
+      derived from $\tau_\text{max}=\SI{0.1}{N.m}$, $I_\text{sat}=\SI{31.2}{kg.m^2}$, and a \SI{5}{\degree} deceleration band. \\
+    Boresight lock threshold &
+      $\SI{15}{\degree}$ between body boresight and target bearing (shutter fires once locked, or if image quality $\ge 0.25$ while the target is in the sensor strip). \\
+    Lead margin &
+      \SI{20}{\degree} orbit-angle margin before target engage window opens. \\
+    Shutter commands &
+      10 per episode (one per scheduled target; matches the episode capture cap). \\
+    Cloud awareness &
+      None (captures on schedule regardless of occlusion). \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+In each learning run the same baseline policy fills five warmup episodes under that run's action interface and reward stack;
+the mean warmup return is therefore the matched \emph{average baseline return} against which training and evaluation are compared (Section~\ref{sec:exp-table}).
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Attitude safety controller}
@@ -321,20 +314,23 @@ All phase thresholds are listed in Table~\ref{tab:safety-thresholds}.
   \begin{subfigure}[t]{0.32\linewidth}
     \centering
     \includegraphics[width=\linewidth]{figures/fig_safety_t0.png}
-    \caption{Entry}
+    \caption{High-torque slew (BRAKE)}
   \end{subfigure}\hfill
   \begin{subfigure}[t]{0.32\linewidth}
     \centering
     \includegraphics[width=\linewidth]{figures/fig_safety_t1.png}
-    \caption{Recovery}
+    \caption{CRUISE}
   \end{subfigure}\hfill
   \begin{subfigure}[t]{0.32\linewidth}
     \centering
     \includegraphics[width=\linewidth]{figures/fig_safety_t2.png}
-    \caption{Hold}
+    \caption{LOCKOUT}
   \end{subfigure}
-  \caption{One attitude-safety cycle in torque-mode evaluation (neighbor frames).
-    Aggressive off-nadir motion triggers safe-mode recovery; agent commands are ignored until lockout completes.}
+  \caption{One attitude-safety cycle in torque-mode evaluation (same episode; panels use the recovery-phase names BRAKE / CRUISE / LOCKOUT).
+    (a)~High-torque slew: the agent commands large torque and reaches $\approx\SI{43}{\degree}$ off-nadir; safe mode activates (BRAKE) and rejects the request (applied torque drops while the agent request remains high).
+    (b)~CRUISE: onboard recovery slews the boresight back toward nadir (here $\approx\SI{24}{\degree}$ off-nadir) while agent torque stays ignored.
+    (c)~LOCKOUT: nadir hold with agent torque rejected for $\SI{60}{s}$.
+    SETTLE (between CRUISE and LOCKOUT) is short and not shown.}
   \label{fig:safety-maneuver}
 \end{figure}
 
@@ -369,7 +365,7 @@ When the agent fires the shutter, is within budget, and the target has not been 
   r_\text{cap} = W_\text{cap}\cdot\text{cov}\cdot q\cdot(1 - f_\text{cloud}),
   \label{eq:r-cap}
 \end{equation}
-where $\text{cov}\in[0,1]$ is the fraction of primary camera bins over the dominant target,
+where $\text{cov}\in[0,1]$ is the fraction of the primary camera footprint over the dominant target,
 $q\in[0,1]$ is the image quality (Section~\ref{sec:obs-model}),
 $f_\text{cloud}\in[0,1]$ is the cloud-blocked fraction, and
 $W_\text{cap}$ is the capture weight.
@@ -393,6 +389,73 @@ Applied every step on the agent-requested torque (before safety arbitration); di
 \paragraph{Safe-mode penalty (Exp~10 only, not default).}
 Per-step penalty while the agent is in safe-mode recovery: $r_\text{safe} = -k_\text{safe}$, $k_\text{safe}=2.0$.
 Ruled out at this coefficient (see Section~\ref{sec:exp10}).
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Learning algorithm: SAC}
+\label{sec:sac}
+
+We use Soft Actor-Critic (SAC) \cite{haarnoja2018sac}.
+SAC is an off-policy actor-critic algorithm in the \emph{maximum-entropy} reinforcement-learning framework:
+the stochastic policy maximises expected return while also maximising action entropy, so that high-reward behaviour is learned without collapsing prematurely to a near-deterministic action.
+In continuous control, this yields a stable off-policy learner that reuses replay-buffer experience and explores via the entropy term rather than via an additive noise process.
+
+\paragraph{Soft critic update (policy evaluation).}
+Two critics $Q_{\theta_1},Q_{\theta_2}$ are trained against a shared soft Bellman target built from the minimum of the target critics (clipped double-Q), with an entropy bonus on the next action:
+\begin{equation}
+  y = r + \gamma(1-d)\,
+  \Bigl(
+    \min_{i\in\{1,2\}} Q_{\theta_i'}(s',a')
+    - \alpha\,\log\pi_\phi(a'|s')
+  \Bigr),
+  \label{eq:sac-soft-bellman}
+\end{equation}
+where $a'\sim\pi_\phi(\cdot|s')$, $d\in\{0,1\}$ marks episode termination, and target networks $Q_{\theta_i'}$ are soft-updated with coefficient $\tau$ (Table~\ref{tab:sac-hparams}).
+Each critic is fitted by mean-squared error to $y$.
+
+\paragraph{Policy update (soft actor).}
+The Gaussian actor $\pi_\phi$ is updated to maximise soft $Q$ while retaining entropy:
+\begin{equation}
+  J_\pi(\phi)
+  = \mathbb{E}_{s\sim\mathcal{B},\,a\sim\pi_\phi}\!
+  \Bigl[
+    \alpha\,\log\pi_\phi(a|s)
+    - \min_{i\in\{1,2\}} Q_{\theta_i}(s,a)
+  \Bigr],
+  \label{eq:sac-policy}
+\end{equation}
+which is minimised by stochastic gradient descent (reparameterised samples; tanh-squashed actions with the standard change-of-variables correction on $\log\pi$).
+
+\paragraph{Fixed entropy temperature.}
+The temperature $\alpha$ trades off return against entropy.
+We use a fixed coefficient $\alpha=0.2$ (no automatic temperature dual), matching the overnight SAC fork used throughout the experiment series.
+This is simpler than the learned-$\alpha$ variant of SAC and was sufficient for the sparse-reward regimes in which SAC first showed a learning signal (Exp~3).
+
+\paragraph{Network architecture.}
+Actor and critics use the same 1D-CNN encoder and fully connected widths as MPO (Section~\ref{sec:mpo}): two convolutional layers (kernel size~5, channels $[16,32]$, stride~2, embedding dimension~32), then actor head 90 units and critic heads 140 units.
+Hyperparameters are listed in Table~\ref{tab:sac-hparams}.
+
+\begin{table}[htbp]
+  \centering
+  \caption{SAC hyperparameters (default configuration; all SAC experiments unless noted).}
+  \label{tab:sac-hparams}
+  \begin{tabular}{lll}
+    \toprule
+    Parameter & Symbol & Value \\
+    \midrule
+    Batch size               & $B$               & 256 \\
+    Replay buffer            & $|\mathcal{B}|$   & 50\,000 \\
+    Discount factor          & $\gamma$          & 0.99 \\
+    Target network           & $\tau$            & 0.005 \\
+    Actor learning rate      & $\eta_\pi$        & $1.5\times10^{-4}$ \\
+    Critic learning rate     & $\eta_Q$          & $4.5\times10^{-4}$ \\
+    Entropy temperature      & $\alpha$          & 0.2 (fixed) \\
+    Warmup episodes           & ---               & 5 \\
+    Training episodes         & ---               & 50 (Exp~2: 7) \\
+    Eval episodes             & ---               & 2 \\
+    Environment seed          & ---               & 7 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Learning algorithm: MPO}
@@ -429,7 +492,7 @@ The fix implements separate $\alpha_\mu/\alpha_\sigma$ multipliers as specified 
 All MPO experiments from Exp~8 onwards use the corrected implementation.
 
 \paragraph{Network architecture.}
-Both actor and critic share a 1D-CNN encoder over the camera observation lines (two convolutional layers, kernel size~5, channels $[16,32]$, stride~2, embedding dimension~32; code embedding dimension~8)
+Both actor and critic share a 1D-CNN encoder over the camera observation lines (two convolutional layers, kernel size~5, channels $[16,32]$, stride~2, embedding dimension~32)
 followed by fully connected layers (actor: 90 units; critic: 140 units).
 Hyperparameters are listed in Table~\ref{tab:mpo-hparams}.
 
@@ -470,12 +533,12 @@ The controller observation is assembled at each controller tick from:
 \begin{itemize}
   \item \textbf{Attitude scalars:} body angle $\theta_\text{body}$ [rad], satellite body rate $\omega_\text{sat}$ [rad/s].
   \item \textbf{Orbit scalar:} true anomaly $\theta_\text{orbit}$ [rad].
-  \item \textbf{Camera lines:} primary 101-bin observation-line code array (integer class per bin: background, target T0, T1, \ldots, cloud-blocked); secondary 200-bin array.
+  \item \textbf{Camera lines:} primary and secondary observation-line arrays (per-cell class labels: background, target identity, or cloud-blocked).
   \item \textbf{Mission context:} remaining shutter budget (dimensionless count); binary target-captured mask (one entry per target area); signed bearing error toward each target [rad].
 \end{itemize}
 
 \paragraph{Actions.}
-The MPO policy outputs a 2-dimensional continuous action $[a_\tau, a_s]\in[-1,1]^2$:
+Both SAC and MPO policies output a 2-dimensional continuous action $[a_\tau, a_s]\in[-1,1]^2$:
 \begin{itemize}
   \item \textbf{Torque mode:} $a_\tau\mapsto\tau_\text{cmd} = a_\tau\cdot\tau_\text{max}$ [\si{N.m}] (direct RW torque request).
   \item \textbf{Vector mode:} $a_\tau\mapsto f_n = \SI{45}{\degree}\cdot a_\tau$ (nadir-relative pointing offset); the OBC PD controller converts this to a torque command.
@@ -488,12 +551,6 @@ experiments from Exp~11 onward use vector mode as the default.
 \subsection{Simulation architecture}
 \label{sec:arch}
 
-The simulation, learning, and visualisation layers are strictly separated:
-
-\begin{itemize}
-  \item \textbf{Canonical simulation.} One rollout produces the full per-episode world-state time series consumed by training, evaluation, and rendering.
-    No parallel integrators exist.
-  \item \textbf{Seeded randomness.} A per-workflow integer seed fixes altitude and cloud layouts; warmup episodes are cached for reproducibility.
-  \item \textbf{View-only render.} Visualisation reads a completed simulation time series and performs no numeric propagation.
-  \item \textbf{Exclusive training runs.} Only one long training job runs at a time on a given machine, so run artifacts remain attributable.
-\end{itemize}
+Training, evaluation, and visualisation share one simulated episode per roll-out.
+The reward, the evaluation KPIs, and the exported videos therefore reflect the same altitude, cloud layout, attitude trajectory, and camera observations.
+Mission randomisation is controlled by a fixed integer seed so that the deterministic baseline and each learned configuration are compared under identical environment draws.

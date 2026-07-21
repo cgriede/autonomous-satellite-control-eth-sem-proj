@@ -2,10 +2,17 @@
 
 \usepackage{subcaption}
 \usepackage[colorinlistoftodos,textsize=small]{todonotes}
+\usepackage{array} % >{\raggedright\arraybackslash}p{...} columns
+\usepackage{xurl} % breakable \path / \url (after hyperref in class)
+\usepackage{pdfpages} % append external PDF pages unchanged
+% Break paths at path separators only (avoid mid-token wraps like ATTITUDE_SA/FETY).
+\renewcommand{\UrlBreaks}{\do\/\do\_\do\-}
 
 % Disable automatic hyphenation across the whole document.
 \hyphenpenalty=10000
 \exhyphenpenalty=10000
+% Allow mild stretch so unhyphenated lines do not clip the margin.
+\emergencystretch=2em
 
 % --- Metadata (edit before submission) ---
 \reportTitle{Cloud-Aware Learning-Based Attitude Control for Rainforest Earth Observation}
@@ -53,10 +60,22 @@
 \section{Conclusion}
 \input{sections/07_conclusion}
 
+\section*{Acknowledgements}
+\addcontentsline{toc}{section}{Acknowledgements}
+I thank Prof.\ Dr.\ Marco Hutter (ETH RSL) for academic supervision, Alejandro Torrents Rufas and Mathias Burkhalter (Beyond Gravity) for industry supervision, and Beyond Gravity for hosting this semester project.
+
 \appendix
 \section{Supplementary material}
 \input{sections/08_appendix}
 
+% Bibliography DOIs/URLs: allow stretch so long unbreakable tokens stay in margin.
+{\emergencystretch=3em
 \bibliography{references}
+}
+
+% Declaration of originality (flattened immutable copy; form fields baked in).
+% Source fillable file: ../declaration-originality.pdf — do not edit that here.
+\clearpage
+\includepdf[pages=-]{../declaration-originality-immutable.pdf}
 
 \end{document}

@@ -116,9 +116,21 @@ Source: `autonomous_control/episode_runner.py`, `notebooks/s01/s01_utils/trainin
 
 ---
 
+# Soft Actor-Critic (SAC)
+
+Source: Haarnoja et al., ICML 2018 (`docs/research/2018_haarnoja_sac.pdf`); fork `backend/scripts/experiments/ml_algo_overnight/agents/sac_agent_fork.py`. Report: `sections/03_methods.tex` §`sec:sac`.
+
+- **Objective:** max-entropy off-policy actor-critic — expected return plus entropy of $\pi$ weighted by temperature $\alpha$.
+- **Soft Bellman target:** $y = r + \gamma(1-d)(\min_i Q'_i(s',a') - \alpha\log\pi(a'|s'))$ with twin critics.
+- **Actor loss:** $J_\pi = \mathbb{E}[\alpha\log\pi(a|s) - \min_i Q_i(s,a)]$ (tanh-squashed Gaussian).
+- **Defaults (Exp series):** $\alpha=0.2$ **fixed** (no auto temperature); $\gamma=0.99$; $\tau=0.005$; batch $256$; buffer $50\,000$; $\eta_\pi=1.5\times10^{-4}$; $\eta_Q=4.5\times10^{-4}$; shared CNN encoder with MPO (actor 90 / critic 140).
+
+---
+
 # Networks & optimization
 
 - MPO policy/critic implementation lives in `autonomous_control/controller_agent.py` (`MPOAgent`).
+- SAC experiment fork reuses the same `Actor`/`Critic` modules with twin-$Q$ soft updates (`sac_agent_fork.SACAgent`).
 - Main training/eval orchestration lives in `scripts/train_sat_agent.py` and `scripts/eval_sat_agent.py`.
 
 ---
@@ -153,4 +165,5 @@ Set on **`TrainingWorkflowConfig`** (notebook 08 / all pipeline runners). Vector
 | Reward & step | `simulation/reward_kernel.py`, `autonomous_control/reward.py`, `simulation/episode_capture.py` |
 | Control-effort vs energy | `autonomous_control/reward.py` (`torque_effort_penalty`, `energy_reward`); constants `AUTONOMOUS_CONTROL_REWARD.py` |
 | MPO trainer | `autonomous_control/controller_agent.py`, `autonomous_control/episode_runner.py` |
+| SAC trainer (fork) | `backend/scripts/experiments/ml_algo_overnight/agents/sac_agent_fork.py` |
 | Notebook 08 workflow | `notebooks/s01/s01_utils/training_workflow.py` |

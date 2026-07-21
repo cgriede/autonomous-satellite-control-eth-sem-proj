@@ -320,3 +320,73 @@ Invoke **`/learn-skill`** (see [`.cursor/commands/learn-skill.md`](../commands/l
 - **Evidence:** Report closeout discussion: user asked select+sort into docs vs commit all data vs clean-then-commit; agreed curated report tree + placement tags; `*.mp4` already gitignored; `FIGURES_TODO.md` already maps figures → sections.
 - **Applied to:** generate-research-report (canonical figure freeze), document-research, bulk-change-triage-commit, visual-output-verification, experiment-knowledge-pipeline/skill-chain (Phase 4.3), create-update-presentation (POINTER), experiment-visual-evidence (Forbidden), learn-skill/reference (table), video-frame-inspect (POINTER), all other skills (N/A), units/simulation-sso/render-view-only/math-physics/python-runtime (N/A)
 - **Status:** applied
+
+---
+
+### 2026-07-18 — report-no-meta-process-prose
+
+- **Type:** anti-pattern
+- **Learning:** Never put report-writing or agent-process meta into reader-facing LaTeX — define scientific terms and present results; do not narrate flag renaming, “internal vs human-readable” framing, or which engineering runs were omitted from a table.
+- **Evidence:** Experiments summary introduced reward modes with “Table 8 reports a human-readable reward mode rather than internal flag names” plus “engineering-only fixes … are omitted”; user flagged this as internal meta discussion, not examiner content.
+- **Applied to:** generate-research-report (anti-patterns), update-research-report (reader-frame + anti-patterns), document-research (POINTER), learn-skill/reference (table note), all other skills (N/A — no reader LaTeX surface), all rules (N/A)
+- **Status:** applied
+
+---
+
+### 2026-07-20 — report-no-ops-infra-prose
+
+- **Type:** anti-pattern
+- **Learning:** Never sell repo/ops/charter plumbing as research content in the semester report — e.g. warmup episode **caching** framed as “reproducibility”, “no parallel integrators exist”, exclusive single-job machine policy, or other codebase invariants that do not answer why the examiner cares. Keep architecture sentences only when they serve a scientific or experimental need (matched train–eval–video episode, seeded matched baseline). Warmup stays only as learning design (sparse buffer seeding / baseline-return anchor).
+- **Evidence:** User flagged Methods “Simulation architecture” bullets (caching for reproducibility; parallel integrators) as out of scope and confusing; rewritten to shared-episode + seed framing.
+- **Applied to:** review-research-report (checklist B), update-research-report (anti-patterns), generate-research-report (N/A — draft skill points to review), all other skills (N/A), all rules (N/A)
+- **Status:** applied
+
+---
+
+### 2026-07-20 — report-figure-caption-process-match
+
+- **Type:** anti-pattern
+- **Learning:** Before wiring or replacing a report figure panel, verify with vision (dashboard telem / plot axes) that the frame shows the caption’s intended process — reject time-neighbor frames that look similar but are the wrong phase; keep subcaptions on the same vocabulary as Methods (e.g. BRAKE / CRUISE / SETTLE / LOCKOUT, never parallel names like Entry / Recovery / Hold).
+- **Evidence:** Fig safety used Entry/Recovery/Hold while prose defined BRAKE/CRUISE/SETTLE/LOCKOUT; panels were late nadir-coast neighbors, not high-torque → CRUISE → LOCKOUT. Baseline Point was near-lock (not slew); Capture was 100% cloud-blocked; Selective shutter showed nadir coast with no target lock.
+- **Applied to:** generate-research-report (UPDATE), video-frame-inspect (UPDATE), visual-output-verification (UPDATE), experiment-visual-evidence (UPDATE Forbidden), update-research-report (UPDATE anti-patterns), review-research-report (UPDATE checklist G), document-research (POINTER), create-update-presentation (POINTER), experiment-knowledge-pipeline/skill-chain (POINTER Phase 4.3), learn-skill/reference (table), architecture-planning (N/A), bulk-change-triage-commit (N/A — integrity sibling), build-tool (N/A), debug-workflow (N/A), hypothesis-experiment-cycle (N/A), hypothesis-research-literature (N/A), implementation-discipline (N/A), isolated-notebook-hypotheses (N/A), learn-skill (N/A meta), long-run-watch (N/A), minimal-feature-cycle (N/A), minimal-feature-review (N/A), ml-overnight-watch (N/A), new-skill-integration (N/A), notebook-hparam-sweep (N/A), performance-optimization (N/A), pm-backlog-review (N/A), pm-briefing (N/A), python-runtime-environment (N/A), read-handwritten-notes (N/A), review-experiment-build (N/A), targeted-cleanup-pass (N/A), generate-code-readme (N/A), log-answered-questions (N/A), units/simulation-sso/render-view-only/math-physics/python-runtime rules (N/A)
+- **Status:** applied
+
+---
+
+### 2026-07-20 — report-figure-artifact-integrity
+
+- **Type:** anti-pattern
+- **Learning:** Before shipping `figures/fig_*.png`, hash-check for byte-identical duplicates under different names, and for “learning vs not” claims use `returns_by_episode` (or equivalent return curves) from the named experiment — never MPO/SAC loss-diagnostic grids, algorithm-mismatched titles, or empty KL/η panels presented as learning curves.
+- **Evidence:** `fig_env_overview.png` MD5-identical to `fig_baseline_phase_capture.png`. Exp1/9/10/11 “learning curve” figures were MPO loss diagnostics; Exp9 (SAC) still titled “MPO learning curves” with empty KL/η.
+- **Applied to:** generate-research-report (UPDATE), visual-output-verification (UPDATE), experiment-visual-evidence (UPDATE Forbidden), update-research-report (UPDATE), review-research-report (UPDATE checklist G), bulk-change-triage-commit (UPDATE refuse bad dump), document-research (POINTER), create-update-presentation (POINTER), experiment-knowledge-pipeline/skill-chain (POINTER), video-frame-inspect (POINTER — panels not plots), learn-skill/reference (table), architecture-planning (N/A), build-tool (N/A), debug-workflow (N/A), hypothesis-experiment-cycle (N/A), hypothesis-research-literature (N/A), implementation-discipline (N/A), isolated-notebook-hypotheses (N/A), learn-skill (N/A meta), long-run-watch (N/A), minimal-feature-cycle (N/A), minimal-feature-review (N/A), ml-overnight-watch (N/A), new-skill-integration (N/A), notebook-hparam-sweep (N/A), performance-optimization (N/A), pm-backlog-review (N/A), pm-briefing (N/A), python-runtime-environment (N/A), read-handwritten-notes (N/A), review-experiment-build (N/A), targeted-cleanup-pass (N/A), generate-code-readme (N/A), log-answered-questions (N/A), units/simulation-sso/render-view-only/math-physics/python-runtime rules (N/A)
+- **Status:** applied
+
+---
+
+### 2026-07-20 — report-layout-visual-pdf-review
+
+- **Type:** breakthrough
+- **Learning:** For semester-report layout QA (full `/review-research-report` or layout-only), never pass from LaTeX inspection alone — render `main.pdf` pages to PNGs, Read them with vision, and cross-check `main.log` `Overfull \hbox`; flag cut-off text, unbreakable `\texttt` paths, margin overflow, cramped tables, and broken wraps/indents.
+- **Evidence:** Layout review found `AUTONOMOUS_CONTROL_REWAR` truncated in appendix Table 13 and `backend/scripts/exp…` cut off in A.4; LaTeX source had the full paths; `main.log` showed 107pt / 210pt overfulls that matched the clipped PDF pages.
+- **Applied to:** review-research-report (UPDATE checklist I + workflow), `.cursor/commands/review-research-report.md` (UPDATE), visual-output-verification (UPDATE PDF bullet), generate-research-report (POINTER Related), update-research-report (POINTER), document-research (POINTER), learn-skill/reference (table), experiment-visual-evidence (POINTER Forbidden), architecture-planning (N/A), bulk-change-triage-commit (N/A), build-tool (N/A), create-update-presentation (N/A — decks), debug-workflow (N/A), experiment-knowledge-pipeline (N/A — phase docs not PDF layout), hypothesis-experiment-cycle (N/A), hypothesis-research-literature (N/A), implementation-discipline (N/A), isolated-notebook-hypotheses (N/A), learn-skill (N/A meta), long-run-watch (N/A), minimal-feature-cycle (N/A), minimal-feature-review (N/A), ml-overnight-watch (N/A), new-skill-integration (N/A), notebook-hparam-sweep (N/A), performance-optimization (N/A), pm-backlog-review (N/A), pm-briefing (N/A), python-runtime-environment (N/A), read-handwritten-notes (N/A), review-experiment-build (N/A), targeted-cleanup-pass (N/A), generate-code-readme (N/A), video-frame-inspect (N/A — MP4 panels), units/simulation-sso/render-view-only/math-physics/python-runtime rules (N/A)
+- **Status:** applied
+
+---
+
+### 2026-07-21 — report-review-suggest-subagent-queue
+
+- **Type:** breakthrough
+- **Learning:** After `/review-research-report` with Critical / Should-fix / Nits, end the review by suggesting (do not auto-start unless the user asks) a sequential `update-research-report` Task-subagent queue — one finding per agent — rather than editing the whole list in one parent turn.
+- **Evidence:** Pre-hand-in report review produced a structured Should-fix + Nits list; user asked to instruct subagents one item at a time with parent verify between items; ten items closed cleanly that way.
+- **Applied to:** review-research-report (UPDATE After review + output Suggested next step), `.cursor/commands/review-research-report.md` (UPDATE), update-research-report (POINTER Review-fix subagent), generate-research-report (POINTER Related), learn-skill/reference (table), architecture-planning (N/A), bulk-change-triage-commit (N/A), build-tool (N/A), create-update-presentation (N/A), debug-workflow (N/A), document-research (N/A — archive not review orchestration), experiment-knowledge-pipeline (N/A), generate-code-readme (N/A), hypothesis-experiment-cycle (N/A), hypothesis-research-literature (N/A), implementation-discipline (N/A), isolated-notebook-hypotheses (N/A), learn-skill (N/A meta), long-run-watch (N/A), minimal-feature-cycle (N/A), minimal-feature-review (N/A — different review ship gate), ml-overnight-watch (N/A), new-skill-integration (N/A), notebook-hparam-sweep (N/A), performance-optimization (N/A), pm-backlog-review (N/A), pm-briefing (N/A), python-runtime-environment (N/A), read-handwritten-notes (N/A), review-experiment-build (N/A), targeted-cleanup-pass (N/A), video-frame-inspect (N/A), visual-output-verification (N/A — layout gate already covered), units/simulation-sso/render-view-only/math-physics/python-runtime/experiment-visual-evidence rules (N/A)
+- **Status:** applied
+
+---
+
+### 2026-07-21 — report-subagent-one-item-parent-verify
+
+- **Type:** anti-pattern
+- **Learning:** Never give a report-fix subagent the whole review queue — freeze one `ITEM_ID`, files, acceptance criteria, and “do not fix other items”; the parent must re-run `docs/report/compile_report.ps1` plus targeted grep/read before launching the next item (do not chain on the subagent’s claim alone).
+- **Evidence:** Sequential SF1–N5 report fixes: each generalPurpose Task got a single item; parent verified `tab:results-summary` gone, single `tab:baseline-config`, Related work cites, etc., then advanced; batching would have mixed section edits and skipped verify gates.
+- **Applied to:** review-research-report (UPDATE Forbidden + parent orchestrate loop), update-research-report (UPDATE anti-pattern + Review-fix subagent), generate-research-report (POINTER), learn-skill/reference (table), `.cursor/commands/review-research-report.md` (POINTER via suggest wording), architecture-planning (N/A), bulk-change-triage-commit (N/A), build-tool (N/A), create-update-presentation (N/A), debug-workflow (N/A), document-research (N/A), experiment-knowledge-pipeline (N/A), generate-code-readme (N/A), hypothesis-experiment-cycle (N/A), hypothesis-research-literature (N/A), implementation-discipline (N/A), isolated-notebook-hypotheses (N/A), learn-skill (N/A meta), long-run-watch (N/A), minimal-feature-cycle (N/A), minimal-feature-review (N/A), ml-overnight-watch (N/A), new-skill-integration (N/A), notebook-hparam-sweep (N/A), performance-optimization (N/A), pm-backlog-review (N/A), pm-briefing (N/A), python-runtime-environment (N/A), read-handwritten-notes (N/A), review-experiment-build (N/A), targeted-cleanup-pass (N/A), video-frame-inspect (N/A), visual-output-verification (N/A), all rules (N/A)
+- **Status:** applied

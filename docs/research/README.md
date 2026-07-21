@@ -25,6 +25,8 @@ Local PDFs and reading guides for experiment design and semester-report related 
 | [2206.02855_efficient_entity_based_rl.pdf](2206.02855_efficient_entity_based_rl.pdf) | Jankovics et al., 2022 | Entity-based / set-structured RL |
 | [jonschkowski2015_learning_state_representations_robotic_priors.pdf](jonschkowski2015_learning_state_representations_robotic_priors.pdf) | Jonschkowski & Brock, Autonomous Robots 2015 | Robotic priors for SRL |
 | [2410.17551_multimodal_information_bottleneck_rl.pdf](2410.17551_multimodal_information_bottleneck_rl.pdf) | Multimodal IB for DRL (2024) | Vision + proprio fusion |
+| [2018_haarnoja_sac.pdf](2018_haarnoja_sac.pdf) | Haarnoja et al., ICML 2018 (arXiv:1801.01290) | Soft Actor-Critic (max-entropy off-policy actor-critic) |
+| [1812.02256v1.pdf](1812.02256v1.pdf) | Abdolmaleki et al., 2018 (arXiv:1812.02256) | Decoupled-KL MPO companion (E/M-step duals) |
 
 **Reading guide (section highlights):** [LITERATURE_HIGHLIGHTS.md](LITERATURE_HIGHLIGHTS.md)
 

@@ -38,6 +38,9 @@ Pair with [`isolated-notebook-hypotheses`](../skills/isolated-notebook-hypothese
 - Discussing pipeline run results in chat (review, recap, arm comparison) with **KPI-only** tables and no MP4 paths when videos were exported.
 - Marking a visual/render task done from code inspection only.
 - Committing the full experiment dump as semester-report evidence — curate into `docs/report/semester-project/figures/` with section tags ([`generate-research-report`](../skills/generate-research-report/SKILL.md) figure freeze; learnings.md `report-figure-curate-not-dump`).
+- Declaring semester-report PDF layout OK from `.tex` alone — use `/review-research-report` checklist **I** (render pages + vision; learnings.md `report-layout-visual-pdf-review`).
+- Wiring report figure panels without vision-checking each panel against the caption’s intended process, or using parallel phase names vs Methods (learnings.md `report-figure-caption-process-match`).
+- Shipping byte-identical `fig_*.png` under different names, or loss-diagnostic plots as “learning curves” instead of `returns_by_episode` (learnings.md `report-figure-artifact-integrity`).
 
 ## Platform note
 

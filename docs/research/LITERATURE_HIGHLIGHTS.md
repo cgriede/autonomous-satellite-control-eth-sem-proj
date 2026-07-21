@@ -93,7 +93,7 @@ Section pointers for quick review. Full PDFs live in this folder (see [README.md
 | `ml_modular_encoder` (vector compress) | §3–4 Gorishniy; §4 2206.02855; SRL survey multimodal | Flattening 50+50 target features dilutes structure; compress groups before fusion |
 | `ml_shutter_threshold` | Action gating less covered — use bug-hunt internal baseline | Threshold as exploration gating; cite adapter semantics in code |
 | `mpc_pointing` | Recitation 08 (mpc_lecture); Jonschkowski SRL (optional) | Hierarchical: reference policy + constrained low-level MPC |
-| SAC vs MPO compare | Algorithm literature external to this folder | Credit assignment / off-policy stability |
+| SAC vs MPO compare | [§5c Haarnoja SAC](#5c-haarnoja-et-al-2018--soft-actor-critic); [§5b Abdolmaleki MPO](#5b-abdolmaleki-et-al-2018--decoupled-kl-mpo-algorithm) | Max-entropy off-policy (SAC) vs relative-entropy constrained policy iteration (MPO) |
 | Model width / capacity ablation | [model-size-investigation.md](model-size-investigation.md); MPO 2018 appendix; Co-Adaptation 2021 (external) | MPO needs larger nets than current 90/140 defaults; test width after encoder |
 | Shutter threshold H1 (Exp 1) | [01-shutter-threshold.md](../experiments/pipeline/4-documentation/01-shutter-threshold.md); [investigation](shutter-threshold-investigation.md) | Threshold 0.9 does not cut spam when policy saturates shutter dim |
 
@@ -120,6 +120,34 @@ Section pointers for quick review. Full PDFs live in this folder (see [README.md
 | A1 E-step Q-dual η + separate α_μ/α_Σ | canonical decoupled-KL MPO E/M-step |
 
 See [mpo-learning-collapse-investigation.md](mpo-learning-collapse-investigation.md) for the symptom-vs-cause evidence.
+
+---
+
+## 5c. Haarnoja et al. 2018 — Soft Actor-Critic
+
+**File:** `2018_haarnoja_sac.pdf`  
+**Cite:** *Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor* (ICML 2018; arXiv:1801.01290). BibTeX key: `haarnoja2018sac`.
+
+### Read first
+
+| Section / theme | Why for this project |
+|-----------------|----------------------|
+| **Abstract + §1** | Off-policy + stochastic actor + entropy maximisation → sample reuse and more stable continuous control than brittle deterministic off-policy methods |
+| **§3 Max-entropy objective** | Augments expected return with $\mathbb{E}[\mathcal{H}(\pi(\cdot\|s))]$; temperature recovers the standard RL objective when driven to zero |
+| **§4 Soft policy iteration** | Soft Bellman backup $T^\pi Q = r + \gamma\mathbb{E}[V]$ with $V(s)=\mathbb{E}_a[Q(s,a)-\log\pi(a\|s)]$; policy improvement via information projection onto tractable $\Pi$ |
+| **§4.2 Soft actor-critic** | Practical SGD approximation: replay buffer $\mathcal{D}$, reparameterised Gaussian actor, soft $Q$ (and optional $V$) networks |
+| **Stability claim** | Similar performance across seeds — matches why SAC was the forgiving algorithm arm when early MPO collapsed (Exp~3) |
+
+### Mapping to our SAC fork
+
+| Our choice | Paper language |
+|------------|----------------|
+| Fixed $\alpha=0.2$ | Temperature that weights entropy vs return (we do not run the learned-$\alpha$ dual) |
+| Twin critics + $\min Q$ in target / actor | Practical clipped double-$Q$ used with the soft Bellman / policy objectives |
+| Tanh-squashed Gaussian + Jacobian on $\log\pi$ | Tractable continuous policy in bounded action box $[-1,1]^2$ |
+| Shared CNN encoder + 90/140 MLP heads | Function approximators for $\pi_\phi$ and $Q_{\theta_i}$ (architecture shared with MPO stack) |
+
+Report Methods: `docs/report/semester-project/sections/03_methods.tex` §`sec:sac`.
 
 ---
 

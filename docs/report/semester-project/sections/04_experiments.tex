@@ -10,71 +10,20 @@ Experiment~6 (modular encoder rerun) was deferred and is not included.
 \paragraph{Experimental protocol.}
 \label{sec:exp-protocol}
 A fixed random seed (7) ensures identical altitude draws, cloud layouts, and target positions across all compared runs.
-All experiments share the canonical simulation architecture described in Section~\ref{sec:arch}.
+All experiments share the simulation setup described in Section~\ref{sec:arch}.
 
-Before training begins, \emph{warmup episodes} pre-fill the replay buffer (Section~\ref{sec:replay-buffer}) using the deterministic baseline policy.
+Before training begins, five \emph{warmup episodes} pre-fill the replay buffer (Section~\ref{sec:replay-buffer}) using the deterministic baseline policy under the same action interface and reward stack as the run that follows.
 This was not the initial choice: early attempts using random torque commands or a zero-torque coast strategy yielded no reward signal, because neither strategy ever issues capture commands that earn positive credit.
 The baseline policy, by contrast, reliably captures targets on clear passes.
 Even so, only around ten capture actions fall within a 516-step episode ($\approx 2\%$ of all transitions), so the buffer is extremely sparse in rewarded transitions.
-The warmup data therefore serves a dual purpose: it bootstraps the replay buffer with at least some positive-credit transitions, and the episode return it achieves is the KPI comparison anchor used throughout.
+The warmup data therefore serves a dual purpose: it bootstraps the replay buffer with at least some positive-credit transitions, and the mean warmup return is the matched \emph{average baseline return} for that configuration.
 
-\emph{Evaluation episodes} run the current learned policy without gradient updates; eval return is the primary metric.
+Two \emph{evaluation episodes} then run the learned policy without gradient updates; mean eval return is the primary post-training metric.
 A run is said to show a \emph{learning signal} if its per-episode training return trends upward over training, indicating the policy has discovered the reward structure.
-Concretely, this requires at least one training episode to substantially exceed the warmup return and for the trend to be sustained rather than a single outlier.
+Concretely, this requires at least one training episode to substantially exceed the average baseline return and for the trend to be sustained rather than a single outlier.
 Runs without a learning signal converge to a flat return plateau from episode~1 onward, regardless of the number of training episodes, and are reported as \emph{not supported}.
-In the verdict column, \emph{supported} means the design choice under test produced the expected learning or behavioural change (for example selective shuttering or a stable upward return trend); it does not by itself claim mission-ready outperformance of the baseline.
-Results are archived as JSON files per experiment; key metrics are cited directly below.
-
-% ─────────────────────────────────────────────────────────────────────────────
-\subsection{Master comparison table}
-\label{sec:exp-table}
-
-Table~\ref{tab:exp-comparison} lists the full configuration and primary KPI for every run.
-The \textbf{baseline anchor} row is the deterministic baseline evaluated at matched seeds (mean eval return $-38.6$; anchored in Exp~13).
-
-\begin{table}[htbp]
-  \centering
-  \caption{Master experiment comparison. Algorithm: SAC = Soft Actor--Critic; MPO = Maximum a Posteriori Policy Optimisation.
-    Action: T = torque (direct RW), V = vector pointing (nadir-relative offset).
-    Reward flags: B = budget-exhausted shutter penalty; W = within-budget waste penalty; E = torque effort;
-    S = safe-mode per-step penalty.
-    Seeds: fixed 7 for all ML experiments; env draws are seeded per warmup fingerprint.
-    Eval return is mean over 2 evaluation episodes unless otherwise noted.
-    $\Delta$ is relative to the immediate predecessor configuration.}
-  \label{tab:exp-comparison}
-  \scriptsize
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{lllllccccc}
-    \toprule
-    Exp & Config & Alg & Act & Reward flags & Warmup & Train & Eval eps & Eval return & Verdict \\
-    \midrule
-    nb07      & baseline           & ---  & V  & ---        & ---  & ---  & 2 & $-38.6$   & --- \\
-    \midrule
-    1         & mpo\_t05           & MPO  & T  & ---        & 5    & 7    & 2 & $-101.6$  & not\_supported \\
-    1         & mpo\_t09           & MPO  & T  & ---        & 5    & 7    & 2 & $-101.6$  & not\_supported \\
-    2         & sac\_a0            & SAC  & T  & ---        & 5    & 7    & 2 & $-78.9$   & not\_supported \\
-    2         & sac\_a1            & SAC  & T  & ---        & 5    & 7    & 2 & $-86.5$   & not\_supported \\
-    3         & compare\_sac       & SAC  & T  & ---        & 5    & 37$^\dagger$  & 2 & $-22.2$   & supported \\
-    3         & compare\_mpo       & MPO  & T  & dense      & 5    & 22$^\dagger$  & 2 & $-51.6$   & not\_supported \\
-    4         & ref0 (torque)      & SAC  & T  & ---        & 5    & 50   & 2 & $-11.1$   & partial \\
-    4         & ref1 (vector)      & SAC  & V  & ---        & 5    & 50   & 2 & $-24.1$   & partial \\
-    5         & mpo\_s (90/140)    & MPO  & T  & sparse     & 5    & 50   & 2 & $-51.6$   & not\_supported \\
-    5         & mpo\_m (140/256)   & MPO  & T  & sparse     & 5    & 50   & 2 & $-51.6$   & not\_supported \\
-    5         & mpo\_l (256/512)   & MPO  & T  & sparse     & 5    & 50   & 2 & $-51.6$   & not\_supported \\
-    7         & penalty\_on        & SAC  & V  & B          & 5    & 50   & 2 & $+10.6$   & supported \\
-    8         & torque\_sparse     & MPO* & T  & ---        & 5    & 50   & 2 & $-81.1$   & partial \\
-    9         & waste\_off\_budget\_on & SAC & V & B (W off)& 5    & 50   & 2 & $+106.4$  & supported \\
-    10        & safe\_mode\_on     & MPO* & T  & S($k$=2.0) & 5    & 50   & 2 & $-510.4$  & not\_supported \\
-    11        & vector\_sparse     & MPO* & V  & ---        & 5    & 50   & 2 & $+45.5$   & supported \\
-    12        & vector\_effort     & MPO* & V  & E($k$=0.1) & 5    & 50   & 2 & $+25.3$   & not\_supported \\
-    13        & baseline\_1\_1\_1  & nb07 & V  & ---        & ---  & ---  & 2 & $-38.6$   & --- \\
-    13        & cadence\_1\_1\_10  & MPO* & V  & ---        & 5    & 50   & 2 & $-46.4$   & not\_supported \\
-    13        & cadence\_1\_1\_50  & MPO* & V  & ---        & 5    & 50   & 2 & $-15.4$   & partial \\
-    14        & multienv           & MPO* & V  & ---        & 5    & 350  & 2 & n/a$^\ddagger$ & not\_supported \\
-    \bottomrule
-    \multicolumn{10}{l}{$^\dagger$ Early abort (patience 20 eps). \quad *MPO with decoupled-KL dual fix (Exp~8). \quad $^\ddagger$ Run crashed (OSError).} \\
-  \end{tabular}
-\end{table}
+In the verdict column of Table~\ref{tab:exp-comparison}, \emph{supported} means the design choice under test produced the expected learning or behavioural change (for example selective shuttering or a stable upward return trend); it does not by itself claim mission-ready outperformance of the baseline.
+Results are archived as JSON files per experiment; key metrics are cited in each subsection below and summarised after the last experiment.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Exp~1: Shutter threshold ablation}
@@ -228,7 +177,7 @@ No meaningful eval captures.
 \paragraph{Verdict.}
 \textbf{Partial.}
 The algorithm fix is confirmed: bounded KL and rising train returns.
-Eval return remains below the baseline anchor; torque mode still saturates and safe-mode activates frequently, motivating Exps~10 and~11.
+Eval return remains below the matched average baseline return; torque mode still saturates and safe-mode activates frequently, motivating Exps~10 and~11.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Exp~9: SAC shutter reward split (waste penalty off)}
@@ -335,16 +284,17 @@ filled replay buffer impedes early learning, a different cadence may help.
 Exp~13 evaluates three cadence profiles: update every step, every 10 steps, and every 50 steps.
 
 \paragraph{Config and result (partial).}
-MPO (fixed dual) vector sparse, 50 training episodes per configuration, 2 eval episodes.
-The deterministic baseline (comparison anchor): eval $-38.6$.
-Update every 10 steps: eval $-46.4$ (worse than baseline).
-Update every 50 steps: eval $-15.4$ (best in sweep; still below Exp~11 $+45.5$).
+MPO (fixed dual) torque sparse, 10 training episodes per configuration (shorter than the 50-episode vector runs).
+Average baseline return (5 warmup episodes): $+410.2$.
+Update every step (control): eval $-38.6$, best train $-22.9$.
+Update every 10 steps: eval $-46.4$, best train $-38.9$.
+Update every 50 steps: eval $-15.4$, best train $-31.4$ (best eval in the short sweep; still below Exp~11 $+45.5$).
 
 \paragraph{Verdict.}
-\textbf{Partial / incomplete.}
-Sparser gradient updates (every 50 steps) marginally outperform the per-step default in this short slice,
-but results remain below Exp~11 and the every-10-steps configuration falls below the comparison anchor ($-38.6$).
-The full cadence sweep was still in progress at report cutoff; a longer training slice is needed for a definitive conclusion.
+\textbf{Partial.}
+Sparser gradient updates (every 50 steps) outperform the per-step and every-10-steps configurations in this short slice,
+but results remain well below the later vector-mode MPO configuration (Exp~11).
+A longer training slice is needed for a definitive cadence conclusion.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Exp~14: MPO multi-environment target selection}
@@ -354,17 +304,74 @@ The full cadence sweep was still in progress at report cutoff; a longer training
 All prior experiments use a single environment seed (7) with a fixed target corridor.
 Generalisation to diverse orbital configurations, altitudes, and cloud draws requires
 training across multiple environment draws.
-Exp~14 attempted to run 350-episode multi-environment MPO to test this scaling hypothesis.
+Exp~14 attempted a 350-episode multi-environment MPO run to test this scaling hypothesis.
 
 \paragraph{Config and result.}
 MPO (fixed dual) vector sparse, 350 training episodes, multi-seed draws.
-The run crashed during Stage~C with a filesystem error
-(likely a path-length limit on Windows for long run-directory names).
-Stage~B partial training metrics were available (mean score 0.228) but are not directly comparable
+The run aborted partway through training due to an infrastructure error during the long multi-environment run.
+Partial mid-training metrics were available (mean score 0.228) but are not directly comparable
 to the episodic eval return metric used in the rest of the series.
 
 \paragraph{Verdict.}
 \textbf{Not supported} (run failure; results inconclusive).
 Multi-environment training remains an open direction.
-Recommended follow-up: shorten run directory names, increase episode budget, and match the evaluation
+Recommended follow-up: increase episode budget and match the evaluation
 metric to the rest of the series.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Summary comparison}
+\label{sec:exp-table}
+
+\paragraph{Reward modes.}
+Table~\ref{tab:exp-comparison} groups configurations by which reward terms are active (Section~\ref{sec:reward}):
+\begin{itemize}
+  \item \textbf{Sparse:} capture credit only when a shutter yields a first-time, in-budget observation of a target (Eq.~\ref{eq:r-cap}); most steps carry zero capture reward.
+  \item \textbf{Dense:} Exp~3 MPO configuration; adds dense shaping on top of capture events, tested against sparse SAC under matched protocol.
+  \item \textbf{Budget penalty:} a negative term when the agent commands a shutter after the ten-capture budget is exhausted; Exp~7 uses this together with the within-budget waste penalty.
+  \item \textbf{Waste penalty:} a negative term on accepted shutters with near-zero applied capture credit; Exp~9 removes it while keeping the budget-exhausted term.
+  \item \textbf{Safe-mode penalty:} a per-step penalty while attitude safety recovery is active (Exp~10).
+  \item \textbf{Effort:} a quadratic penalty on commanded torque (Exp~12 in vector mode).
+\end{itemize}
+The \emph{Baseline} column is the mean return of the five warmup episodes under that row's action interface and reward mode.
+\emph{Eval} is the mean of the two evaluation episodes after training.
+Verdicts use the definition in Section~\ref{sec:exp-protocol}.
+
+\begin{table}[htbp]
+  \centering
+  \renewcommand{\arraystretch}{1.3}
+  \caption{Experiment comparison.
+    Algorithm is SAC or MPO (star: decoupled-KL dual fix from Exp~8).
+    Action: torque = direct reaction-wheel command; vector = nadir-relative pointing offset.
+    Protocol: five warmup episodes and two eval episodes for every row; train length varies.}
+  \label{tab:exp-comparison}
+  \scriptsize
+  \setlength{\tabcolsep}{3.5pt}
+  \begin{tabular}{rlllllrrr}
+    \toprule
+    Exp & Change & Alg & Action & Reward mode & Baseline & Best train & Eval & Verdict \\
+    \midrule
+    1 & Shutter threshold 0.5 & MPO & Torque & Sparse & $+393.2$ & $-99.9$ & $-101.6$ & Not supported \\
+    1 & Shutter threshold 0.9 & MPO & Torque & Sparse & $+393.2$ & $-99.9$ & $-101.6$ & Not supported \\
+    2 & Flat encoder & SAC & Torque & Sparse & $+393.2$ & $-72.4$ & $-78.9$ & Not supported \\
+    2 & Compressed encoder & SAC & Torque & Sparse & $+393.2$ & $-75.1$ & $-86.5$ & Not supported \\
+    3 & Algorithm compare & SAC & Torque & Sparse & $+393.2$ & $+5.3$ & $-22.2$ & Supported \\
+    3 & Algorithm compare & MPO & Torque & Dense & $+393.2$ & $-51.6$ & $-51.6$ & Not supported \\
+    4 & Torque interface & SAC & Torque & Sparse & $+393.2$ & $+8.4$ & $-11.1$ & Partial \\
+    4 & Vector interface & SAC & Vector & Sparse & $-48.5$ & $+95.8$ & $-24.1$ & Partial \\
+    5 & Network width (all) & MPO & Torque & Sparse & $+393.2$ & $-51.6$ & $-51.6$ & Not supported \\
+    7 & Budget penalty & SAC & Vector & Sparse + budget & $-38.6$ & $+124.6$ & $+10.6$ & Supported \\
+    8 & Decoupled dual & MPO$^\star$ & Torque & Sparse & $+393.2$ & $+8.7$ & $-81.1$ & Partial \\
+    9 & Waste penalty off & SAC & Vector & Sparse + budget, waste off & $-38.6$ & $+169.9$ & $+106.4$ & Supported \\
+    10 & Safe-mode penalty & MPO$^\star$ & Torque & Sparse + safe-mode & $+410.2$ & $-354.4$ & $-510.4$ & Not supported \\
+    11 & Vector after dual fix & MPO$^\star$ & Vector & Sparse & $+2.4$ & $+82.3$ & $+45.5$ & Supported \\
+    12 & Effort in vector & MPO$^\star$ & Vector & Sparse + effort & $+2.4$ & $+75.6$ & $+25.3$ & Not supported \\
+    13 & Cadence every step & MPO$^\star$ & Torque & Sparse & $+410.2$ & $-22.9$ & $-38.6$ & Partial \\
+    13 & Cadence every 10 steps & MPO$^\star$ & Torque & Sparse & $+410.2$ & $-38.9$ & $-46.4$ & Not supported \\
+    13 & Cadence every 50 steps & MPO$^\star$ & Torque & Sparse & $+410.2$ & $-31.4$ & $-15.4$ & Partial \\
+    14 & Multi-environment & MPO$^\star$ & Vector & Sparse & --- & $+87.6$ & n/a$^\dagger$ & Not supported \\
+    \bottomrule
+    \multicolumn{9}{l}{\footnotesize Baseline = mean warmup return (5 episodes). Eval = mean of 2 episodes.} \\
+    \multicolumn{9}{l}{\footnotesize Exp~3 early-abort (patience 20). Exp~9 keeps budget penalty, disables within-budget waste.} \\
+    \multicolumn{9}{l}{\footnotesize $^\dagger$ Run aborted (infrastructure error during long multi-environment run).} \\
+  \end{tabular}
+\end{table}

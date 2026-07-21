@@ -123,6 +123,9 @@ Typical sequence: experiment-knowledge-pipeline Phases 0–2 → **document-rese
 - Claiming an experiment was not run when JSON/analysis card exists
 - Duplicating full experiment writeups in investigation notes (link JSON + analysis card)
 - Treating “report archive” as a dump of all run artifacts — curate into `docs/report/semester-project/figures/` and tag sections via `FIGURES_TODO.md` ([`generate-research-report`](../generate-research-report/SKILL.md) figure freeze; learnings.md `report-figure-curate-not-dump`)
+- Promoting report panels without caption↔process vision check / hash-dedupe — see learnings.md `report-figure-caption-process-match`, `report-figure-artifact-integrity`
+- Putting drafting/process notes into the semester PDF — POINTER: learnings.md `report-no-meta-process-prose` + [`generate-research-report`](../generate-research-report/SKILL.md) / update-research-report
+- Passing report PDF layout from LaTeX alone — POINTER: `/review-research-report` checklist **I** / learnings.md `report-layout-visual-pdf-review`
 
 ## Checklist (closeout)
 

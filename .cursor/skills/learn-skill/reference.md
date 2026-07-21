@@ -26,7 +26,7 @@ When in doubt, **POINTER** at minimum: `See [learn-skill](../learn-skill/SKILL.m
 | `create-update-presentation` | deck evidence; align with curated report figures |
 | `debug-workflow` | probes, logs, root-cause loop |
 | `document-research` | persistence layers; report archive curation |
-| `generate-research-report` | report prose; **figure freeze into `figures/`** |
+| `generate-research-report` | report prose; **figure freeze into `figures/`**; **caption↔process + hash/returns integrity**; **no writer-meta in LaTeX** |
 | `hypothesis-experiment-cycle` | experiment harness, promotion |
 | `experiment-knowledge-pipeline` | phases 0–4, closeout before promote, **atomic one-hypothesis-per-slug**, Nike vs plan implement gate, Phase 4.3 report archive |
 | `long-run-watch` | overnight monitoring, **charter scope audit at closeout**, **visual artifact gap audit** |
@@ -43,8 +43,10 @@ When in doubt, **POINTER** at minimum: `See [learn-skill](../learn-skill/SKILL.m
 | `pm-briefing` | backlog.xlsx, sprint readout |
 | `python-runtime-environment` | conda ASC, PYTHONPATH |
 | `targeted-cleanup-pass` | focused refactors |
-| `video-frame-inspect` | MP4 → PNG; report figure freeze after inspect |
-| `visual-output-verification` | MP4/plot human gates; report figure freeze |
+| `video-frame-inspect` | MP4 → PNG; report panel pick by telem/process; figure freeze after inspect |
+| `visual-output-verification` | MP4/plot human gates; report figure freeze + caption/hash gates; **report PDF page render for layout** |
+| `review-research-report` (personal `~/.cursor/skills/dev-skills/`) | report prose QA + **PDF layout vision** (`report-layout-visual-pdf-review`); after findings **suggest** sequential `update-research-report` Task subagents (`report-review-suggest-subagent-queue`, `report-subagent-one-item-parent-verify`) |
+| `update-research-report` (personal `~/.cursor/skills/dev-skills/`) | incremental LaTeX edits; **one ITEM_ID** when used as review-fix subagent |
 
 Re-scan the glob on each run; add new skills to this table when they appear.
 
@@ -57,7 +59,7 @@ Re-scan the glob on each run; add new skills to this table when they appear.
 | `render-is-view-only.mdc` | sim in render |
 | `math-physics-technical-docs.mdc` | presentation doc updates |
 | `python-runtime-environment.mdc` | ASC env |
-| `experiment-visual-evidence.mdc` | video/plot evidence; **report figure curate-not-dump** |
+| `experiment-visual-evidence.mdc` | video/plot evidence; **report figure curate-not-dump** + caption/hash integrity |
 
 ## Canonical example (backlog-xlsx-preflight)
 

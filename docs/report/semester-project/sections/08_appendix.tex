@@ -16,23 +16,24 @@ All paths are relative to the repository root.
   \caption{High-level source index.}
   \label{tab:source-index}
   \small
-  \begin{tabular}{p{0.36\linewidth}p{0.56\linewidth}}
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.32\linewidth}>{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
     \toprule
     Component & Entry point \\
     \midrule
-    Earth \& geodetic constants & \texttt{backend/environment\_definition/constants/EARTH.py} \\
-    Mission profile (altitude, targets) & \texttt{backend/environment\_definition/constants/MISSION.py} \\
-    Satellite inertia \& camera optics & \texttt{backend/environment\_definition/constants/SATELLITE.py} \\
-    Attitude safety thresholds & \texttt{backend/environment\_definition/constants/ATTITUDE\_SAFETY.py} \\
-    Simulation timing & \texttt{backend/environment\_definition/constants/SIMULATION.py} \\
-    Reward weights & \texttt{backend/environment\_definition/constants/AUTONOMOUS\_CONTROL\_REWARD.py} \\
-    Canonical simulation entry point & \texttt{backend/simulation/run\_simulation.py} \\
-    Camera image quality model & \texttt{backend/simulation/image\_quality.py} \\
-    Attitude safety controller & \texttt{backend/simulation/attitude\_controller.py} \\
-    Deterministic baseline policy & \texttt{backend/s01\_utils/baseline\_overflight.py} \\
-    RL agent (MPO / SAC) & \texttt{backend/autonomous\_control/controller\_agent.py} \\
-    Training workflow & \texttt{backend/autonomous\_control/training\_workflow.py} \\
-    Experiment scripts & \texttt{backend/scripts/experiments/} \\
+    Earth \& geodetic constants & \path|backend/environment_definition/constants/EARTH.py| \\
+    Mission profile (altitude, targets) & \path|backend/environment_definition/constants/MISSION.py| \\
+    Satellite inertia \& camera optics & \path|backend/environment_definition/constants/SATELLITE.py| \\
+    Attitude safety thresholds & \path|backend/environment_definition/constants/ATTITUDE_SAFETY.py| \\
+    Simulation timing & \path|backend/environment_definition/constants/SIMULATION.py| \\
+    Reward weights & \path|backend/environment_definition/constants/AUTONOMOUS_CONTROL_REWARD.py| \\
+    Canonical simulation entry point & \path|backend/simulation/run_simulation.py| \\
+    Camera image quality model & \path|backend/simulation/image_quality.py| \\
+    Attitude safety controller & \path|backend/simulation/attitude_controller.py| \\
+    Deterministic baseline policy & \path|backend/s01_utils/baseline_overflight.py| \\
+    RL agent (MPO / SAC) & \path|backend/autonomous_control/controller_agent.py| \\
+    Training workflow & \path|backend/autonomous_control/training_workflow.py| \\
+    Experiment scripts & \path|backend/scripts/experiments/| \\
+    Per-run return KPIs (warmup/train/eval) & \path|backend/autonomous_control/runs/<run-id>/summary_metrics.json| \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -40,12 +41,14 @@ All paths are relative to the repository root.
 \subsection{Live parameter record}
 Hyperparameters and constants are maintained in:
 \begin{itemize}
-  \item \texttt{docs/presentation/environment-hyperparameters.md}
-  \item \texttt{docs/presentation/machine-learning.md}
-  \item \texttt{docs/presentation/technical-constants.md}
-  \item \texttt{docs/presentation/physical-reference.md}
+  \item \path|docs/presentation/environment-hyperparameters.md|
+  \item \path|docs/presentation/machine-learning.md|
+  \item \path|docs/presentation/technical-constants.md|
+  \item \path|docs/presentation/physical-reference.md|
 \end{itemize}
 
 \subsection{Artifact paths}
-Training outputs: \texttt{backend/autonomous\_control/runs/<run-id>/}.
-Experiment results: \texttt{backend/scripts/experiments/<slug>/results/}.
+\begin{itemize}
+  \item Training outputs: \path|backend/autonomous_control/runs/<run-id>/|
+  \item Experiment results: \path|backend/scripts/experiments/<slug>/results/|
+\end{itemize}

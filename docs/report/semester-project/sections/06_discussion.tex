@@ -6,28 +6,22 @@
 The motivating idea, use onboard vision to shutter only on clear targets, is simple to state but hard to train.
 The fourteen experiments were not a single attempt to beat the baseline; they were a structured search for reward and action-space configurations that make learning possible.
 Three lessons emerged.
+Per-experiment returns and shutter counts are reported in Sections~\ref{sec:experiments} and~\ref{sec:results}; this subsection interprets why the levers mattered.
 
 \paragraph{1.\ Reward structure before algorithm.}
-Exps~1--5 showed that neither threshold tuning, encoder architecture, algorithm choice, nor network
-width were sufficient on their own.
-The break came in Exp~3 (SAC learns under sparse reward) and was exploited in Exps~7 and~9, where
-budget-exhausted penalty and waste-penalty removal each unlocked further learning.
-Reward engineering, specifically what information is available at the action clock,
-was the dominant design lever.
+Neither threshold tuning, encoder architecture, algorithm choice, nor network width was sufficient on its own.
+Learning emerged only after the reward told the agent what mattered at the action clock: sparse capture credit, a budget-exhausted penalty that stops shutter spam, and removal of a redundant within-budget waste term.
+Reward engineering was the dominant design lever; swapping algorithms without that structure did not unlock selective shuttering.
 
 \paragraph{2.\ Action-space design before reward fine-tuning.}
-The comparison between torque and vector pointing modes (Exps~4, 8, 11) shows that delegating
-rate control to the onboard pointing controller is structurally important.
-Vector mode removes safe-mode lockouts in the experiment runs (Section~\ref{sec:results-safemode}),
-resolving a credit-assignment problem that no reward penalty could fix cleanly (Exp~10).
+Delegating rate control to the onboard pointing controller (vector mode) is structurally important relative to raw torque commands.
+Vector mode removes safe-mode lockouts in the experiment runs (Section~\ref{sec:results-safemode}), resolving a credit-assignment problem that no reward penalty could fix cleanly.
 This is a design result: the agent should command a pointing offset, not raw wheel torque, for cloud-aware scheduling in this environment (Section~\ref{sec:discussion-architecture}).
 
 \paragraph{3.\ Algorithm stability as a prerequisite.}
-MPO's KL blow-up (Exps~3, 5) blocked all progress on the MPO branch until the root cause
-(an unconstrained M-step multiplier) was identified and corrected (Exp~8).
-The fix unlocked learning in vector mode (Exp~11) without any other design change.
-Implementation correctness can masquerade as algorithm failure across multiple experiments.
-That lesson applies before comparing reward or action-space variants.
+An unconstrained MPO trust-region update blocked the MPO branch until the dual-variable bug was corrected.
+After that fix, vector-mode MPO learned without a further reward redesign.
+Implementation correctness can masquerade as algorithm failure; that check comes before comparing reward or action-space variants.
 
 \subsection{Answer to the research question}
 \label{sec:discussion-answer}
@@ -42,7 +36,7 @@ A minimal viable training stack requires at least:
 \end{itemize}
 With that stack, both SAC and MPO learn selective shuttering absent in the deterministic baseline.
 Several configurations that looked reasonable (threshold tuning, network width, safe-mode penalties, torque effort in vector mode) failed to produce learning or made it worse.
-Eval return on seed~7 exceeded the baseline anchor for the best SAC and MPO configurations, but the evaluation protocol is too narrow to claim robust mission superiority; the durable output of the semester is the mapped design space and the list of rejected shortcuts.
+Eval return on seed~7 exceeded the matched average baseline return for the best SAC and MPO configurations, but the evaluation protocol is too narrow to claim robust mission superiority; the durable output of the semester is the mapped design space and the list of rejected shortcuts.
 
 \subsection{Control hierarchy and action interface}
 \label{sec:discussion-architecture}

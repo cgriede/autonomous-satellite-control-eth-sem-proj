@@ -1,66 +1,26 @@
 \label{sec:results}
 
 This section summarises what the experiment sequence revealed about reward shaping and action-space design.
-Eval return and shutter behaviour are reported against the deterministic baseline anchor ($-38.6$); numbers above that anchor indicate a configuration learned useful scheduling on the fixed evaluation seed, not that the training problem is solved in general.
+Eval return and shutter behaviour are interpreted against each run's matched average baseline return (five warmup episodes under the same action interface and reward mode; Table~\ref{tab:exp-comparison}).
+A positive $\Delta_\text{base}$ means the learned policy beat that matched baseline on the fixed evaluation seed; it does not by itself mean the training problem is solved in general.
 
-\subsection{Aggregate performance comparison}
+\subsection{Master scoreboard}
 \label{sec:results-aggregate}
 
-Table~\ref{tab:results-summary} distils the closed experiments into a single snapshot of the design search.
-The reference columns are the \textbf{deterministic baseline anchor} ($-38.6$) and the \textbf{best SAC configuration} (Exp~9, $+106.4$ on seed~7).
-
-\begin{table}[htbp]
-  \centering
-  \caption{Aggregate results by experiment phase.
-    Eval return is mean over 2 evaluation episodes on seed~7.
-    $\Delta_\text{base}$ = eval return $-$ ($-38.6$) baseline anchor.
-    Shutter cmds/ep: train mean where available.}
-  \label{tab:results-summary}
-  \begin{tabular}{lllrrr}
-    \toprule
-    Exp & Alg & Key change & Eval return & $\Delta_\text{base}$ & Shutter cmds/ep (train) \\
-    \midrule
-    Baseline anchor & --- & Fixed schedule     & $-38.6$ & --- & 10 (fixed) \\
-    \midrule
-    \multicolumn{6}{l}{\textit{Phase 1: Diagnosis}} \\
-    1   & MPO & Threshold 0.5/0.9          & $-101.6$ & $-63.0$ & 516 \\
-    2   & SAC & Compressed encoder         & $-78.9$  & $-40.3$ & 236 \\
-    3   & SAC & Sparse reward              & $-22.2$  & $+16.4$ & --- \\
-    3   & MPO & Dense reward               & $-51.6$  & $-13.0$ & --- \\
-    5   & MPO & Width ablation (all)        & $-51.6$  & $-13.0$ & --- \\
-    \midrule
-    \multicolumn{6}{l}{\textit{Phase 2: Action space \& reward shaping}} \\
-    4   & SAC & Torque mode (Ref0)         & $-11.1$  & $+27.5$ & --- \\
-    4   & SAC & Vector mode (Ref1)         & $-24.1$  & $+14.5$ & 7071 \\
-    7   & SAC & Vector + budget penalty    & $+10.6$  & $+49.2$ & 478 \\
-    9   & SAC & Vector + budget, waste off & $+106.4$ & $+145.0$& --- \\
-    \midrule
-    \multicolumn{6}{l}{\textit{Phase 3: MPO stabilisation \& ablations}} \\
-    8   & MPO & Decoupled-KL fix, torque   & $-81.1$  & $-42.5$ & --- \\
-    10  & MPO & Safe-mode penalty ($k$=2.0)& $-510.4$ & $-471.8$& 2--7 \\
-    11  & MPO & Fixed dual, vector         & $+45.5$  & $+84.1$ & 8--10 \\
-    12  & MPO & Vector + effort ($k$=0.1)  & $+25.3$  & $+63.9$ & --- \\
-    \midrule
-    \multicolumn{6}{l}{\textit{Phase 4: Scale \& cadence}} \\
-    13  & MPO & Cadence 1:1:50             & $-15.4$  & $+23.2$ & --- \\
-    14  & MPO & Multi-env (crashed)        & n/a      & ---     & --- \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+Table~\ref{tab:exp-comparison} is the master scoreboard: eval return, matched baseline return, and $\Delta_\text{base}$ for every closed experiment.
+The subsections below add cross-cuts (learning curves, shutter efficiency, safe-mode overhead, and SAC vs.\ MPO) rather than re-listing those numbers.
 
 \subsection{Learning progression}
 \label{sec:results-learning}
 
-The episode-level learning curves show how the design space was narrowed:
+Episode-level learning curves mark the milestones on the scoreboard (Table~\ref{tab:exp-comparison}):
 
 \begin{itemize}
-  \item \textbf{Exps~1--5:} Naive configurations (threshold tuning, encoder variants, algorithm and width ablations) produce flat or degrading returns.
-    No run in this phase crosses positive territory, confirming that the training problem is not solved by default.
-  \item \textbf{Exp~3:} SAC with sparse reward is the first configuration to show a rising training trajectory, establishing that the environment is learnable once the reward and algorithm pairing is correct.
-  \item \textbf{Exp~7:} Adding a budget-exhausted shutter penalty to vector-mode SAC yields the first positive eval return ($+10.6$) and cuts train shutter commands from $\sim$7000 (Exp~4) to 478.
-  \item \textbf{Exp~9:} Removing the within-budget waste penalty further improves eval return ($+106.4$).
-    On eval episodes, two thirds of capture attempts are scientifically valid (non-cloud, within budget, previously uncaptured target).
-  \item \textbf{Exp~11:} MPO in vector mode reaches $+45.5$, the first positive MPO eval return, after the decoupled-KL dual fix (Exp~8) removed the algorithm-level collapse.
+  \item \textbf{Exps~1--5:} Threshold tuning, encoder variants, and algorithm/width ablations stay flat or degrade; no run in this phase reaches positive eval return.
+  \item \textbf{Exp~3:} SAC with sparse reward is the first configuration with a rising training trajectory.
+  \item \textbf{Exp~7:} Budget-exhausted shutter penalty on vector-mode SAC yields the first positive eval return ($+10.6$) and cuts train shutter commands from $\sim$7000 (Exp~4) to 478.
+  \item \textbf{Exp~9:} Waste-penalty removal further improves eval return ($+106.4$); on eval, two thirds of capture attempts are scientifically valid (non-cloud, within budget, previously uncaptured target).
+  \item \textbf{Exp~11:} After the Exp~8 dual fix, vector-mode MPO reaches $+45.5$, the first positive MPO eval return.
 \end{itemize}
 
 \begin{figure}[htbp]
@@ -75,7 +35,9 @@ The episode-level learning curves show how the design space was narrowed:
     \includegraphics[width=\linewidth]{figures/fig_learning_curve_exp9.png}
     \caption{Exp~9 (learning)}
   \end{subfigure}
-  \caption{Learning behaviour contrast: flat/collapsed training under Exp~1 shutter-threshold MPO versus rising returns under Exp~9 SAC shutter-split (best supported SAC configuration).}
+  \caption{Episode-return curves (warmup / train / eval).
+    Exp~1 shutter-threshold MPO collapses to near-floor train and eval returns after a strong warmup;
+    Exp~9 SAC shutter-split reaches positive eval returns (best supported SAC configuration).}
   \label{fig:learning-vs-not}
 \end{figure}
 
@@ -91,7 +53,8 @@ The episode-level learning curves show how the design space was narrowed:
     \includegraphics[width=\linewidth]{figures/fig_learning_curve_exp11.png}
     \caption{Exp~11 (learning)}
   \end{subfigure}
-  \caption{MPO branch after the Exp~8 dual fix: Exp~10 safe-mode penalty collapses eval return, while Exp~11 vector-mode MPO shows sustained learning.}
+  \caption{Episode-return curves for the MPO branch after the Exp~8 dual fix:
+    Exp~10 safe-mode penalty stays deeply negative on train/eval, while Exp~11 vector-mode MPO recovers during train and finishes with positive eval return.}
   \label{fig:learning-mpo-contrast}
 \end{figure}
 
@@ -109,17 +72,19 @@ Table~\ref{tab:shutter-progression} tracks the spam reduction path.
   \caption{Shutter spam reduction across the SAC vector experiment chain.
     All figures are training means unless noted.}
   \label{tab:shutter-progression}
-  \begin{tabular}{lrrl}
+  \renewcommand{\arraystretch}{1.3}
+  \small
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.30\linewidth}rr>{\raggedright\arraybackslash}p{0.32\linewidth}@{}}
     \toprule
-    Experiment & Cmds/ep (train) & Meaningful frac (train) & Notes \\
+    Experiment & Cmds/ep & Meaningful frac & Notes \\
     \midrule
-    Overnight H1a (pre-Exp~1) & 968 & 0 & MPO, threshold 0.5 \\
-    Exp~1 mpo\_t05/t09         & 516 & 0 & Threshold ineffective \\
-    Exp~4 Ref1 (SAC vector)    & 7071 & 0.015 & Budget ignorance \\
-    Exp~7 (budget penalty)     & 478  & 0.220 & $-93\%$ cmds vs Ref1 \\
-    Exp~9 (waste off)          & --- & 0.286 / 0.667 (eval) & Best scheduling \\
-    Exp~11 (MPO vector)        & 8--10 & --- & Budget-aware MPO \\
-    Baseline anchor (reference)  & 10  & $\sim$0.60--0.70 & Deterministic, cloud-blind \\
+    Pre-study MPO (threshold 0.5) & 968 & 0 & Near-continuous shuttering \\
+    Exp~1 (thresholds 0.5 / 0.9)  & 516 & 0 & Threshold ineffective \\
+    Exp~4 (SAC vector)            & 7071 & 0.015 & Budget ignorance \\
+    Exp~7 (budget penalty)        & 478  & 0.220 & $-93\%$ cmds vs Exp~4 \\
+    Exp~9 (waste off)             & --- & 0.286 / 0.667 (eval) & Best scheduling \\
+    Exp~11 (MPO vector)           & 8--10 & --- & Budget-aware MPO \\
+    Baseline (reference)          & 10  & $\sim$0.60--0.70 & Deterministic, cloud-blind \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -132,7 +97,8 @@ Together, these results show that reward structure, not algorithm choice alone, 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.88\linewidth]{figures/fig_selective_shutter.png}
-  \caption{Eval episode from Exp~9 (SAC shutter-split): representative dashboard frame during selective capture behaviour on the fixed evaluation seed.}
+  \caption{Eval episode from Exp~9 (SAC shutter-split) on the fixed evaluation seed.
+    Reward panel shows a sparse cluster of applied rewards and take-picture markers during the engagement window rather than continuous shutter spam.}
   \label{fig:selective-shutter}
 \end{figure}
 
@@ -159,7 +125,7 @@ At matched protocol (sparse, vector, 50 episodes, seed~7), the best SAC configur
 The gap is partially explained by reward configuration: Exp~9 uses the waste-off, budget-on reward while Exp~11 uses the budget-on, waste-on default.
 An MPO run with the Exp~9 reward settings was not completed within the project timeline.
 
-Both best configurations exceed the baseline anchor on this seed ($-38.6$).
+Both best configurations exceed their matched average baseline return on this seed (Exp~9: $+106.4$ vs $-38.6$; Exp~11: $+45.5$ vs $+2.4$).
 That is encouraging for the design search but not sufficient evidence of robust mission-level superiority: evaluation uses only two episodes at a fixed seed, and several intermediate configurations never learned at all.
 The more durable finding is behavioural.
 Both algorithms can learn selective shuttering once reward and action-space choices are correct.
