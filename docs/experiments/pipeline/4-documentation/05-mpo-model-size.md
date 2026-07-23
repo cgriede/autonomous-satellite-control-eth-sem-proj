@@ -117,6 +117,6 @@ All three widths **identical** KPIs — no monotonic improvement. Collapse patte
 
 **Overall verdict:** **not_supported** on width hypothesis; **H5d supported** — pursue algorithm/reward/action-space levers (e.g. vector mode Ref2), not head units.
 
-**Unblocks:** [Exp 6](../0-initialized/06-modular-encoder-r2.md) process gate (encoder r2) — MPO width closed.
+**Unblocked:** [Exp 6](06-modular-encoder-r2.md) (encoder r2 — closed **supported**).
 
 *(Phase 4 pending.)*

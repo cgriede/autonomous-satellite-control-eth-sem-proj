@@ -64,7 +64,7 @@ JSON: `backend/scripts/experiments/ml_sac_vector_budget_penalty/results/sac_vect
 - **Promote** budget-exhausted shutter penalty (post Exp 7 closeout)
 - Diagnose eval–train gap (LR, replay, eval cloud draw) after promote
 - Optional Ref2: MPO + vector + dense
-- Exp 6 encoder r2 — **deferred** ([D-021](DECISIONS.md))
+- Exp 6 encoder r2 — **supported** ([D-027](DECISIONS.md); [06-modular-encoder-r2.md](../experiments/pipeline/4-documentation/06-modular-encoder-r2.md))
 
 ## 8. Artifacts index
 

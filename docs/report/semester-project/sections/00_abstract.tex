@@ -1,7 +1,7 @@
 Satellite imaging of tropical rainforests is limited by persistent cloud cover.
 Conventional controllers image every target on a fixed pointing schedule, regardless of cloud conditions.
 A limited \emph{shutter budget} (a hard cap on captures per pass) and downlink capacity are wasted on cloud-obscured frames scientists cannot use.
-An autonomous pointing and scheduling policy that reacts to onboard camera observations would use those resources more efficiently.
+The intended remedy is onboard opportunity selection: a forward-looking fisheye reveals upcoming targets and clouds before they enter the main imaging window, so a policy can prefer high-value clear captures and skip occluded ones under that budget.
 
 Because that idea appears straightforward, this work asks a narrower question:
 what reward shaping and action-space design are required to train such a policy in simulation?

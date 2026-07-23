@@ -9,9 +9,10 @@ Three lessons emerged.
 Per-experiment returns and shutter counts are reported in Sections~\ref{sec:experiments} and~\ref{sec:results}; this subsection interprets why the levers mattered.
 
 \paragraph{1.\ Reward structure before algorithm.}
-Neither threshold tuning, encoder architecture, algorithm choice, nor network width was sufficient on its own.
-Learning emerged only after the reward told the agent what mattered at the action clock: sparse capture credit, a budget-exhausted penalty that stops shutter spam, and removal of a redundant within-budget waste term.
-Reward engineering was the dominant design lever; swapping algorithms without that structure did not unlock selective shuttering.
+Threshold tuning, network width, and algorithm choice alone did not unlock selective shuttering.
+Structured encoding of the per-target arrays (Exp~6) improved returns once a learnable protocol existed, but both encoder arms still spammed the shutter and stayed below the matched baseline.
+Selective, budget-aware behaviour emerged only after the reward told the agent what mattered at the action clock: sparse capture credit, a budget-exhausted penalty that stops shutter spam, and removal of a redundant within-budget waste term.
+Reward engineering remained the dominant lever for that behaviour.
 
 \paragraph{2.\ Action-space design before reward fine-tuning.}
 Delegating rate control to the onboard pointing controller (vector mode) is structurally important relative to raw torque commands.
@@ -52,8 +53,8 @@ That stack is shared by the deterministic baseline and all learned policies.
 \paragraph{Action modes tested.}
 Three action interfaces were explored:
 \begin{itemize}
-  \item \textbf{Torque mode:} the policy commands wheel torque directly (Exps~1--5, 8, 10).
-  \item \textbf{Vector mode:} the policy commands a nadir-relative pointing offset; the OBC converts it to PD torque (Exps~4, 7, 9, 11--13).
+  \item \textbf{Torque mode:} the policy commands wheel torque directly (Exps~1--6, 8, 10, 13).
+  \item \textbf{Vector mode:} the policy commands a nadir-relative pointing offset; the OBC converts it to PD torque (Exps~4, 7, 9, 11, 12, 14).
   \item \textbf{Target selection:} a higher-level discrete choice of which target to engage (Exp~14).
     Started as a hypothesised next simplification after torque and vector; the run did not complete, so whether this interface is easier to train remains open.
 \end{itemize}
@@ -136,11 +137,6 @@ are coupled objectives.
 The following directions are documented as promising but were not completed within the project:
 
 \begin{itemize}
-  \item \textbf{Modular encoder rerun (deferred Exp~6).}
-    Once learning is established, the vector-compressor encoder variant from Exp~2 should be retested.
-    The high-dimensional observation with structured bearing and mask fields is
-    a candidate for entity-based architectures \citep{gorishniy2022revisiting}.
-
   \item \textbf{MPO with Exp~9 reward config.}
     Exp~11 reached $+45.5$ without the waste-penalty-off configuration used in Exp~9.
     A direct MPO run at Exp~9 reward settings would quantify the algorithm gap more cleanly.

@@ -19,6 +19,41 @@ This process works well for constraints that can be predicted from orbital mecha
 Cloud cover, however, cannot be scheduled out: the weather state at the moment of overflight is unknown at planning time, and the uplinked schedule cannot be modified during the pass.
 The satellite therefore executes its pre-planned capture sequence regardless of what the cameras actually see, consuming onboard storage, electrical power, downlink capacity, and attitude-control effort on frames that may be entirely cloud-occluded \citep{ferrari2024ssp}.
 
+\subsection{Intended solution concept}
+\label{sec:solution-concept}
+
+Today's operational process is ground-planned: the capture list is fixed before the pass, and uplink latency is too large for cloud-aware replanning during overflight.
+Under that paradigm a forward-looking sensor has little operational value, because the satellite cannot act on what it sees ahead.
+Consequently, current missions typically do not fly a dedicated lookahead imager for in-pass scheduling.
+
+An onboard scheduling agent changes that premise.
+If capture decisions are made during the pass, the agent needs information about upcoming targets and cloud conditions \emph{before} those scenes enter the primary imaging window.
+Otherwise it can react only when a target is already under the science boresight, which is too late for useful opportunity selection under a limited shutter budget.
+
+The primary payload is a narrow-field science camera (hyperspectral-class in the mission concept).
+Pointing that instrument forward would still cover only a thin along-track strip, so it is a poor lookahead sensor for surveying multiple upcoming opportunities.
+This study therefore adds a second, forward-tilted wide-angle (fisheye) camera that observes the corridor ahead while the primary camera remains dedicated to science capture near nadir
+(Table~\ref{tab:constants-camera-sim}; $\SI{70}{\degree}$ along-track FOV, $\SI{25}{\degree}$ prograde tilt).
+Figure~\ref{fig:concept-lookahead} illustrates this sensing geometry on a representative along-track pass.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.92\linewidth]{figures/fig_concept_lookahead_eth.png}
+  \caption{Lookahead sensing geometry.
+    The narrow primary camera images near nadir while a forward-tilted fisheye observes upcoming targets along-track before they enter the primary footprint
+    ($\SI{25}{\degree}$ prograde tilt; Table~\ref{tab:constants-camera-sim}).}
+  \label{fig:concept-lookahead}
+\end{figure}
+
+Lookahead sensing is not unique to a fisheye.
+Alternatives include cloud or weather products from other satellites, relayed via the ground segment or cross-link, and those products need not be image-shaped at all.
+We evaluate the onboard fisheye approach because it is deployment-feasible on a single spacecraft and avoids network effects and external data dependencies:
+as long as the satellite has power and a downlink path for the science data it produces, the scheduling loop can operate from its own sensors.
+
+The intended decision process is sequential opportunity selection under scarcity.
+The fisheye reveals clear and cloud-occluded candidates ahead of the primary footprint; an onboard policy ranks those imaging opportunities and spends the limited shutter budget (proxying storage, downlink capacity, and actuator effort) on high-value clear captures rather than executing a fixed pre-planned schedule.
+This report then asks a narrower training question: which reward shaping and action-space designs make that selective behaviour learnable in simulation.
+
 \subsection{Research question}
 \label{sec:research-question}
 
@@ -115,6 +150,7 @@ This report documents:
 The engineering platform and the experimental map are the primary deliverables; mission-level outperformance of the baseline was not established within the semester scope (Section~\ref{sec:discussion}).
 
 \subsection{Report structure}
+Section~\ref{sec:solution-concept} states the intended onboard sensing and scheduling concept.
 Section~\ref{sec:related-work} situates the work against Earth-observation scheduling surveys and continuous-control reinforcement learning.
 Section~\ref{sec:methods} describes the research approach, simulation environment, and learning method.
 Section~\ref{sec:experiments} documents the design-space search: which reward and action-space choices were tested and what each revealed.

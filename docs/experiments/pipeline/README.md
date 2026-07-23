@@ -38,7 +38,7 @@ Each phase block uses **What / Why / How** subsections (see skill `reference.md`
 | 3 | `ml_sac_mpo_compare` | [03-sac-mpo-compare.md](4-documentation/03-sac-mpo-compare.md) | `backend/scripts/experiments/ml_sac_mpo_compare/` | 4 | **supported** | — |
 | 4 | `ml_agent_reference_pointing` | [04-agent-reference-pointing.md](4-documentation/04-agent-reference-pointing.md) | `backend/scripts/experiments/ml_agent_reference_pointing/` | 4 | **partial** | — |
 | 5 | `ml_mpo_model_size` | [05-mpo-model-size.md](4-documentation/05-mpo-model-size.md) | `backend/scripts/experiments/ml_mpo_model_size/` | 4 | **not_supported** | — |
-| 6 | `ml_modular_encoder_r2` | [0-06-modular-encoder-r2.md](99-archive/0-06-modular-encoder-r2.md) | `backend/scripts/experiments/ml_modular_encoder_r2/` | — | **deferred** | — |
+| 6 | `ml_modular_encoder_r2` | [06-modular-encoder-r2.md](4-documentation/06-modular-encoder-r2.md) | `backend/scripts/experiments/ml_modular_encoder_r2/` | 4 | **supported** | — |
 | 7 | `ml_sac_vector_budget_penalty` | [07-sac-vector-budget-penalty.md](4-documentation/07-sac-vector-budget-penalty.md) | `backend/scripts/experiments/ml_sac_vector_budget_penalty/` | 4 | **supported** | — |
 | 8 | `ml_mpo_decoupled_dual_torque` | [08-mpo-decoupled-dual-fix.md](4-documentation/08-mpo-decoupled-dual-fix.md) | `backend/scripts/experiments/ml_mpo_decoupled_dual_torque/` | closeout | **partial** | — |
 | 9 | `ml_sac_shutter_reward_split` | [09-sac-shutter-reward-split.md](4-documentation/09-sac-shutter-reward-split.md) | `backend/scripts/experiments/ml_sac_shutter_reward_split/` | closeout | **supported** | — |

@@ -2,10 +2,9 @@
 
 Fourteen experiments were conducted between 2026-06-28 and 2026-07-02 to map the reward and action-space design required for cloud-aware autonomous pointing.
 Each run tests one concrete design choice; the sequence is cumulative rather than a search for a single winning configuration.
-The arc divides into three phases: (i) diagnosing why naive training setups fail (Exps~1--5),
+The arc divides into three phases: (i) diagnosing why naive training setups fail and whether observation structure helps (Exps~1--6),
 (ii) reward shaping and action-space design (Exps~4--9), and
 (iii) MPO-specific stabilisation and further ablations (Exps~8--12), followed by scale and cadence probes (Exps~13--14).
-Experiment~6 (modular encoder rerun) was deferred and is not included.
 
 \paragraph{Experimental protocol.}
 \label{sec:exp-protocol}
@@ -51,22 +50,22 @@ The credit window creates latent mid-episode reward bursts but does not fix cred
 \label{sec:exp2}
 
 \paragraph{Motivation.}
-The controller observation is 105-dimensional with 50+50 structured bearing/mask fields.
-Flattening these into a single MLP may be sample-inefficient compared to a group-compressor
+The controller observation is 105-dimensional and includes two length-50 per-target arrays: bearing errors and capture-mask flags.
+Flattening those arrays into a single MLP may be sample-inefficient compared to embedding each array as a group
 \citep{gorishniy2022revisiting}.
-Variant A1 replaced the flat concat with a $\mathrm{Linear}(50 \to 8)$ compressor on each field group.
+Variant A1 replaces the flat concat with a $\mathrm{Linear}(50 \to 8)$ embedding on each target array (camera lines unchanged).
 
 \paragraph{Config and result.}
 SAC sparse, 7 training episodes.
 A0 (flat): eval $-78.9$, 223 shutters/ep.
-A1 (compress): eval $-86.5$, 98 shutters/ep.
+A1 (structured encode): eval $-86.5$, 98 shutters/ep.
 Neither variant showed a learning signal; both produced zero meaningful captures.
-A1's critic loss diverged (3190 vs A0's 1420 at episode~7), indicating training instability in the compressed branch.
+A1's critic loss diverged (3190 vs A0's 1420 at episode~7), indicating training instability in the structured branch.
 
 \paragraph{Verdict.}
 \textbf{Not supported.}
-The structured observation encoder shows no benefit in the 7-episode non-learnable slice.
-The encoder is deferred for a rerun once a stable learning configuration exists (deferred Exp~6).
+Structured encoding of the per-target arrays shows no benefit in the 7-episode non-learnable slice.
+The same comparison is repeated under a longer protocol in Exp~6.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Exp~3: SAC vs.\ MPO algorithm comparison}
@@ -130,6 +129,28 @@ Post-episode-1 returns were flat; every shutter command produced zero useful cap
 \paragraph{Verdict.}
 \textbf{Not supported.}
 Network width is not the bottleneck; the shared collapse pattern points to the learning algorithm.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Exp~6: Structured target-array encoding}
+\label{sec:exp6}
+
+\paragraph{Motivation.}
+Exp~2 tested structured encoding of the per-target bearing and capture-mask arrays in a short non-learnable slice.
+Exp~6 repeats that single architectural delta under the longer SAC sparse protocol that Exp~3 showed can learn:
+flat concatenation (A0) versus a $\mathrm{Linear}(50 \to 8)$ embedding of each target array before fusion (A1).
+Camera observation lines are unchanged; this is not image compression.
+
+\paragraph{Config and result.}
+SAC sparse, torque mode, 50 training episodes.
+Matched warmup baseline $+393.2$ on both arms.
+A0 (flat): best train $+11.2$, eval $-3.9$, learning signal present.
+A1 (structured encode): best train $+137.2$, eval $+80.9$, learning signal present.
+Both arms remain far below the matched baseline and still issue hundreds of shutter commands per eval episode.
+
+\paragraph{Verdict.}
+\textbf{Supported.}
+Given a learnable protocol, structured encoding of the per-target arrays beats flat concatenation on return.
+The Exp~2 null result was protocol-limited; selective budget-aware shuttering still required the later reward work (Exps~7 and~9).
 
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Exp~7: SAC vector + budget-exhausted shutter penalty}
@@ -352,13 +373,15 @@ Verdicts use the definition in Section~\ref{sec:exp-protocol}.
     \midrule
     1 & Shutter threshold 0.5 & MPO & Torque & Sparse & $+393.2$ & $-99.9$ & $-101.6$ & Not supported \\
     1 & Shutter threshold 0.9 & MPO & Torque & Sparse & $+393.2$ & $-99.9$ & $-101.6$ & Not supported \\
-    2 & Flat encoder & SAC & Torque & Sparse & $+393.2$ & $-72.4$ & $-78.9$ & Not supported \\
-    2 & Compressed encoder & SAC & Torque & Sparse & $+393.2$ & $-75.1$ & $-86.5$ & Not supported \\
+    2 & Flat target arrays & SAC & Torque & Sparse & $+393.2$ & $-72.4$ & $-78.9$ & Not supported \\
+    2 & Structured target encode & SAC & Torque & Sparse & $+393.2$ & $-75.1$ & $-86.5$ & Not supported \\
     3 & Algorithm compare & SAC & Torque & Sparse & $+393.2$ & $+5.3$ & $-22.2$ & Supported \\
     3 & Algorithm compare & MPO & Torque & Dense & $+393.2$ & $-51.6$ & $-51.6$ & Not supported \\
     4 & Torque interface & SAC & Torque & Sparse & $+393.2$ & $+8.4$ & $-11.1$ & Partial \\
     4 & Vector interface & SAC & Vector & Sparse & $-48.5$ & $+95.8$ & $-24.1$ & Partial \\
     5 & Network width (all) & MPO & Torque & Sparse & $+393.2$ & $-51.6$ & $-51.6$ & Not supported \\
+    6 & Flat target arrays & SAC & Torque & Sparse & $+393.2$ & $+11.2$ & $-3.9$ & Supported$^\ddagger$ \\
+    6 & Structured target encode & SAC & Torque & Sparse & $+393.2$ & $+137.2$ & $+80.9$ & Supported$^\ddagger$ \\
     7 & Budget penalty & SAC & Vector & Sparse + budget & $-38.6$ & $+124.6$ & $+10.6$ & Supported \\
     8 & Decoupled dual & MPO$^\star$ & Torque & Sparse & $+393.2$ & $+8.7$ & $-81.1$ & Partial \\
     9 & Waste penalty off & SAC & Vector & Sparse + budget, waste off & $-38.6$ & $+169.9$ & $+106.4$ & Supported \\
@@ -372,6 +395,7 @@ Verdicts use the definition in Section~\ref{sec:exp-protocol}.
     \bottomrule
     \multicolumn{9}{l}{\footnotesize Baseline = mean warmup return (5 episodes). Eval = mean of 2 episodes.} \\
     \multicolumn{9}{l}{\footnotesize Exp~3 early-abort (patience 20). Exp~9 keeps budget penalty, disables within-budget waste.} \\
+    \multicolumn{9}{l}{\footnotesize $^\ddagger$ Exp~6: Supported for structured vs flat target-array encoding return gap; not a baseline win.} \\
     \multicolumn{9}{l}{\footnotesize $^\dagger$ Run aborted (infrastructure error during long multi-environment run).} \\
   \end{tabular}
 \end{table}

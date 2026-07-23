@@ -109,7 +109,7 @@ decision_ids: [D-006, D-013, D-014, D-015]
 
 - **Risks:** `agents` package name collision with overnight (resolved → `encoder_agents/`); SAC lr names must match `sac_agent_fork`.
 
-- **Follow-up if inconclusive:** proceed to Exp 3 SAC vs MPO dense; do **not** widen encoder (split heads) without `learning_mode` on A1. **Deferred rerun:** [Exp 6](../0-initialized/06-modular-encoder-r2.md) after Exp 5 MPO sizing.
+- **Follow-up if inconclusive:** proceed to Exp 3 SAC vs MPO dense; do **not** widen encoder (split heads) without `learning_mode` on A1. **Rerun:** [Exp 6](06-modular-encoder-r2.md) (closed **supported**).
 
 
 
@@ -357,7 +357,7 @@ python .\run_modular_encoder.py --show-progress --arms sac_a0,sac_a1
 
 
 
-**Follow-up:** [Exp 3](../../1-built/03-sac-mpo-compare.md) (algorithm/reward); [Exp 6](../0-initialized/06-modular-encoder-r2.md) (encoder rerun after Exp 5 learnable protocol). **Do not** add split-head encoder arms.
+**Follow-up:** [Exp 3](03-sac-mpo-compare.md) (algorithm/reward); [Exp 6](06-modular-encoder-r2.md) (encoder r2 — closed **supported**). **Do not** add split-head encoder arms.
 
 **Deferred interest ([D-015](../../research/DECISIONS.md)):** If the stack ever reaches **`learning_mode=true`**, group compressors on bearing/mask remain **highly interesting** — v1 cannot test that fairly today.
 
@@ -391,7 +391,7 @@ python .\run_modular_encoder.py --show-progress --arms sac_a0,sac_a1
 
 **Do not** interpret v1 as “never use compressors” — interpret as **“not the current bottleneck.”**
 
-**Follow-up:** [Exp 3](../../1-built/03-sac-mpo-compare.md) → [Exp 5](05-mpo-model-size.md) → [Exp 6](../0-initialized/06-modular-encoder-r2.md) (encoder r2 in learnable regime).
+**Follow-up:** [Exp 3](03-sac-mpo-compare.md) → [Exp 5](05-mpo-model-size.md) → [Exp 6](06-modular-encoder-r2.md) (closed **supported**).
 
 ### 4.3 Knowledge persistence (How)
 
@@ -402,7 +402,7 @@ python .\run_modular_encoder.py --show-progress --arms sac_a0,sac_a1
 | Summary JSON | `backend/scripts/experiments/ml_modular_encoder/results/modular_encoder_summary.json` |
 | DECISIONS | [D-014](../../research/DECISIONS.md), [D-015](../../research/DECISIONS.md) |
 | STATUS | [STATUS_2026-06.md](../../ml/experiments/STATUS_2026-06.md) |
-| Deferred rerun charter | [06-modular-encoder-r2.md](../0-initialized/06-modular-encoder-r2.md) |
+| Encoder r2 closeout | [06-modular-encoder-r2.md](06-modular-encoder-r2.md) |
 | Run dirs | `…_ml_encoder_sac_a0_16-34-58/`, `…_ml_encoder_sac_a1_16-51-25/` |
 
 **Pipeline next:** **Exp 3** SAC vs MPO (mutex free).

@@ -119,6 +119,11 @@ The primary nadir-looking camera parameters are listed in Table~\ref{tab:constan
 The vertical field of view and ground-sampling distance (GSD) are computed analytically from sampled altitude using a pinhole model.
 At $\SI{540}{km}$ the nominal GSD is approximately $\SI{1.6}{m}$.
 
+\paragraph{Lookahead sensing.}
+The secondary camera is a forward-tilted wide-angle (fisheye) imager: $\SI{25}{\degree}$ off nadir in the prograde direction with a $\SI{70}{\degree}$ along-track field of view
+(Table~\ref{tab:constants-camera-sim}).
+It provides early visibility of upcoming targets and cloud occlusion so the controller can decide among multiple imaging opportunities before they enter the primary nadir footprint (Section~\ref{sec:solution-concept}).
+
 \paragraph{Camera observation lines.}
 At each simulation timestep the primary and secondary cameras are evaluated as one-dimensional observation lines spanning their vertical fields of view (Table~\ref{tab:constants-camera-sim}).
 Each line reports target coverage and cloud occlusion along the boresight strip; both use the same ray-intersection kernel.

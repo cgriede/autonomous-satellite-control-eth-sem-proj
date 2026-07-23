@@ -1,138 +1,65 @@
-# Analysis — modular_encoder_r2_sac
+# Analysis card — Exp 6 modular encoder r2 (`ml_modular_encoder_r2`)
 
-Source JSON: `modular_encoder_r2_summary.json`
+Source JSON: `results/modular_encoder_r2_summary.json`  
+Pipeline: `docs/experiments/pipeline/4-documentation/06-modular-encoder-r2.md`  
+Investigation: `docs/research/modular-encoder-r2-investigation.md`
 
-## Hypothesis
+## 1. Hypothesis
 
-Vector compressors on bearing/mask (A1) beat flat concat (A0) under r2 learnable protocol.
+**H2r:** Structured encoding of the per-target **bearing** and **capture-mask** arrays (`Linear(50→8)` each) beats flat concat under a learnable SAC sparse protocol.  
+**Not** image compression — camera lines unchanged.
 
-## Arms
+## 2. Arms
 
-{
-  "sac_a0": {
-    "verdict": "supported",
-    "encoder_kind": "flat",
-    "vector_embed_dim": 8,
-    "reward_mode": "sparse",
-    "learning_mode": true,
-    "train_returns": [
-      -75.67569520448357,
-      -5.585347482582789,
-      0.4743233970849242,
-      8.231914669123517,
-      -9.452697207361199,
-      -22.796906647548617,
-      -40.60849470398098,
-      -43.68482093689824,
-      -38.18187320587276,
-      -34.920136370581616,
-      -32.9467686443422,
-      -80.1489621978265,
-      -80.2607858941288,
-      -78.37461860330997,
-      -33.734922298587364,
-      -70.90188031925075,
-      -70.47161081518979,
-      -73.45278908792751,
-      -72.45092293411872,
-      -72.4984412167941,
-      -74.13666664753974,
-      -70.4918822317966,
-      -71.22037749414632,
-      -71.46207970407136,
-      -71.74454467665934,
-      -43.9697966707767,
-      -28.397981034343896,
-      -71.13985984142032,
-      -74.22509261967208,
-      -74.39275374427417,
-      -71.56127328247707,
-      -70.68689061093454,
-      -70.90630436634281,
-      -18.008213783672378,
-      -73.76338718169683,
-      -71.07444345311649,
-      -70.95879974659051,
-      -70.29734864060688,
-      11.191824131882372,
-      -67.99196648881428,
-      -68.19954503063438,
-      -68.42594116999433,
-      -68.53827698221204,
-      -46.053015325906316,
-      -69.0229927986734,
-      -53.2563360318284,
-      -4.099283548771729,
-      -43.0432027293978,
-      -36.19510209507446,
-      9.591824204940556
-    ],
-    "eval_return_mean": -3.910671988262961,
-    "wall_s": 1286.6156481999933
-  },
-  "sac_a1": {
-    "verdict": "supported",
-    "encoder_kind": "compress",
-    "vector_embed_dim": 8,
-    "reward_mode": "sparse",
-    "learning_mode": true,
-    "train_returns": [
-      -78.98504421435901,
-      -4.3420508878584405,
-      12.930374816742018,
-      -36.74257834659187,
-      -55.32199448084599,
-      -63.67792816088489,
-      -49.61182881448323,
-      -40.10599093233082,
-      -78.3906581022074,
-      -27.94720547306892,
-      -19.542035074089355,
-      -74.4651057307557,
-      -27.273034575333195,
-      -68.41113432433636,
-      -9.673324182748171,
-      -17.281405724225788,
-      -68.76620560904985,
-      -67.80664529809577,
-      -63.28218609695823,
-      -65.1166858026306,
-      -64.44308722381966,
-      -64.64051788301835,
-      -69.92430083957764,
-      16.984925338310052,
-      -7.509492999656063,
-      -38.747303318582155,
-      -37.08474645419321,
-      -55.323102301561114,
-      -79.95324957647183,
-      41.07197857504011,
-      83.79361122749503,
-      -5.007243853151195,
-      27.756444358667295,
-      31.95295559999904,
-      86.16326420836478,
-      104.8102182065624,
-      106.37067653473393,
-      -6.805857364278256,
-      65.37217413692288,
-      87.73959682584754,
-      25.41427111180967,
-      137.165388383613,
-      126.77405416455973,
-      62.880645190225465,
-      62.19452145652207,
-      58.854636359633936,
-      104.37070254894533,
-      121.01238184549365,
-      4.5522996243656335,
-      39.254105222038255
-    ],
-    "eval_return_mean": 80.91326369148169,
-    "wall_s": 1435.7998184999888
-  }
-}
+| Arm | Encoder | Role |
+|-----|---------|------|
+| `sac_a0` | Flat `ControllerEncoder` | Control |
+| `sac_a1` | `CompressedControllerEncoder` k=8 | Treatment |
 
-## Verdict
+## 3. Protocol
 
-{"sac_a0": "supported", "sac_a1": "supported"}
+| Knob | Value |
+|------|-------|
+| Agent | SAC |
+| Reward | sparse |
+| Action | torque |
+| dt | 1.5 / 1.5 |
+| Warmup / train / eval | 5 / 50 / 2 |
+| Seed | 7 |
+| Completed | 2026-06-30T03:30:00Z (overnight exp6) |
+
+## 4. Primary KPIs
+
+| Arm | Warmup mean | Best train | Eval mean | learning_mode |
+|-----|-------------|------------|-----------|---------------|
+| sac_a0 | +393.2 | +11.2 | −3.9 | true |
+| sac_a1 | +393.2 | +137.2 | +80.9 | true |
+
+## 5. Secondary KPIs (eval)
+
+| Arm | Shutter cmds | Meaningful frac |
+|-----|--------------|-----------------|
+| sac_a0 | 358 | 0.011 |
+| sac_a1 | 298 | 0.034 |
+
+## 6. Mechanism notes
+
+- Exp 2 null was a short non-learnable slice; both r2 arms learn.
+- A1 return gap is large; both arms still << baseline and still spam shutters.
+- A1 last-ep `q_loss` ~852 — flag for stability; does not erase return gap.
+- No MP4s in run dirs → no video claims.
+
+## 7. Verdict
+
+| Claim | Result |
+|-------|--------|
+| H2ra eval / learning | **Supported** |
+| H2rb best train | **Supported** |
+| H2rc secondary | **Supported** (weak) |
+| **Overall** | **supported** (A1 vs A0; not baseline win) |
+
+## 8. Follow-ups
+
+- Optional: retest A0/A1 under Exp 9 reward + vector mode.
+- No production promote ([D-027](../../../../docs/research/DECISIONS.md)).
+- Semester report wiring is a separate step after pipeline closeout.

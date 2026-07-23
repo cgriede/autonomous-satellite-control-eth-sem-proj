@@ -11,6 +11,7 @@ Alternates live in `figures/candidates/`. Do not dump the full experiment tree i
 | Status | Figure | Label | Section |
 |--------|--------|-------|---------|
 | [x] | Baseline overflight phases | `fig:baseline-overflight-phases` | Introduction |
+| [x] | Lookahead sensing geometry | `fig:concept-lookahead` | Introduction |
 | [x] | Environment overview | `fig:env-overview` | Methods |
 | [x] | Image quality curve | `fig:image-quality-curve` | Methods |
 | [x] | Safety maneuver (BRAKE / CRUISE / LOCKOUT) | `fig:safety-maneuver` | Methods |

@@ -78,7 +78,7 @@ predecessor: ml_agent_reference_pointing
 
 **Baseline for comparison (read-only):** Exp 4 Ref1 run `9998217182442815_ml_ref_ref1_vector_11-05-57` — rerun `penalty_off` only if cache/protocol drift is suspected.
 
-**Out of scope:** Torque mode (Ref0), MPO, encoder A0/A1 (Exp 6 deferred), full `s01_env_reward_v2` cloud terms, production reward promote in Phase 1.
+**Out of scope:** Torque mode (Ref0), MPO, encoder A0/A1 (Exp 6 closed separately), full `s01_env_reward_v2` cloud terms, production reward promote in Phase 1.
 
 ### 0.2 Thought process (Why)
 

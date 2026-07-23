@@ -78,6 +78,7 @@ Both skills **must cite file paths** for every claim. Missing layer → state ga
 | Note | Topic |
 |------|--------|
 | [model-size-investigation.md](model-size-investigation.md) | MPO network sizing, input dim, capacity diagnostics |
+| [modular-encoder-r2-investigation.md](modular-encoder-r2-investigation.md) | Exp 6 target-array encoding r2; A1 vs A0 under learnable SAC sparse |
 | [shutter-threshold-investigation.md](shutter-threshold-investigation.md) | Exp 1 reasoning; verdict table in [pipeline/4-documentation/01-shutter-threshold.md](../experiments/pipeline/4-documentation/01-shutter-threshold.md) |
 | [mpo-learning-collapse-investigation.md](mpo-learning-collapse-investigation.md) | Why MPO never learns; "KL explosion" = symptom of unconstrained M-step; feeds Exp 8 |
 

@@ -37,6 +37,7 @@ Local PDFs and reading guides for experiment design and semester-report related 
 | [PROJECT_KNOWLEDGE.md](PROJECT_KNOWLEDGE.md) | Master index — knowledge layers, gates, closeout commands |
 | [DECISIONS.md](DECISIONS.md) | Accepted / rejected / deferred choices |
 | [model-size-investigation.md](model-size-investigation.md) | MPO network sizing, input-dimension effects, train/eval capacity diagnostics |
+| [modular-encoder-r2-investigation.md](modular-encoder-r2-investigation.md) | Exp 6 structured target-array encoding (not image compression); Supported A1 vs A0 |
 | [shutter-threshold-investigation.md](shutter-threshold-investigation.md) | Exp 1 reasoning; verdict table in [pipeline/4-documentation/01-shutter-threshold.md](../experiments/pipeline/4-documentation/01-shutter-threshold.md) |
 
 ## Naming convention

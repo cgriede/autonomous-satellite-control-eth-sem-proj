@@ -7,6 +7,7 @@ Promoted from `docs/raw_image_selection/` into `figures/fig_*.png` and included 
 | `fig_baseline_phase_approach.png` | `fig:baseline-overflight-phases` | Introduction | baseline MP4 f44 — nadir coast into corridor |
 | `fig_baseline_phase_point.png` | (same) | Introduction | baseline MP4 f80 — ~31° off-nadir slew |
 | `fig_baseline_phase_capture.png` | (same) | Introduction | baseline MP4 f110 — nadir lock (~0.7° off-nadir), quality ~0.93 after first shutter |
+| `fig_concept_lookahead_eth.png` | `fig:concept-lookahead` | Introduction — solution concept | ETH-style dynamics sketch: primary nadir vs forward fisheye |
 | `fig_env_overview.png` | `fig:env-overview` | Methods — environment | `targets-early` f66 — arc + corridor ahead (not a capture duplicate) |
 | `fig_image_quality_curve.png` | `fig:image-quality-curve` | Methods — image quality | analytic script |
 | `fig_safety_t{0,1,2}.png` | `fig:safety-maneuver` | Methods — safety | ref0 torque eval f125/130/155 — BRAKE / CRUISE / LOCKOUT |

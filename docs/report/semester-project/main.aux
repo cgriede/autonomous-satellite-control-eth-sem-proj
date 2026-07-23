@@ -19,255 +19,264 @@
 \@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Mission profile and reward scales (default training configuration).}}{6}{table.caption.6}\protected@file@percent }
 \newlabel{tab:constants-mission}{{3}{6}{Mission profile and reward scales (default training configuration)}{table.caption.6}{}}
 \citation{ferrari2024ssp}
-\citation{ferrari2024ssp}
 \@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{7}{section.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Motivation}{7}{subsection.1.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Current operational process.}{7}{section*.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Research question}{7}{subsection.1.2}\protected@file@percent }
-\newlabel{sec:research-question}{{1.2}{7}{Research question}{subsection.1.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Related work}{7}{subsection.1.3}\protected@file@percent }
-\newlabel{sec:related-work}{{1.3}{7}{Related work}{subsection.1.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Intended solution concept}{7}{subsection.1.2}\protected@file@percent }
+\newlabel{sec:solution-concept}{{1.2}{7}{Intended solution concept}{subsection.1.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Lookahead sensing geometry. The narrow primary camera images near nadir while a forward-tilted fisheye observes upcoming targets along-track before they enter the primary footprint ($\SI {25}{\degree }$ prograde tilt; Table~\ref {tab:constants-camera-sim}).}}{8}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:concept-lookahead}{{1}{8}{Lookahead sensing geometry. The narrow primary camera images near nadir while a forward-tilted fisheye observes upcoming targets along-track before they enter the primary footprint ($\SI {25}{\degree }$ prograde tilt; Table~\ref {tab:constants-camera-sim})}{figure.caption.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Research question}{8}{subsection.1.3}\protected@file@percent }
+\newlabel{sec:research-question}{{1.3}{8}{Research question}{subsection.1.3}{}}
+\citation{ferrari2024ssp}
 \citation{haarnoja2018sac}
 \citation{abdolmaleki2018mpo}
 \citation{bruin2018irl}
 \citation{gorishniy2022revisiting}
 \citation{ferrari2024ssp}
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.4}Deterministic baseline}{8}{subsection.1.4}\protected@file@percent }
-\newlabel{sec:baseline-intro}{{1.4}{8}{Deterministic baseline}{subsection.1.4}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Deterministic baseline overflight (orbit-disk dashboard). Left to right: (a)~Approach: nadir coast into the target corridor before the first lock; (b)~Point: large off-nadir slew toward the scheduled target bearing; (c)~Capture: return to nadir after the first shutter, with high image quality and the reward spike still visible. The schedule fires regardless of cloud cover (Table~\ref {tab:baseline-config}).}}{8}{figure.caption.8}\protected@file@percent }
-\newlabel{fig:baseline-overflight-phases}{{1}{8}{Deterministic baseline overflight (orbit-disk dashboard). Left to right: (a)~Approach: nadir coast into the target corridor before the first lock; (b)~Point: large off-nadir slew toward the scheduled target bearing; (c)~Capture: return to nadir after the first shutter, with high image quality and the reward spike still visible. The schedule fires regardless of cloud cover (Table~\ref {tab:baseline-config})}{figure.caption.8}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.5}Scope and simplifications}{9}{subsection.1.5}\protected@file@percent }
-\newlabel{sec:scope}{{1.5}{9}{Scope and simplifications}{subsection.1.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.6}Contributions}{9}{subsection.1.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {1.7}Report structure}{9}{subsection.1.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {2}Methods}{9}{section.2}\protected@file@percent }
-\newlabel{sec:methods}{{2}{9}{Methods}{section.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Environment overview}{10}{subsection.2.1}\protected@file@percent }
-\newlabel{sec:env-overview}{{2.1}{10}{Environment overview}{subsection.2.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{Altitude and orbit.}{10}{section*.9}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Target corridor.}{10}{section*.10}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Environment overview on the orbit-disk dashboard early in the pass: satellite on the arc, target corridor markers on the Earth limb ahead of the boresight, before the first scheduled slew.}}{10}{figure.caption.11}\protected@file@percent }
-\newlabel{fig:env-overview}{{2}{10}{Environment overview on the orbit-disk dashboard early in the pass: satellite on the arc, target corridor markers on the Earth limb ahead of the boresight, before the first scheduled slew}{figure.caption.11}{}}
-\@writefile{toc}{\contentsline {paragraph}{Episode window.}{10}{section*.12}\protected@file@percent }
-\newlabel{sec:replay-buffer}{{2.1}{11}{Off-policy learning and replay buffer}{section*.13}{}}
-\@writefile{toc}{\contentsline {paragraph}{Off-policy learning and replay buffer.}{11}{section*.13}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Simulation timestep selection.}{11}{section*.14}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Simplifications}{11}{subsection.2.2}\protected@file@percent }
-\newlabel{sec:simplifications}{{2.2}{11}{Simplifications}{subsection.2.2}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Modelled vs.\ not-modelled subsystems.}}{11}{table.caption.15}\protected@file@percent }
-\newlabel{tab:simplifications}{{4}{11}{Modelled vs.\ not-modelled subsystems}{table.caption.15}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Dynamics model}{12}{subsection.2.3}\protected@file@percent }
-\newlabel{sec:dynamics}{{2.3}{12}{Dynamics model}{subsection.2.3}{}}
-\@writefile{toc}{\contentsline {paragraph}{Equations of motion.}{12}{section*.16}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Reaction-wheel limits.}{12}{section*.17}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Satellite mass.}{12}{section*.18}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Overflight and observation model}{12}{subsection.2.4}\protected@file@percent }
-\newlabel{sec:obs-model}{{2.4}{12}{Overflight and observation model}{subsection.2.4}{}}
-\@writefile{toc}{\contentsline {paragraph}{Camera geometry.}{12}{section*.19}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Camera observation lines.}{12}{section*.20}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Image quality and motion smear.}{12}{section*.21}\protected@file@percent }
-\@writefile{toc}{\contentsline {subparagraph}{Step 1: Boresight ground speed.}{12}{section*.22}\protected@file@percent }
-\newlabel{eq:ray-ellipsoid}{{4}{12}{Step 1: Boresight ground speed}{equation.4}{}}
-\newlabel{eq:tdot}{{8}{13}{Step 1: Boresight ground speed}{equation.8}{}}
-\newlabel{eq:gdot}{{10}{13}{Step 1: Boresight ground speed}{equation.10}{}}
-\@writefile{toc}{\contentsline {subparagraph}{Step 2: Ground blur during exposure.}{13}{section*.23}\protected@file@percent }
-\@writefile{toc}{\contentsline {subparagraph}{Step 3: Normalised quality score.}{13}{section*.24}\protected@file@percent }
-\newlabel{eq:quality}{{14}{13}{Step 3: Normalised quality score}{equation.14}{}}
-\@writefile{toc}{\contentsline {subparagraph}{Characteristic regimes.}{13}{section*.25}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Normalised image quality $q=r/(\delta +r)$ with $r=\SI {0.30}{m}$. Annotated operating points match the nadir-at-rest, half-tracking, and full-tracking regimes above.}}{14}{figure.caption.26}\protected@file@percent }
-\newlabel{fig:image-quality-curve}{{3}{14}{Normalised image quality $q=r/(\delta +r)$ with $r=\SI {0.30}{m}$. Annotated operating points match the nadir-at-rest, half-tracking, and full-tracking regimes above}{figure.caption.26}{}}
-\@writefile{toc}{\contentsline {paragraph}{Cloud model.}{14}{section*.27}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Baseline strategy}{14}{subsection.2.5}\protected@file@percent }
-\newlabel{sec:baseline}{{2.5}{14}{Baseline strategy}{subsection.2.5}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Deterministic baseline configuration (comparison anchor).}}{14}{table.caption.28}\protected@file@percent }
-\newlabel{tab:baseline-config}{{5}{14}{Deterministic baseline configuration (comparison anchor)}{table.caption.28}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4}Related work}{9}{subsection.1.4}\protected@file@percent }
+\newlabel{sec:related-work}{{1.4}{9}{Related work}{subsection.1.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.5}Deterministic baseline}{9}{subsection.1.5}\protected@file@percent }
+\newlabel{sec:baseline-intro}{{1.5}{9}{Deterministic baseline}{subsection.1.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Deterministic baseline overflight (orbit-disk dashboard). Left to right: (a)~Approach: nadir coast into the target corridor before the first lock; (b)~Point: large off-nadir slew toward the scheduled target bearing; (c)~Capture: return to nadir after the first shutter, with high image quality and the reward spike still visible. The schedule fires regardless of cloud cover (Table~\ref {tab:baseline-config}).}}{9}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:baseline-overflight-phases}{{2}{9}{Deterministic baseline overflight (orbit-disk dashboard). Left to right: (a)~Approach: nadir coast into the target corridor before the first lock; (b)~Point: large off-nadir slew toward the scheduled target bearing; (c)~Capture: return to nadir after the first shutter, with high image quality and the reward spike still visible. The schedule fires regardless of cloud cover (Table~\ref {tab:baseline-config})}{figure.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.6}Scope and simplifications}{10}{subsection.1.6}\protected@file@percent }
+\newlabel{sec:scope}{{1.6}{10}{Scope and simplifications}{subsection.1.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.7}Contributions}{10}{subsection.1.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.8}Report structure}{10}{subsection.1.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Methods}{11}{section.2}\protected@file@percent }
+\newlabel{sec:methods}{{2}{11}{Methods}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Environment overview}{11}{subsection.2.1}\protected@file@percent }
+\newlabel{sec:env-overview}{{2.1}{11}{Environment overview}{subsection.2.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Altitude and orbit.}{11}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Target corridor.}{11}{section*.11}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Environment overview on the orbit-disk dashboard early in the pass: satellite on the arc, target corridor markers on the Earth limb ahead of the boresight, before the first scheduled slew.}}{11}{figure.caption.12}\protected@file@percent }
+\newlabel{fig:env-overview}{{3}{11}{Environment overview on the orbit-disk dashboard early in the pass: satellite on the arc, target corridor markers on the Earth limb ahead of the boresight, before the first scheduled slew}{figure.caption.12}{}}
+\@writefile{toc}{\contentsline {paragraph}{Episode window.}{11}{section*.13}\protected@file@percent }
+\newlabel{sec:replay-buffer}{{2.1}{12}{Off-policy learning and replay buffer}{section*.14}{}}
+\@writefile{toc}{\contentsline {paragraph}{Off-policy learning and replay buffer.}{12}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Simulation timestep selection.}{12}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Simplifications}{12}{subsection.2.2}\protected@file@percent }
+\newlabel{sec:simplifications}{{2.2}{12}{Simplifications}{subsection.2.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Modelled vs.\ not-modelled subsystems.}}{12}{table.caption.16}\protected@file@percent }
+\newlabel{tab:simplifications}{{4}{12}{Modelled vs.\ not-modelled subsystems}{table.caption.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Dynamics model}{13}{subsection.2.3}\protected@file@percent }
+\newlabel{sec:dynamics}{{2.3}{13}{Dynamics model}{subsection.2.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Equations of motion.}{13}{section*.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Reaction-wheel limits.}{13}{section*.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Satellite mass.}{13}{section*.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Overflight and observation model}{13}{subsection.2.4}\protected@file@percent }
+\newlabel{sec:obs-model}{{2.4}{13}{Overflight and observation model}{subsection.2.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Camera geometry.}{13}{section*.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Lookahead sensing.}{13}{section*.21}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Camera observation lines.}{13}{section*.22}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Image quality and motion smear.}{13}{section*.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {subparagraph}{Step 1: Boresight ground speed.}{13}{section*.24}\protected@file@percent }
+\newlabel{eq:ray-ellipsoid}{{4}{14}{Step 1: Boresight ground speed}{equation.4}{}}
+\newlabel{eq:tdot}{{8}{14}{Step 1: Boresight ground speed}{equation.8}{}}
+\newlabel{eq:gdot}{{10}{14}{Step 1: Boresight ground speed}{equation.10}{}}
+\@writefile{toc}{\contentsline {subparagraph}{Step 2: Ground blur during exposure.}{14}{section*.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {subparagraph}{Step 3: Normalised quality score.}{14}{section*.26}\protected@file@percent }
+\newlabel{eq:quality}{{14}{14}{Step 3: Normalised quality score}{equation.14}{}}
+\@writefile{toc}{\contentsline {subparagraph}{Characteristic regimes.}{15}{section*.27}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Normalised image quality $q=r/(\delta +r)$ with $r=\SI {0.30}{m}$. Annotated operating points match the nadir-at-rest, half-tracking, and full-tracking regimes above.}}{15}{figure.caption.28}\protected@file@percent }
+\newlabel{fig:image-quality-curve}{{4}{15}{Normalised image quality $q=r/(\delta +r)$ with $r=\SI {0.30}{m}$. Annotated operating points match the nadir-at-rest, half-tracking, and full-tracking regimes above}{figure.caption.28}{}}
+\@writefile{toc}{\contentsline {paragraph}{Cloud model.}{15}{section*.29}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Baseline strategy}{15}{subsection.2.5}\protected@file@percent }
+\newlabel{sec:baseline}{{2.5}{15}{Baseline strategy}{subsection.2.5}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.6}Attitude safety controller}{15}{subsection.2.6}\protected@file@percent }
 \newlabel{sec:safety}{{2.6}{15}{Attitude safety controller}{subsection.2.6}{}}
-\@writefile{toc}{\contentsline {paragraph}{Normal-mode taper.}{15}{section*.29}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Safe-mode entry condition.}{15}{section*.30}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Safe-mode recovery phases.}{15}{section*.31}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces One attitude-safety cycle in torque-mode evaluation (same episode; panels use the recovery-phase names BRAKE / CRUISE / LOCKOUT). (a)~High-torque slew: the agent commands large torque and reaches $\approx \SI {43}{\degree }$ off-nadir; safe mode activates (BRAKE) and rejects the request (applied torque drops while the agent request remains high). (b)~CRUISE: onboard recovery slews the boresight back toward nadir (here $\approx \SI {24}{\degree }$ off-nadir) while agent torque stays ignored. (c)~LOCKOUT: nadir hold with agent torque rejected for $\SI {60}{s}$. SETTLE (between CRUISE and LOCKOUT) is short and not shown.}}{15}{figure.caption.32}\protected@file@percent }
-\newlabel{fig:safety-maneuver}{{4}{15}{One attitude-safety cycle in torque-mode evaluation (same episode; panels use the recovery-phase names BRAKE / CRUISE / LOCKOUT). (a)~High-torque slew: the agent commands large torque and reaches $\approx \SI {43}{\degree }$ off-nadir; safe mode activates (BRAKE) and rejects the request (applied torque drops while the agent request remains high). (b)~CRUISE: onboard recovery slews the boresight back toward nadir (here $\approx \SI {24}{\degree }$ off-nadir) while agent torque stays ignored. (c)~LOCKOUT: nadir hold with agent torque rejected for $\SI {60}{s}$. SETTLE (between CRUISE and LOCKOUT) is short and not shown}{figure.caption.32}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.7}Reward design}{15}{subsection.2.7}\protected@file@percent }
-\newlabel{sec:reward}{{2.7}{15}{Reward design}{subsection.2.7}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Deterministic baseline configuration (comparison anchor).}}{16}{table.caption.30}\protected@file@percent }
+\newlabel{tab:baseline-config}{{5}{16}{Deterministic baseline configuration (comparison anchor)}{table.caption.30}{}}
+\@writefile{toc}{\contentsline {paragraph}{Normal-mode taper.}{16}{section*.31}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Safe-mode entry condition.}{16}{section*.32}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Safe-mode recovery phases.}{16}{section*.33}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Attitude safety controller thresholds.}}{16}{table.caption.35}\protected@file@percent }
+\newlabel{tab:safety-thresholds}{{6}{16}{Attitude safety controller thresholds}{table.caption.35}{}}
 \citation{haarnoja2018sac}
-\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Attitude safety controller thresholds.}}{16}{table.caption.33}\protected@file@percent }
-\newlabel{tab:safety-thresholds}{{6}{16}{Attitude safety controller thresholds}{table.caption.33}{}}
-\@writefile{toc}{\contentsline {paragraph}{Capture quality term (applied at shutter events).}{16}{section*.34}\protected@file@percent }
-\newlabel{eq:r-cap}{{16}{16}{Capture quality term (applied at shutter events)}{equation.16}{}}
-\@writefile{toc}{\contentsline {paragraph}{Budget-exhausted penalty.}{16}{section*.35}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Shutter-waste penalty (off by default).}{16}{section*.36}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Torque-effort regulariser (torque mode only).}{16}{section*.37}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Safe-mode penalty (Exp~10 only, not default).}{16}{section*.38}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.8}Learning algorithm: SAC}{16}{subsection.2.8}\protected@file@percent }
-\newlabel{sec:sac}{{2.8}{16}{Learning algorithm: SAC}{subsection.2.8}{}}
-\@writefile{toc}{\contentsline {paragraph}{Soft critic update (policy evaluation).}{16}{section*.39}\protected@file@percent }
-\newlabel{eq:sac-soft-bellman}{{18}{16}{Soft critic update (policy evaluation)}{equation.18}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces One attitude-safety cycle in torque-mode evaluation (same episode; panels use the recovery-phase names BRAKE / CRUISE / LOCKOUT). (a)~High-torque slew: the agent commands large torque and reaches $\approx \SI {43}{\degree }$ off-nadir; safe mode activates (BRAKE) and rejects the request (applied torque drops while the agent request remains high). (b)~CRUISE: onboard recovery slews the boresight back toward nadir (here $\approx \SI {24}{\degree }$ off-nadir) while agent torque stays ignored. (c)~LOCKOUT: nadir hold with agent torque rejected for $\SI {60}{s}$. SETTLE (between CRUISE and LOCKOUT) is short and not shown.}}{17}{figure.caption.34}\protected@file@percent }
+\newlabel{fig:safety-maneuver}{{5}{17}{One attitude-safety cycle in torque-mode evaluation (same episode; panels use the recovery-phase names BRAKE / CRUISE / LOCKOUT). (a)~High-torque slew: the agent commands large torque and reaches $\approx \SI {43}{\degree }$ off-nadir; safe mode activates (BRAKE) and rejects the request (applied torque drops while the agent request remains high). (b)~CRUISE: onboard recovery slews the boresight back toward nadir (here $\approx \SI {24}{\degree }$ off-nadir) while agent torque stays ignored. (c)~LOCKOUT: nadir hold with agent torque rejected for $\SI {60}{s}$. SETTLE (between CRUISE and LOCKOUT) is short and not shown}{figure.caption.34}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.7}Reward design}{17}{subsection.2.7}\protected@file@percent }
+\newlabel{sec:reward}{{2.7}{17}{Reward design}{subsection.2.7}{}}
+\@writefile{toc}{\contentsline {paragraph}{Capture quality term (applied at shutter events).}{17}{section*.36}\protected@file@percent }
+\newlabel{eq:r-cap}{{16}{17}{Capture quality term (applied at shutter events)}{equation.16}{}}
+\@writefile{toc}{\contentsline {paragraph}{Budget-exhausted penalty.}{17}{section*.37}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Shutter-waste penalty (off by default).}{17}{section*.38}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Torque-effort regulariser (torque mode only).}{17}{section*.39}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Safe-mode penalty (Exp~10 only, not default).}{17}{section*.40}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.8}Learning algorithm: SAC}{17}{subsection.2.8}\protected@file@percent }
+\newlabel{sec:sac}{{2.8}{17}{Learning algorithm: SAC}{subsection.2.8}{}}
 \citation{abdolmaleki2018mpo}
+\@writefile{toc}{\contentsline {paragraph}{Soft critic update (policy evaluation).}{18}{section*.41}\protected@file@percent }
+\newlabel{eq:sac-soft-bellman}{{18}{18}{Soft critic update (policy evaluation)}{equation.18}{}}
+\@writefile{toc}{\contentsline {paragraph}{Policy update (soft actor).}{18}{section*.42}\protected@file@percent }
+\newlabel{eq:sac-policy}{{19}{18}{Policy update (soft actor)}{equation.19}{}}
+\@writefile{toc}{\contentsline {paragraph}{Fixed entropy temperature.}{18}{section*.43}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Network architecture.}{18}{section*.44}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces SAC hyperparameters (default configuration; all SAC experiments unless noted).}}{18}{table.caption.45}\protected@file@percent }
+\newlabel{tab:sac-hparams}{{7}{18}{SAC hyperparameters (default configuration; all SAC experiments unless noted)}{table.caption.45}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.9}Learning algorithm: MPO}{18}{subsection.2.9}\protected@file@percent }
+\newlabel{sec:mpo}{{2.9}{18}{Learning algorithm: MPO}{subsection.2.9}{}}
 \citation{abdolmaleki2018mpo}
-\@writefile{toc}{\contentsline {paragraph}{Policy update (soft actor).}{17}{section*.40}\protected@file@percent }
-\newlabel{eq:sac-policy}{{19}{17}{Policy update (soft actor)}{equation.19}{}}
-\@writefile{toc}{\contentsline {paragraph}{Fixed entropy temperature.}{17}{section*.41}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Network architecture.}{17}{section*.42}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces SAC hyperparameters (default configuration; all SAC experiments unless noted).}}{17}{table.caption.43}\protected@file@percent }
-\newlabel{tab:sac-hparams}{{7}{17}{SAC hyperparameters (default configuration; all SAC experiments unless noted)}{table.caption.43}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.9}Learning algorithm: MPO}{17}{subsection.2.9}\protected@file@percent }
-\newlabel{sec:mpo}{{2.9}{17}{Learning algorithm: MPO}{subsection.2.9}{}}
-\@writefile{toc}{\contentsline {paragraph}{E-step (sample-based policy evaluation).}{17}{section*.44}\protected@file@percent }
-\newlabel{eq:mpo-dual}{{20}{17}{E-step (sample-based policy evaluation)}{equation.20}{}}
-\@writefile{toc}{\contentsline {paragraph}{M-step (policy update with trust region).}{17}{section*.45}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Decoupled-KL fix (Exp~8).}{18}{section*.46}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Network architecture.}{18}{section*.47}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces MPO hyperparameters (default configuration; all experiments unless noted).}}{18}{table.caption.48}\protected@file@percent }
-\newlabel{tab:mpo-hparams}{{8}{18}{MPO hyperparameters (default configuration; all experiments unless noted)}{table.caption.48}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.10}Observation and action space}{18}{subsection.2.10}\protected@file@percent }
-\newlabel{sec:obs-action}{{2.10}{18}{Observation and action space}{subsection.2.10}{}}
-\@writefile{toc}{\contentsline {paragraph}{Observations.}{18}{section*.49}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Actions.}{18}{section*.50}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.11}Simulation architecture}{19}{subsection.2.11}\protected@file@percent }
-\newlabel{sec:arch}{{2.11}{19}{Simulation architecture}{subsection.2.11}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {3}Experiments}{19}{section.3}\protected@file@percent }
-\newlabel{sec:experiments}{{3}{19}{Experiments}{section.3}{}}
-\newlabel{sec:exp-protocol}{{3}{19}{Experimental protocol}{section*.51}{}}
-\@writefile{toc}{\contentsline {paragraph}{Experimental protocol.}{19}{section*.51}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Exp~1: Shutter threshold ablation}{19}{subsection.3.1}\protected@file@percent }
-\newlabel{sec:exp1}{{3.1}{19}{Exp~1: Shutter threshold ablation}{subsection.3.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{19}{section*.52}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{19}{section*.53}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{E-step (sample-based policy evaluation).}{19}{section*.46}\protected@file@percent }
+\newlabel{eq:mpo-dual}{{20}{19}{E-step (sample-based policy evaluation)}{equation.20}{}}
+\@writefile{toc}{\contentsline {paragraph}{M-step (policy update with trust region).}{19}{section*.47}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Decoupled-KL fix (Exp~8).}{19}{section*.48}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Network architecture.}{19}{section*.49}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces MPO hyperparameters (default configuration; all experiments unless noted).}}{19}{table.caption.50}\protected@file@percent }
+\newlabel{tab:mpo-hparams}{{8}{19}{MPO hyperparameters (default configuration; all experiments unless noted)}{table.caption.50}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.10}Observation and action space}{19}{subsection.2.10}\protected@file@percent }
+\newlabel{sec:obs-action}{{2.10}{19}{Observation and action space}{subsection.2.10}{}}
+\@writefile{toc}{\contentsline {paragraph}{Observations.}{19}{section*.51}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Actions.}{20}{section*.52}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.11}Simulation architecture}{20}{subsection.2.11}\protected@file@percent }
+\newlabel{sec:arch}{{2.11}{20}{Simulation architecture}{subsection.2.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Experiments}{20}{section.3}\protected@file@percent }
+\newlabel{sec:experiments}{{3}{20}{Experiments}{section.3}{}}
+\newlabel{sec:exp-protocol}{{3}{20}{Experimental protocol}{section*.53}{}}
+\@writefile{toc}{\contentsline {paragraph}{Experimental protocol.}{20}{section*.53}\protected@file@percent }
 \citation{gorishniy2022revisiting}
 \citation{haarnoja2018sac,abdolmaleki2018mpo}
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{20}{section*.54}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Exp~2: Modular encoder ablation}{20}{subsection.3.2}\protected@file@percent }
-\newlabel{sec:exp2}{{3.2}{20}{Exp~2: Modular encoder ablation}{subsection.3.2}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{20}{section*.55}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{20}{section*.56}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{20}{section*.57}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Exp~3: SAC vs.\ MPO algorithm comparison}{20}{subsection.3.3}\protected@file@percent }
-\newlabel{sec:exp3}{{3.3}{20}{Exp~3: SAC vs.\ MPO algorithm comparison}{subsection.3.3}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{20}{section*.58}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{20}{section*.59}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{20}{section*.60}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Exp~4: Vector pointing mode}{20}{subsection.3.4}\protected@file@percent }
-\newlabel{sec:exp4}{{3.4}{20}{Exp~4: Vector pointing mode}{subsection.3.4}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{20}{section*.61}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{20}{section*.62}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Exp~1: Shutter threshold ablation}{21}{subsection.3.1}\protected@file@percent }
+\newlabel{sec:exp1}{{3.1}{21}{Exp~1: Shutter threshold ablation}{subsection.3.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{21}{section*.54}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{21}{section*.55}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{21}{section*.56}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Exp~2: Modular encoder ablation}{21}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:exp2}{{3.2}{21}{Exp~2: Modular encoder ablation}{subsection.3.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{21}{section*.57}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{21}{section*.58}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{21}{section*.59}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Exp~3: SAC vs.\ MPO algorithm comparison}{21}{subsection.3.3}\protected@file@percent }
+\newlabel{sec:exp3}{{3.3}{21}{Exp~3: SAC vs.\ MPO algorithm comparison}{subsection.3.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{21}{section*.60}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{21}{section*.61}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{21}{section*.62}\protected@file@percent }
 \citation{bruin2018irl}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Exp~4: Vector pointing mode}{22}{subsection.3.4}\protected@file@percent }
+\newlabel{sec:exp4}{{3.4}{22}{Exp~4: Vector pointing mode}{subsection.3.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{22}{section*.63}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{22}{section*.64}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{22}{section*.65}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Exp~5: MPO network width ablation}{22}{subsection.3.5}\protected@file@percent }
+\newlabel{sec:exp5}{{3.5}{22}{Exp~5: MPO network width ablation}{subsection.3.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{22}{section*.66}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{22}{section*.67}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{22}{section*.68}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Exp~6: Structured target-array encoding}{22}{subsection.3.6}\protected@file@percent }
+\newlabel{sec:exp6}{{3.6}{22}{Exp~6: Structured target-array encoding}{subsection.3.6}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{22}{section*.69}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{22}{section*.70}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{22}{section*.71}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.7}Exp~7: SAC vector + budget-exhausted shutter penalty}{22}{subsection.3.7}\protected@file@percent }
+\newlabel{sec:exp7}{{3.7}{22}{Exp~7: SAC vector + budget-exhausted shutter penalty}{subsection.3.7}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{22}{section*.72}\protected@file@percent }
 \citation{abdolmaleki2018mpo}
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{21}{section*.63}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Exp~5: MPO network width ablation}{21}{subsection.3.5}\protected@file@percent }
-\newlabel{sec:exp5}{{3.5}{21}{Exp~5: MPO network width ablation}{subsection.3.5}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{21}{section*.64}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{21}{section*.65}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{21}{section*.66}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Exp~7: SAC vector + budget-exhausted shutter penalty}{21}{subsection.3.6}\protected@file@percent }
-\newlabel{sec:exp7}{{3.6}{21}{Exp~7: SAC vector + budget-exhausted shutter penalty}{subsection.3.6}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{21}{section*.67}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{21}{section*.68}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{21}{section*.69}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.7}Exp~8: MPO decoupled-KL dual fix (torque mode)}{21}{subsection.3.7}\protected@file@percent }
-\newlabel{sec:exp8}{{3.7}{21}{Exp~8: MPO decoupled-KL dual fix (torque mode)}{subsection.3.7}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{21}{section*.70}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{21}{section*.71}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{21}{section*.72}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.8}Exp~9: SAC shutter reward split (waste penalty off)}{22}{subsection.3.8}\protected@file@percent }
-\newlabel{sec:exp9}{{3.8}{22}{Exp~9: SAC shutter reward split (waste penalty off)}{subsection.3.8}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{22}{section*.73}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{22}{section*.74}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{22}{section*.75}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.9}Exp~10: MPO safe-mode penalty}{22}{subsection.3.9}\protected@file@percent }
-\newlabel{sec:exp10}{{3.9}{22}{Exp~10: MPO safe-mode penalty}{subsection.3.9}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{22}{section*.76}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{22}{section*.77}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{22}{section*.78}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.10}Exp~11: MPO fixed dual, vector mode}{22}{subsection.3.10}\protected@file@percent }
-\newlabel{sec:exp11}{{3.10}{22}{Exp~11: MPO fixed dual, vector mode}{subsection.3.10}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{22}{section*.79}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{22}{section*.80}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{22}{section*.81}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.11}Exp~12: MPO vector + torque-effort penalty ablation}{23}{subsection.3.11}\protected@file@percent }
-\newlabel{sec:exp12}{{3.11}{23}{Exp~12: MPO vector + torque-effort penalty ablation}{subsection.3.11}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{23}{section*.82}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{23}{section*.83}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{23}{section*.84}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.12}Exp~13: MPO learning-cadence sweep}{23}{subsection.3.12}\protected@file@percent }
-\newlabel{sec:exp13}{{3.12}{23}{Exp~13: MPO learning-cadence sweep}{subsection.3.12}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{23}{section*.85}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result (partial).}{23}{section*.86}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{23}{section*.87}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.13}Exp~14: MPO multi-environment target selection}{23}{subsection.3.13}\protected@file@percent }
-\newlabel{sec:exp14}{{3.13}{23}{Exp~14: MPO multi-environment target selection}{subsection.3.13}{}}
-\@writefile{toc}{\contentsline {paragraph}{Motivation.}{23}{section*.88}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Config and result.}{23}{section*.89}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Verdict.}{23}{section*.90}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.14}Summary comparison}{23}{subsection.3.14}\protected@file@percent }
-\newlabel{sec:exp-table}{{3.14}{23}{Summary comparison}{subsection.3.14}{}}
-\@writefile{toc}{\contentsline {paragraph}{Reward modes.}{23}{section*.91}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Experiment comparison. Algorithm is SAC or MPO (star: decoupled-KL dual fix from Exp~8). Action: torque = direct reaction-wheel command; vector = nadir-relative pointing offset. Protocol: five warmup episodes and two eval episodes for every row; train length varies.}}{24}{table.caption.92}\protected@file@percent }
-\newlabel{tab:exp-comparison}{{9}{24}{Experiment comparison. Algorithm is SAC or MPO (star: decoupled-KL dual fix from Exp~8). Action: torque = direct reaction-wheel command; vector = nadir-relative pointing offset. Protocol: five warmup episodes and two eval episodes for every row; train length varies}{table.caption.92}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {4}Results}{24}{section.4}\protected@file@percent }
-\newlabel{sec:results}{{4}{24}{Results}{section.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Master scoreboard}{25}{subsection.4.1}\protected@file@percent }
-\newlabel{sec:results-aggregate}{{4.1}{25}{Master scoreboard}{subsection.4.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Learning progression}{25}{subsection.4.2}\protected@file@percent }
-\newlabel{sec:results-learning}{{4.2}{25}{Learning progression}{subsection.4.2}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Episode-return curves (warmup / train / eval). Exp~1 shutter-threshold MPO collapses to near-floor train and eval returns after a strong warmup; Exp~9 SAC shutter-split reaches positive eval returns (best supported SAC configuration).}}{25}{figure.caption.93}\protected@file@percent }
-\newlabel{fig:learning-vs-not}{{5}{25}{Episode-return curves (warmup / train / eval). Exp~1 shutter-threshold MPO collapses to near-floor train and eval returns after a strong warmup; Exp~9 SAC shutter-split reaches positive eval returns (best supported SAC configuration)}{figure.caption.93}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Episode-return curves for the MPO branch after the Exp~8 dual fix: Exp~10 safe-mode penalty stays deeply negative on train/eval, while Exp~11 vector-mode MPO recovers during train and finishes with positive eval return.}}{25}{figure.caption.94}\protected@file@percent }
-\newlabel{fig:learning-mpo-contrast}{{6}{25}{Episode-return curves for the MPO branch after the Exp~8 dual fix: Exp~10 safe-mode penalty stays deeply negative on train/eval, while Exp~11 vector-mode MPO recovers during train and finishes with positive eval return}{figure.caption.94}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Shutter spam and budget efficiency}{26}{subsection.4.3}\protected@file@percent }
-\newlabel{sec:results-shutter}{{4.3}{26}{Shutter spam and budget efficiency}{subsection.4.3}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Shutter spam reduction across the SAC vector experiment chain. All figures are training means unless noted.}}{26}{table.caption.95}\protected@file@percent }
-\newlabel{tab:shutter-progression}{{10}{26}{Shutter spam reduction across the SAC vector experiment chain. All figures are training means unless noted}{table.caption.95}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Eval episode from Exp~9 (SAC shutter-split) on the fixed evaluation seed. Reward panel shows a sparse cluster of applied rewards and take-picture markers during the engagement window rather than continuous shutter spam.}}{26}{figure.caption.96}\protected@file@percent }
-\newlabel{fig:selective-shutter}{{7}{26}{Eval episode from Exp~9 (SAC shutter-split) on the fixed evaluation seed. Reward panel shows a sparse cluster of applied rewards and take-picture markers during the engagement window rather than continuous shutter spam}{figure.caption.96}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Safe-mode and safety overhead}{27}{subsection.4.4}\protected@file@percent }
-\newlabel{sec:results-safemode}{{4.4}{27}{Safe-mode and safety overhead}{subsection.4.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Algorithm comparison: SAC vs.\ MPO}{27}{subsection.4.5}\protected@file@percent }
-\newlabel{sec:results-algo}{{4.5}{27}{Algorithm comparison: SAC vs.\ MPO}{subsection.4.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Discussion}{27}{section.5}\protected@file@percent }
-\newlabel{sec:discussion}{{5}{27}{Discussion}{section.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}What the experiment sequence taught}{27}{subsection.5.1}\protected@file@percent }
-\newlabel{sec:discussion-arc}{{5.1}{27}{What the experiment sequence taught}{subsection.5.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{1.\ Reward structure before algorithm.}{27}{section*.97}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{2.\ Action-space design before reward fine-tuning.}{27}{section*.98}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{3.\ Algorithm stability as a prerequisite.}{28}{section*.99}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Answer to the research question}{28}{subsection.5.2}\protected@file@percent }
-\newlabel{sec:discussion-answer}{{5.2}{28}{Answer to the research question}{subsection.5.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Control hierarchy and action interface}{28}{subsection.5.3}\protected@file@percent }
-\newlabel{sec:discussion-architecture}{{5.3}{28}{Control hierarchy and action interface}{subsection.5.3}{}}
-\@writefile{toc}{\contentsline {paragraph}{From torque to safety arbitration.}{28}{section*.100}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Action modes tested.}{28}{section*.101}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Segregation of control layers.}{28}{section*.102}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Intended end state (working hypothesis).}{29}{section*.103}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Rejected paths}{29}{subsection.5.4}\protected@file@percent }
-\newlabel{sec:discussion-rejected}{{5.4}{29}{Rejected paths}{subsection.5.4}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Rejected experimental directions with rationale.}}{29}{table.caption.104}\protected@file@percent }
-\newlabel{tab:rejected}{{11}{29}{Rejected experimental directions with rationale}{table.caption.104}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Limitations}{29}{subsection.5.5}\protected@file@percent }
-\newlabel{sec:limitations}{{5.5}{29}{Limitations}{subsection.5.5}{}}
-\@writefile{toc}{\contentsline {paragraph}{Two-dimensional simulation.}{29}{section*.105}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Single-pass, single-orbit mission.}{29}{section*.106}\protected@file@percent }
-\citation{gorishniy2022revisiting}
-\@writefile{toc}{\contentsline {paragraph}{Simulation-only evaluation.}{30}{section*.107}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Fixed-seed evaluation.}{30}{section*.108}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Budget and episode length.}{30}{section*.109}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Deferred extensions}{30}{subsection.5.6}\protected@file@percent }
-\newlabel{sec:discussion-deferred}{{5.6}{30}{Deferred extensions}{subsection.5.6}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{30}{section.6}\protected@file@percent }
-\newlabel{sec:conclusion}{{6}{30}{Conclusion}{section.6}{}}
-\@writefile{toc}{\contentsline {section}{Acknowledgements}{31}{section*.110}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {A}Supplementary material}{31}{appendix.A}\protected@file@percent }
-\newlabel{sec:appendix}{{A}{31}{Supplementary material}{appendix.A}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Repository}{31}{subsection.A.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Source index}{31}{subsection.A.2}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces High-level source index.}}{31}{table.caption.111}\protected@file@percent }
-\newlabel{tab:source-index}{{12}{31}{High-level source index}{table.caption.111}{}}
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{23}{section*.73}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{23}{section*.74}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.8}Exp~8: MPO decoupled-KL dual fix (torque mode)}{23}{subsection.3.8}\protected@file@percent }
+\newlabel{sec:exp8}{{3.8}{23}{Exp~8: MPO decoupled-KL dual fix (torque mode)}{subsection.3.8}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{23}{section*.75}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{23}{section*.76}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{23}{section*.77}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.9}Exp~9: SAC shutter reward split (waste penalty off)}{23}{subsection.3.9}\protected@file@percent }
+\newlabel{sec:exp9}{{3.9}{23}{Exp~9: SAC shutter reward split (waste penalty off)}{subsection.3.9}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{23}{section*.78}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{23}{section*.79}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{23}{section*.80}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.10}Exp~10: MPO safe-mode penalty}{23}{subsection.3.10}\protected@file@percent }
+\newlabel{sec:exp10}{{3.10}{23}{Exp~10: MPO safe-mode penalty}{subsection.3.10}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{23}{section*.81}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{24}{section*.82}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{24}{section*.83}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.11}Exp~11: MPO fixed dual, vector mode}{24}{subsection.3.11}\protected@file@percent }
+\newlabel{sec:exp11}{{3.11}{24}{Exp~11: MPO fixed dual, vector mode}{subsection.3.11}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{24}{section*.84}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{24}{section*.85}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{24}{section*.86}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.12}Exp~12: MPO vector + torque-effort penalty ablation}{24}{subsection.3.12}\protected@file@percent }
+\newlabel{sec:exp12}{{3.12}{24}{Exp~12: MPO vector + torque-effort penalty ablation}{subsection.3.12}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{24}{section*.87}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{24}{section*.88}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{24}{section*.89}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.13}Exp~13: MPO learning-cadence sweep}{24}{subsection.3.13}\protected@file@percent }
+\newlabel{sec:exp13}{{3.13}{24}{Exp~13: MPO learning-cadence sweep}{subsection.3.13}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{24}{section*.90}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result (partial).}{24}{section*.91}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{25}{section*.92}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.14}Exp~14: MPO multi-environment target selection}{25}{subsection.3.14}\protected@file@percent }
+\newlabel{sec:exp14}{{3.14}{25}{Exp~14: MPO multi-environment target selection}{subsection.3.14}{}}
+\@writefile{toc}{\contentsline {paragraph}{Motivation.}{25}{section*.93}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Config and result.}{25}{section*.94}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Verdict.}{25}{section*.95}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.15}Summary comparison}{25}{subsection.3.15}\protected@file@percent }
+\newlabel{sec:exp-table}{{3.15}{25}{Summary comparison}{subsection.3.15}{}}
+\@writefile{toc}{\contentsline {paragraph}{Reward modes.}{25}{section*.96}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Results}{25}{section.4}\protected@file@percent }
+\newlabel{sec:results}{{4}{25}{Results}{section.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Experiment comparison. Algorithm is SAC or MPO (star: decoupled-KL dual fix from Exp~8). Action: torque = direct reaction-wheel command; vector = nadir-relative pointing offset. Protocol: five warmup episodes and two eval episodes for every row; train length varies.}}{26}{table.caption.97}\protected@file@percent }
+\newlabel{tab:exp-comparison}{{9}{26}{Experiment comparison. Algorithm is SAC or MPO (star: decoupled-KL dual fix from Exp~8). Action: torque = direct reaction-wheel command; vector = nadir-relative pointing offset. Protocol: five warmup episodes and two eval episodes for every row; train length varies}{table.caption.97}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Master scoreboard}{27}{subsection.4.1}\protected@file@percent }
+\newlabel{sec:results-aggregate}{{4.1}{27}{Master scoreboard}{subsection.4.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Learning progression}{27}{subsection.4.2}\protected@file@percent }
+\newlabel{sec:results-learning}{{4.2}{27}{Learning progression}{subsection.4.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Episode-return curves (warmup / train / eval). Exp~1 shutter-threshold MPO collapses to near-floor train and eval returns after a strong warmup; Exp~9 SAC shutter-split reaches positive eval returns (best supported SAC configuration).}}{27}{figure.caption.98}\protected@file@percent }
+\newlabel{fig:learning-vs-not}{{6}{27}{Episode-return curves (warmup / train / eval). Exp~1 shutter-threshold MPO collapses to near-floor train and eval returns after a strong warmup; Exp~9 SAC shutter-split reaches positive eval returns (best supported SAC configuration)}{figure.caption.98}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Episode-return curves for the MPO branch after the Exp~8 dual fix: Exp~10 safe-mode penalty stays deeply negative on train/eval, while Exp~11 vector-mode MPO recovers during train and finishes with positive eval return.}}{27}{figure.caption.99}\protected@file@percent }
+\newlabel{fig:learning-mpo-contrast}{{7}{27}{Episode-return curves for the MPO branch after the Exp~8 dual fix: Exp~10 safe-mode penalty stays deeply negative on train/eval, while Exp~11 vector-mode MPO recovers during train and finishes with positive eval return}{figure.caption.99}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Shutter spam and budget efficiency}{28}{subsection.4.3}\protected@file@percent }
+\newlabel{sec:results-shutter}{{4.3}{28}{Shutter spam and budget efficiency}{subsection.4.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Shutter spam reduction across the SAC vector experiment chain. All figures are training means unless noted.}}{28}{table.caption.100}\protected@file@percent }
+\newlabel{tab:shutter-progression}{{10}{28}{Shutter spam reduction across the SAC vector experiment chain. All figures are training means unless noted}{table.caption.100}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Eval episode from Exp~9 (SAC shutter-split) on the fixed evaluation seed. Reward panel shows a sparse cluster of applied rewards and take-picture markers during the engagement window rather than continuous shutter spam.}}{28}{figure.caption.101}\protected@file@percent }
+\newlabel{fig:selective-shutter}{{8}{28}{Eval episode from Exp~9 (SAC shutter-split) on the fixed evaluation seed. Reward panel shows a sparse cluster of applied rewards and take-picture markers during the engagement window rather than continuous shutter spam}{figure.caption.101}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Safe-mode and safety overhead}{29}{subsection.4.4}\protected@file@percent }
+\newlabel{sec:results-safemode}{{4.4}{29}{Safe-mode and safety overhead}{subsection.4.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Algorithm comparison: SAC vs.\ MPO}{29}{subsection.4.5}\protected@file@percent }
+\newlabel{sec:results-algo}{{4.5}{29}{Algorithm comparison: SAC vs.\ MPO}{subsection.4.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Discussion}{29}{section.5}\protected@file@percent }
+\newlabel{sec:discussion}{{5}{29}{Discussion}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}What the experiment sequence taught}{29}{subsection.5.1}\protected@file@percent }
+\newlabel{sec:discussion-arc}{{5.1}{29}{What the experiment sequence taught}{subsection.5.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{1.\ Reward structure before algorithm.}{29}{section*.102}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{2.\ Action-space design before reward fine-tuning.}{29}{section*.103}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{3.\ Algorithm stability as a prerequisite.}{30}{section*.104}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Answer to the research question}{30}{subsection.5.2}\protected@file@percent }
+\newlabel{sec:discussion-answer}{{5.2}{30}{Answer to the research question}{subsection.5.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Control hierarchy and action interface}{30}{subsection.5.3}\protected@file@percent }
+\newlabel{sec:discussion-architecture}{{5.3}{30}{Control hierarchy and action interface}{subsection.5.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{From torque to safety arbitration.}{30}{section*.105}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Action modes tested.}{30}{section*.106}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Segregation of control layers.}{30}{section*.107}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Intended end state (working hypothesis).}{31}{section*.108}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Rejected paths}{31}{subsection.5.4}\protected@file@percent }
+\newlabel{sec:discussion-rejected}{{5.4}{31}{Rejected paths}{subsection.5.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Rejected experimental directions with rationale.}}{31}{table.caption.109}\protected@file@percent }
+\newlabel{tab:rejected}{{11}{31}{Rejected experimental directions with rationale}{table.caption.109}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Limitations}{31}{subsection.5.5}\protected@file@percent }
+\newlabel{sec:limitations}{{5.5}{31}{Limitations}{subsection.5.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Two-dimensional simulation.}{31}{section*.110}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Single-pass, single-orbit mission.}{32}{section*.111}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Simulation-only evaluation.}{32}{section*.112}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Fixed-seed evaluation.}{32}{section*.113}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Budget and episode length.}{32}{section*.114}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Deferred extensions}{32}{subsection.5.6}\protected@file@percent }
+\newlabel{sec:discussion-deferred}{{5.6}{32}{Deferred extensions}{subsection.5.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{32}{section.6}\protected@file@percent }
+\newlabel{sec:conclusion}{{6}{32}{Conclusion}{section.6}{}}
+\@writefile{toc}{\contentsline {section}{Acknowledgements}{33}{section*.115}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A}Supplementary material}{33}{appendix.A}\protected@file@percent }
+\newlabel{sec:appendix}{{A}{33}{Supplementary material}{appendix.A}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Repository}{33}{subsection.A.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Source index}{33}{subsection.A.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces High-level source index.}}{33}{table.caption.116}\protected@file@percent }
+\newlabel{tab:source-index}{{12}{33}{High-level source index}{table.caption.116}{}}
 \bibdata{references}
 \bibcite{abdolmaleki2018mpo}{{1}{2018}{{Abdolmaleki et~al.}}{{Abdolmaleki, Springenberg, Degrave, Bohez, Tassa, Belov, Heess, and Riedmiller}}}
 \bibcite{bruin2018irl}{{2}{2018}{{de~Bruin et~al.}}{{de~Bruin, Kober, Tuyls, and Babuska}}}
 \bibcite{ferrari2024ssp}{{3}{2024}{{Ferrari et~al.}}{{Ferrari, Cordeau, Delorme, Iori, and Orosei}}}
 \bibcite{gorishniy2022revisiting}{{4}{2022}{{Gorishniy et~al.}}{{Gorishniy, Rubachev, Khrulkov, and Babenko}}}
 \bibcite{haarnoja2018sac}{{5}{2018}{{Haarnoja et~al.}}{{Haarnoja, Zhou, Abbeel, and Levine}}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Live parameter record}{32}{subsection.A.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Artifact paths}{32}{subsection.A.4}\protected@file@percent }
-\gdef \@abspage@last{33}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Live parameter record}{34}{subsection.A.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Artifact paths}{34}{subsection.A.4}\protected@file@percent }
+\gdef \@abspage@last{35}

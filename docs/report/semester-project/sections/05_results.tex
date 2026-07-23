@@ -18,7 +18,9 @@ Episode-level learning curves mark the milestones on the scoreboard (Table~\ref{
 \begin{itemize}
   \item \textbf{Exps~1--5:} Threshold tuning, encoder variants, and algorithm/width ablations stay flat or degrade; no run in this phase reaches positive eval return.
   \item \textbf{Exp~3:} SAC with sparse reward is the first configuration with a rising training trajectory.
-  \item \textbf{Exp~7:} Budget-exhausted shutter penalty on vector-mode SAC yields the first positive eval return ($+10.6$) and cuts train shutter commands from $\sim$7000 (Exp~4) to 478.
+  \item \textbf{Exp~6:} Structured target-array encoding (A1) improves returns under the longer SAC sparse protocol (eval $+80.9$).
+    Supported for the A1 vs.\ A0 encoder gap, not a baseline win: both arms remain below the matched warmup baseline and still spam the shutter.
+  \item \textbf{Exp~7:} Budget-exhausted shutter penalty on vector-mode SAC yields the first budget-aware, selective positive eval return ($+10.6$) and cuts train shutter commands from $\sim$7000 (Exp~4) to 478.
   \item \textbf{Exp~9:} Waste-penalty removal further improves eval return ($+106.4$); on eval, two thirds of capture attempts are scientifically valid (non-cloud, within budget, previously uncaptured target).
   \item \textbf{Exp~11:} After the Exp~8 dual fix, vector-mode MPO reaches $+45.5$, the first positive MPO eval return.
 \end{itemize}
